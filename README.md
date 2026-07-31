@@ -83,8 +83,8 @@ Fuel-Station-Finder-Ai/
 │   │   │   └── v1/            # v1 route handlers (auth, ...)
 │   │   ├── core/              # Configs, DB sessions, security/JWT verification
 │   │   ├── models/            # SQLAlchemy 2.0 ORM models (PostGIS spatial)
-│   │   ├── schemas/           # Pydantic validation schemas
-│   │   ├── services/          # AI integrations, business logic
+│   │   ├── schemas/           # Pydantic validation & response schemas
+│   │   ├── services/          # Business logic & data access (stations, ...)
 │   │   ├── scripts/           # CLI data tooling (e.g. database seeding)
 │   │   └── main.py            # FastAPI main entrypoint
 │   ├── tests/                 # Complete backend testing suites
@@ -120,8 +120,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 1** | **Project Setup** | **REQUIRED** | ✔ **Completed** | Monorepo configuration, Next.js 15 & React 19 upgrade, Python 3.12 Docker environments, and GitHub Actions CI. |
 | **Phase 2** | **Database Schema** | **REQUIRED** | ✔ **Completed** | PostgreSQL schema, PostGIS spatial mapping, SQLAlchemy 2.0 models, Alembic migrations, and seed data for Nigerian stations (Mobil, NNPC, Conoil, etc.). |
 | **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, HS256 JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
-| **Phase 4** | **Fuel Stations API** | **REQUIRED** | ⏳ *Next Step* | CRUD, spatial nearby station search (distance based), and filters. |
-| **Phase 5** | **Interactive Map UI** | **REQUIRED** | ⏳ *Pending* | Leaflet + OpenStreetMap integration, marker clustering, and location routing. |
+| **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
+| **Phase 5** | **Interactive Map UI** | **REQUIRED** | ⏳ *Next Step* | Leaflet + OpenStreetMap integration, marker clustering, and location routing. |
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ⏳ *Pending* | User submission logs: pricing, fuel types, queue length, and picture uploads. |
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Pending* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
 | **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Pending* | Gemini queue image analysis & validation score; Groq natural language search. |
@@ -180,6 +180,27 @@ Authentication is **delegated to Supabase Auth** — it owns signup, login, pass
 
 ### Configuration
 Set `SUPABASE_JWT_SECRET` (required) and optionally `SUPABASE_JWT_ALGORITHM` (`HS256` default) and `SUPABASE_JWT_AUDIENCE` (set to `authenticated` to additionally require genuine user-session tokens). See `backend/.env.example`.
+
+---
+
+## ⛽ Phase 4 — Fuel Stations API Overview
+
+A REST API over the Phase 2 schema: catalogue browsing with filters, a PostGIS **nearby search** (distance-based, nearest-first), and staff-only CRUD. Logic lives in a dedicated service layer (`app/services/stations.py`) whose spatial query *builders* are pure functions returning SQLAlchemy `Select` objects.
+
+### Endpoints (v1)
+| Method | Path | Auth | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/stations` | public | Paginated catalogue with filters: `q` (name), `brand`, `city`, `state`, `fuel_type`, `is_active`. |
+| `GET` | `/api/v1/stations/nearby` | public | **Spatial search**: `latitude`/`longitude`/`radius_meters` (+ optional `fuel_type`/`limit`). Returns stations within the radius, nearest first, each with `distance_meters`. |
+| `GET` | `/api/v1/stations/{id}` | public | Single station with its fuel types. |
+| `POST` | `/api/v1/stations` | Admin / Station Manager | Create a station (+ optional `fuel_type_codes`). |
+| `PATCH` | `/api/v1/stations/{id}` | Admin / Station Manager | Partial update (including partial lat/lon and fuel-type reassignment). |
+| `DELETE` | `/api/v1/stations/{id}` | Admin / Station Manager | Delete (cascades fuel-type links). |
+
+### Spatial design
+The nearby search uses `ST_DWithin(location, <point>::geography, radius_meters)` — which leverages the GiST index on the `geography` column for an efficient radius filter — and `ST_Distance(...)` to compute and order results in metres. Coordinates are exchanged as plain `latitude`/`longitude` floats and converted to/from `geography` in the service layer.
+
+> Fine-grained, per-station scoping for Station Managers (so a manager only edits their own stations) arrives with the admin/assignment work in a later phase.
 
 ---
 

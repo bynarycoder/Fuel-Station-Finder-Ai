@@ -9,6 +9,7 @@ at the test session.
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Callable
 
 import httpx
@@ -46,6 +47,32 @@ def _configure_jwt(monkeypatch: pytest.MonkeyPatch):
 def make_token() -> Callable[..., str]:
     """Factory that mints valid Supabase-style access tokens."""
     return mint_token
+
+
+@pytest.fixture
+def authenticated_as(client) -> Callable[..., Any]:
+    """Override ``get_current_user`` to inject an in-memory user with a given
+    role, so role-based access control can be exercised without a database.
+
+    Returns a callable that takes a ``UserRole`` (+ optional email/id) and
+    yields the same test HTTP client authenticated as that user.
+    """
+
+    def _setup(
+        role: UserRole,
+        email: str = "staff@example.com",
+        user_id: uuid.UUID | None = None,
+    ) -> Any:
+        user = User(
+            id=user_id or uuid.uuid4(),
+            email=email,
+            role=role,
+            is_active=True,
+        )
+        production_app.dependency_overrides[get_current_user] = lambda: user
+        return client
+
+    return _setup
 
 
 # --------------------------------------------------------------------------- #
