@@ -121,8 +121,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 2** | **Database Schema** | **REQUIRED** | ✔ **Completed** | PostgreSQL schema, PostGIS spatial mapping, SQLAlchemy 2.0 models, Alembic migrations, and seed data for Nigerian stations (Mobil, NNPC, Conoil, etc.). |
 | **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, HS256 JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
 | **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
-| **Phase 5** | **Interactive Map UI** | **REQUIRED** | ⏳ *Next Step* | Leaflet + OpenStreetMap integration, marker clustering, and location routing. |
-| **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ⏳ *Pending* | User submission logs: pricing, fuel types, queue length, and picture uploads. |
+| **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
+| **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ⏳ *Next Step* | User submission logs: pricing, fuel types, queue length, and picture uploads. |
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Pending* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
 | **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Pending* | Gemini queue image analysis & validation score; Groq natural language search. |
 | **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Pending* | Verification manager, moderation panel, user flags, and analytics. |
@@ -201,6 +201,27 @@ A REST API over the Phase 2 schema: catalogue browsing with filters, a PostGIS *
 The nearby search uses `ST_DWithin(location, <point>::geography, radius_meters)` — which leverages the GiST index on the `geography` column for an efficient radius filter — and `ST_Distance(...)` to compute and order results in metres. Coordinates are exchanged as plain `latitude`/`longitude` floats and converted to/from `geography` in the service layer.
 
 > Fine-grained, per-station scoping for Station Managers (so a manager only edits their own stations) arrives with the admin/assignment work in a later phase.
+
+---
+
+## 🗺️ Phase 5 — Interactive Map UI Overview
+
+A full map experience (Next.js App Router, React 19, TypeScript) at the app root `/`, backed by the Phase 4 API. The Phase 1 landing page moved to `/about`.
+
+### Capabilities
+- **Leaflet + OpenStreetMap** base map with **marker clustering** (`react-leaflet-cluster`), themed emerald `divIcon` pins (no broken default marker images).
+- **Near-me search** — a *Near me* button uses the browser Geolocation API, switches to the PostGIS `/stations/nearby` endpoint, recentres the map and lists stations nearest-first with distances.
+- **Location routing** — every station (in its popup and list row) offers *Get directions*, a turn-by-turn Google Maps deep link using the user's location as the origin.
+- **Filters** — name search, brand, city and fuel-type chips; *Browse all* vs *Near me* modes with an adjustable radius.
+- List/map are kept in sync: selecting a station flies the map to it; clicking a marker selects it in the list.
+
+### Architecture
+- **React Query** for remote state (catalogue + nearby queries, with `placeholderData`), **Zustand** for UI state (mode, filters, user location, selected station) — matching the documented stack.
+- The map is **SSR-safe**: Leaflet needs `window`, so `MapView` is lazy-imported via `next/dynamic` with `ssr: false` from a Client-Component wrapper.
+- Dependencies upgraded to the **React 19**-compatible line: `react-leaflet@5`, `@react-leaflet/core@3`, `react-leaflet-cluster@4` (Phase 1 had pinned `react-leaflet@4`, which requires React 18 and is incompatible with this project's React 19).
+
+### Validation
+`npm run build` (type-checks + static generation) and `npm run lint` both pass. The map loads live data when the backend is running (`NEXT_PUBLIC_API_URL`).
 
 ---
 
