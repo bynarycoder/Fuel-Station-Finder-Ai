@@ -10,6 +10,7 @@ from app.core.database import Base
 from app.models.fuel_station import FuelStation
 from app.models.fuel_station_fuel_type import FuelStationFuelType
 from app.models.fuel_type import FuelType, FuelTypeCode
+from app.models.user import User, UserRole
 
 __all__ = [
     "Base",
@@ -17,4 +18,6 @@ __all__ = [
     "FuelStationFuelType",
     "FuelType",
     "FuelTypeCode",
+    "User",
+    "UserRole",
 ]

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_JWT_SECRET: str = ""
+    # JWT verification knobs. Supabase signs access tokens with HS256 using the
+    # project JWT secret by default; set SUPABASE_JWT_AUDIENCE to "authenticated"
+    # to additionally require that the token is a genuine user-session token.
+    SUPABASE_JWT_ALGORITHM: str = "HS256"
+    SUPABASE_JWT_AUDIENCE: str = ""
 
     # AI APIs
     GEMINI_API_KEY: str = ""

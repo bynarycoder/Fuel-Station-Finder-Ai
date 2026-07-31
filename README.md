@@ -79,8 +79,9 @@ Fuel-Station-Finder-Ai/
 │   ├── alembic.ini            # Alembic configuration
 │   ├── app/
 │   │   ├── api/               # API route definitions
-│   │   │   └── v1/            # v1 route handlers
-│   │   ├── core/              # Global configs, DB settings, security
+│   │   │   ├── deps.py        # Authentication & authorization dependencies
+│   │   │   └── v1/            # v1 route handlers (auth, ...)
+│   │   ├── core/              # Configs, DB sessions, security/JWT verification
 │   │   ├── models/            # SQLAlchemy 2.0 ORM models (PostGIS spatial)
 │   │   ├── schemas/           # Pydantic validation schemas
 │   │   ├── services/          # AI integrations, business logic
@@ -118,8 +119,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Project Setup** | **REQUIRED** | ✔ **Completed** | Monorepo configuration, Next.js 15 & React 19 upgrade, Python 3.12 Docker environments, and GitHub Actions CI. |
 | **Phase 2** | **Database Schema** | **REQUIRED** | ✔ **Completed** | PostgreSQL schema, PostGIS spatial mapping, SQLAlchemy 2.0 models, Alembic migrations, and seed data for Nigerian stations (Mobil, NNPC, Conoil, etc.). |
-| **Phase 3** | **Authentication** | **REQUIRED** | ⏳ *Next Step* | Supabase Auth, JWT verification, and User roles (Driver, Station Manager, Admin). |
-| **Phase 4** | **Fuel Stations API** | **REQUIRED** | ⏳ *Pending* | CRUD, spatial nearby station search (distance based), and filters. |
+| **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, HS256 JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
+| **Phase 4** | **Fuel Stations API** | **REQUIRED** | ⏳ *Next Step* | CRUD, spatial nearby station search (distance based), and filters. |
 | **Phase 5** | **Interactive Map UI** | **REQUIRED** | ⏳ *Pending* | Leaflet + OpenStreetMap integration, marker clustering, and location routing. |
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ⏳ *Pending* | User submission logs: pricing, fuel types, queue length, and picture uploads. |
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Pending* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
@@ -148,6 +149,37 @@ The spatial data layer is built on **PostgreSQL + PostGIS**, modelled with **SQL
 
 ### Seed Data
 `backend/app/scripts/seed.py` loads **4 fuel types** and **18 representative stations** across **Lagos** and the **FCT (Abuja)** from real brands — Mobil, NNPC, Conoil, TotalEnergies, Oando, MRS, NIPCO, Forte Oil, Bovas and AA Rano — with neighbourhood-level coordinates. The script is idempotent (re-runnable) and can be reset with `--reset`.
+
+---
+
+## 🔐 Phase 3 — Authentication Overview
+
+Authentication is **delegated to Supabase Auth** — it owns signup, login, password hashing and session issuance, so the backend never stores or handles credentials. The backend's job is to **verify Supabase-issued JWTs** and attach the caller's identity and application role to each request.
+
+### How a protected request flows
+1. The frontend signs in with Supabase and receives an access token (HS256-signed with the project's JWT secret).
+2. It sends that token as `Authorization: Bearer <token>` to the backend.
+3. `app/core/security.py` verifies signature, expiry, and (optionally) audience via `python-jose`.
+4. `app/api/deps.py::get_current_user` decodes the token and **just-in-time provisions** a local `User` row (creating it on first sighting, refreshing email/name thereafter) — so the `users` table always mirrors Supabase identities without a separate sync job.
+5. Endpoints declare their access needs with `require_roles(UserRole.ADMIN, ...)` for **role-based access control**.
+
+### Application roles
+| Role | Value | Capabilities |
+| :--- | :--- | :--- |
+| Driver | `driver` | Default. Search stations, view prices/queues, submit reports. |
+| Station Manager | `station_manager` | Manage assigned stations; official pricing/availability; moderate their reports. |
+| Admin | `admin` | Full access: verify/moderate reports, manage users & roles, curate stations. |
+
+> Supabase's own JWT `role` claim (`anon`/`authenticated`/`service_role`, used for Row Level Security) is **distinct** from these application roles, which live in the local `users.role` column.
+
+### API surface (v1)
+| Method | Path | Auth | Purpose |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/auth/me` | ✔ user | Returns the caller's profile; JIT-provisions the local user. |
+| `GET` | `/api/v1/auth/roles` | public | Lists application roles for the frontend sign-up flow. |
+
+### Configuration
+Set `SUPABASE_JWT_SECRET` (required) and optionally `SUPABASE_JWT_ALGORITHM` (`HS256` default) and `SUPABASE_JWT_AUDIENCE` (set to `authenticated` to additionally require genuine user-session tokens). See `backend/.env.example`.
 
 ---
 

@@ -28,11 +28,16 @@ from app.models import (
 # --------------------------------------------------------------------------- #
 # Table / metadata registration
 # --------------------------------------------------------------------------- #
-EXPECTED_TABLES = {"fuel_types", "fuel_stations", "fuel_station_fuel_types"}
+EXPECTED_TABLES = {
+    "fuel_types",
+    "fuel_stations",
+    "fuel_station_fuel_types",
+    "users",
+}
 
 
 def test_all_models_registered_on_metadata() -> None:
-    """Every Phase 2 table must be present on the shared metadata so Alembic
+    """Every domain table must be present on the shared metadata so Alembic
     can see it when generating/running migrations."""
     assert EXPECTED_TABLES.issubset(Base.metadata.tables)
 
