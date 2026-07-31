@@ -1,0 +1,39 @@
+import os
+from typing import List
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        extra="ignore"
+    )
+
+    PROJECT_NAME: str = "Fuel Station Finder AI"
+    ENVIRONMENT: str = "development"
+    PORT: int = 8000
+
+    # Database
+    DATABASE_URL: str = "postgresql://postgres:postgres@db:5432/fuel_station_db"
+    ASYNC_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/fuel_station_db"
+
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_JWT_SECRET: str = ""
+
+    # AI APIs
+    GEMINI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+
+    # CORS configuration
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+        "https://fuel-station-finder-ai.vercel.app"  # Placeholder production URL
+    ]
+
+settings = Settings()
