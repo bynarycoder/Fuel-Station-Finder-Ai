@@ -17,10 +17,16 @@ engine = create_engine(
 )
 
 # async engine (used for fast, asynchronous API endpoints)
+connect_args = (
+    {"ssl": "require"}
+    if "supabase" in settings.ASYNC_DATABASE_URL or "ssl=require" in settings.ASYNC_DATABASE_URL
+    else {}
+)
 async_engine = create_async_engine(
     settings.ASYNC_DATABASE_URL, 
     pool_pre_ping=True,
-    echo=False
+    echo=False,
+    connect_args=connect_args,
 )
 
 # Session factories
