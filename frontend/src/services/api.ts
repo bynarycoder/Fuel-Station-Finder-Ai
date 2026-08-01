@@ -12,6 +12,7 @@ import type {
   PaginatedStations,
 } from "@/types/station";
 import type { PaginatedReports } from "@/types/report";
+import type { FuelReport } from "@/types/report";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
 
@@ -126,6 +127,67 @@ export interface ReportListParams {
 
 export function fetchReports(params: ReportListParams) {
   return request<PaginatedReports>("/reports", { params });
+}
+
+/** Latest reports for a single station (for the station detail view). */
+export function fetchStationReports(stationId: string) {
+  return request<PaginatedReports>("/reports", {
+    params: { station_id: stationId, page_size: 20 },
+  });
+}
+
+export interface SubmitReportInput {
+  station_id: string;
+  fuel_type_code: string;
+  price_per_litre?: number;
+  queue_length?: string;
+  notes?: string;
+  photo?: File;
+}
+
+/**
+ * Submit a fuel report as multipart/form-data (the backend expects Form fields
+ * + an optional photo `UploadFile`). Does NOT set Content-Type so the browser
+ * can attach the multipart boundary. Throws `ApiError` on failure.
+ */
+export async function submitReport(input: SubmitReportInput): Promise<FuelReport> {
+  const form = new FormData();
+  form.set("station_id", input.station_id);
+  form.set("fuel_type_code", input.fuel_type_code);
+  if (input.price_per_litre != null) {
+    form.set("price_per_litre", String(input.price_per_litre));
+  }
+  if (input.queue_length) {
+    form.set("queue_length", input.queue_length);
+  }
+  if (input.notes) {
+    form.set("notes", input.notes);
+  }
+  if (input.photo) {
+    form.append("photo", input.photo);
+  }
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/reports`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+  } catch {
+    throw new ApiError(0, "Unable to reach the server. Is the backend running?");
+  }
+
+  if (response.status === 401) {
+    throw new ApiError(401, "You must be signed in to report a price.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, `Report submission failed (${response.status}).`);
+  }
+  return (await response.json()) as FuelReport;
 }
 
 // --------------------------------------------------------------------------- #
