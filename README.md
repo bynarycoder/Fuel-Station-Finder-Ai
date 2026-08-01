@@ -125,8 +125,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ✔ **Completed** | Supabase Realtime (`postgres_changes`) feeds instant crowd-sourced report updates to the UI, with a polling fallback. |
 | **Phase 8** | **AI Features** | **HIGH VALUE** | ✔ **Completed** | Gemini queue-image verification & validation score; Groq natural-language station search. |
-| **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Next Step* | Verification manager, moderation panel, user flags, and analytics. |
-| **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Pending* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
+| **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ✔ **Completed** | Admin-only API + dashboard: report moderation, user management, and platform analytics. |
+| **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Next Step* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
 
 ---
 
@@ -279,6 +279,26 @@ Two AI capabilities, each behind a config gate (graceful 503 when its API key is
 
 ### Shared
 `app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`. The Gemini/Groq SDKs are imported lazily inside the call functions, so the app starts even without keys.
+
+---
+
+## 🛡️ Phase 9 — Admin Dashboard Overview
+
+An admin-only API (`/api/v1/admin/*`, every route gated by `require_roles(ADMIN)`) plus a `/admin` dashboard UI with Supabase sign-in.
+
+### Backend endpoints
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/admin/reports` | Moderation queue — **all** reports (incl. rejected), filterable by station/fuel/status. |
+| `PATCH` | `/admin/reports/{id}/status` | Verify / reject a report (stamps `verified_at`). |
+| `GET` | `/admin/users` | List users (paginated). |
+| `PATCH` | `/admin/users/{id}` | Update a user's role and/or active flag (the "user flags" moderation). |
+| `GET` | `/admin/analytics` | Platform metrics: stations (total/active), reports (by status), users (by role). |
+
+### Frontend (`/admin`)
+- Supabase **sign-in gate** → calls `/auth/me` → only renders for Admins.
+- **Analytics** overview cards, **report moderation** (Verify/Reject actions), and **user management** (enable/disable), all via React Query with automatic cache invalidation.
+- Auth token injection in the API client; graceful "Supabase not configured" state for local dev.
 
 ---
 
