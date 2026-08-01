@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 from app.api.v1 import api_router
 from app.core.config import settings
 
@@ -14,6 +18,10 @@ app = FastAPI(
 
 # Mount all API v1 routes under /api/v1
 app.include_router(api_router, prefix="/api/v1")
+
+# Serve uploaded report photos from local storage (directory created on demand).
+Path(settings.MEDIA_DIR).mkdir(parents=True, exist_ok=True)
+app.mount(settings.MEDIA_URL, StaticFiles(directory=settings.MEDIA_DIR), name="media")
 
 # Configure CORS Middleware to allow requests from the frontend
 if settings.CORS_ORIGINS:

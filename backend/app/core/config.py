@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
 
+    # Report photo uploads (local storage; swappable for object storage later)
+    MEDIA_DIR: str = "media"
+    MEDIA_URL: str = "/media"
+    MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # 5 MiB
+
     # CORS configuration
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

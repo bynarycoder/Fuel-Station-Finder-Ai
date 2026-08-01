@@ -33,6 +33,7 @@ EXPECTED_TABLES = {
     "fuel_stations",
     "fuel_station_fuel_types",
     "users",
+    "fuel_reports",
 }
 
 

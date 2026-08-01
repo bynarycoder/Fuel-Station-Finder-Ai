@@ -122,8 +122,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, HS256 JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
 | **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
 | **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
-| **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ⏳ *Next Step* | User submission logs: pricing, fuel types, queue length, and picture uploads. |
-| **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Pending* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
+| **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
+| **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Next Step* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
 | **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Pending* | Gemini queue image analysis & validation score; Groq natural language search. |
 | **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Pending* | Verification manager, moderation panel, user flags, and analytics. |
 | **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Pending* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
@@ -222,6 +222,28 @@ A full map experience (Next.js App Router, React 19, TypeScript) at the app root
 
 ### Validation
 `npm run build` (type-checks + static generation) and `npm run lint` both pass. The map loads live data when the backend is running (`NEXT_PUBLIC_API_URL`).
+
+---
+
+## 🧾 Phase 6 — Fuel Reports Engine Overview
+
+Crowd-sourced station reports — the data that makes the finder useful. Any authenticated user submits pricing, queue length, fuel type and an optional photo; reports start `pending` and are verified/rejected in later phases.
+
+### Endpoints (v1)
+| Method | Path | Auth | Purpose |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/reports` | any user | Submit a report (multipart: form fields + optional `photo`). |
+| `GET` | `/api/v1/reports` | any user | Paginated list with filters (`station_id`, `fuel_type`, `status`); rejected reports hidden from non-admins. |
+| `GET` | `/api/v1/reports/{id}` | any user | Single report (rejected hidden from non-admins). |
+
+### Submission model
+A `FuelReport` records `fuel_type_code`, optional `price_per_litre` (₦/L), optional `queue_length` (`none`/`short`/`medium`/`long`), optional `notes`, and an optional `photo_url`. The API requires at least a price, a queue reading, or a photo.
+
+### Photo uploads
+`POST /reports` accepts an optional `photo` (JPEG/PNG/WebP, size-capped) via a swappable `ImageStorage` service that validates type/size and writes to local disk; files are served via a static mount (`/media`). A failed report creation cleans up the orphan upload. The storage layer is isolated so it can be swapped for Supabase Storage / object storage without touching the reports API.
+
+### Verification lifecycle
+`status` (`pending`/`verified`/`rejected`) is captured from day one; status transitions and AI/admin verification arrive in Phases 8 & 9.
 
 ---
 
