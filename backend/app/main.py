@@ -24,10 +24,10 @@ Path(settings.MEDIA_DIR).mkdir(parents=True, exist_ok=True)
 app.mount(settings.MEDIA_URL, StaticFiles(directory=settings.MEDIA_DIR), name="media")
 
 # Configure CORS Middleware to allow requests from the frontend
-if settings.CORS_ORIGINS:
+if settings.cors_origins_list:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

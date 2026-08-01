@@ -1,0 +1,46 @@
+# Render Blueprint for the Fuel Station Finder AI backend.
+#
+# Apply with: `render blueprint launch` (or via the Render dashboard "Deploy
+# from Blueprint" flow). Secret values marked `sync: false` are prompted at
+# launch time and stored securely in Render — never commit real credentials.
+#
+# Prerequisites: a Supabase project (PostgreSQL + PostGIS) providing the
+# DATABASE_URL / Supabase keys. See DEPLOYMENT.md.
+
+services:
+  - type: web
+    name: fuel-station-finder-api
+    runtime: docker
+    plan: free
+    # The Dockerfile lives in backend/ (relative to the repo root).
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # Render injects PORT automatically; the Dockerfile honours it.
+      # --- Database (Supabase) ---
+      - key: DATABASE_URL
+        sync: false
+      - key: ASYNC_DATABASE_URL
+        sync: false
+      # --- Supabase Auth ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
+      # --- AI keys (optional; enable Gemini verification & Groq NL search) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # --- CORS: comma-separated list of allowed frontend origins ---
+      - key: CORS_ORIGINS
+        sync: false

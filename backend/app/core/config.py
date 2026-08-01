@@ -39,13 +39,19 @@ class Settings(BaseSettings):
     MEDIA_URL: str = "/media"
     MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024  # 5 MiB
 
-    # CORS configuration
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000",
+    # CORS configuration. A comma-separated string so it can be set verbatim
+    # from any host's env vars. Access the parsed list via `cors_origins_list`.
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,"
+        "http://localhost:8000,"
+        "http://127.0.0.1:3000,"
+        "http://127.0.0.1:8000,"
         "https://fuel-station-finder-ai.vercel.app"  # Placeholder production URL
-    ]
+    )
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """CORS origins parsed from the comma-separated ``CORS_ORIGINS`` value."""
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 settings = Settings()

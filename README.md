@@ -126,7 +126,7 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ✔ **Completed** | Supabase Realtime (`postgres_changes`) feeds instant crowd-sourced report updates to the UI, with a polling fallback. |
 | **Phase 8** | **AI Features** | **HIGH VALUE** | ✔ **Completed** | Gemini queue-image verification & validation score; Groq natural-language station search. |
 | **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ✔ **Completed** | Admin-only API + dashboard: report moderation, user management, and platform analytics. |
-| **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Next Step* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
+| **Phase 10**| **Cloud Deployment** | **REQUIRED** | ✔ **Completed** | Production deployment config (Render `render.yaml`, Vercel `vercel.json`), configurable CORS/PORT, a full deployment guide (`DEPLOYMENT.md`), and a demo script. |
 
 ---
 
@@ -299,6 +299,21 @@ An admin-only API (`/api/v1/admin/*`, every route gated by `require_roles(ADMIN)
 - Supabase **sign-in gate** → calls `/auth/me` → only renders for Admins.
 - **Analytics** overview cards, **report moderation** (Verify/Reject actions), and **user management** (enable/disable), all via React Query with automatic cache invalidation.
 - Auth token injection in the API client; graceful "Supabase not configured" state for local dev.
+
+---
+
+## ☁️ Phase 10 — Cloud Deployment Overview
+
+Production runs on three hosts (full step-by-step guide: **[`DEPLOYMENT.md`](./DEPLOYMENT.md)**):
+
+- **Database / Auth / Realtime** — Supabase (managed PostgreSQL + PostGIS). Migrations (`alembic upgrade head`) + seed run against it; migration `0004` enables Realtime.
+- **Backend** — Render via the included **[`render.yaml`](./render.yaml)** Blueprint (Docker, `/health` check, honours `$PORT`, prompted secret env vars).
+- **Frontend** — Vercel (Next.js auto-detected; `frontend/vercel.json`), with `NEXT_PUBLIC_API_URL` pointed at Render.
+
+Production hardening in this phase:
+- **CORS** is now a comma-separated `CORS_ORIGINS` env var (`settings.cors_origins_list`) — trivial to set on any host.
+- The **Dockerfile** honours `$PORT` (works for both docker-compose and Render).
+- A **demo script** (for the capstone video) is in `DEPLOYMENT.md`.
 
 ---
 
