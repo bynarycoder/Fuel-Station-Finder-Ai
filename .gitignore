@@ -18,6 +18,7 @@ backend/.pytest_cache/
 backend/__pycache__/
 backend/app/__pycache__/
 backend/app/*/__pycache__/
+backend/media/
 
 # Node / Next.js
 node_modules/

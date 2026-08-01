@@ -35,6 +35,8 @@ services:
       - SUPABASE_URL=https://your-supabase-project.supabase.co
       - SUPABASE_ANON_KEY=your-supabase-anon-key
       - SUPABASE_JWT_SECRET=your-supabase-jwt-signing-secret
+      - SUPABASE_JWT_ALGORITHM=HS256
+      - SUPABASE_JWT_AUDIENCE=authenticated
       - GEMINI_API_KEY=your-gemini-api-key
       - GROQ_API_KEY=your-groq-api-key
     depends_on:
