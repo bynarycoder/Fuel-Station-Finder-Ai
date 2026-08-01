@@ -28,11 +28,13 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, require_roles
 from app.core.database import get_db
-from app.models import QueueLength, ReportStatus
-from app.schemas import FuelReportPublic, PaginatedReports
+from app.models import QueueLength, ReportStatus, UserRole
+from app.schemas import FuelReportPublic, PaginatedReports, VerificationResultPublic
 from app.services import reports as report_service
+from app.services.ai import AINotConfiguredError
+from app.services.ai.gemini import VERIFICATION_THRESHOLD, analyze_queue_image
 from app.services.storage import ImageStorage, get_image_storage
 
 router = APIRouter(prefix="/reports", tags=["Fuel Reports"])
@@ -112,3 +114,51 @@ async def get_report(
     if report is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Fuel report not found")
     return report
+
+
+@router.post(
+    "/{report_id}/verify",
+    response_model=VerificationResultPublic,
+    dependencies=[Depends(require_roles(UserRole.ADMIN))],
+    summary="Verify a report's photo with Gemini (AI validation score)",
+)
+async def verify_report(
+    report_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    storage: Annotated[ImageStorage, Depends(get_image_storage)],
+) -> VerificationResultPublic:
+    """Run Gemini image verification on the report's photo and return a score.
+
+    High-confidence photos (score >= threshold) auto-promote the report to
+    ``verified``; lower scores leave the status unchanged for manual review.
+    """
+    report = await report_service.get_report_for_verification(db, report_id)
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Fuel report not found")
+
+    if not report.photo_url:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This report has no photo to verify.",
+        )
+
+    try:
+        image_bytes, mime_type = storage.read_image(report.photo_url)
+    except FileNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+    try:
+        result = analyze_queue_image(image_bytes, mime_type)
+    except AINotConfiguredError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    if result.score >= VERIFICATION_THRESHOLD:
+        await report_service.mark_report_verified(db, report)
+
+    return VerificationResultPublic(
+        score=result.score,
+        is_plausible=result.is_plausible,
+        summary=result.summary,
+        detected_attributes=result.detected_attributes,
+        report_status=report.status,
+    )

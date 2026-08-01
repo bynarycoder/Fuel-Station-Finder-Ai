@@ -124,8 +124,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
 | **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ✔ **Completed** | Supabase Realtime (`postgres_changes`) feeds instant crowd-sourced report updates to the UI, with a polling fallback. |
-| **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Next Step* | Gemini queue image analysis & validation score; Groq natural language search. |
-| **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Pending* | Verification manager, moderation panel, user flags, and analytics. |
+| **Phase 8** | **AI Features** | **HIGH VALUE** | ✔ **Completed** | Gemini queue-image verification & validation score; Groq natural-language station search. |
+| **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Next Step* | Verification manager, moderation panel, user flags, and analytics. |
 | **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Pending* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
 
 ---
@@ -261,6 +261,24 @@ Crowd-sourced reports now reach the UI instantly via **Supabase Realtime**, with
 
 ### Note
 Report *reads* are now **public** (community feed) and always exclude rejected reports; submission still requires authentication. This lets the live feed work without a login.
+
+---
+
+## 🤖 Phase 8 — AI Features Overview
+
+Two AI capabilities, each behind a config gate (graceful 503 when its API key is absent) and split into a deterministic, unit-tested parser + the network call:
+
+### 1. Gemini queue-image verification (`app/services/ai/gemini.py`)
+- `POST /api/v1/reports/{id}/verify` (Admin) reads a report's stored photo, sends it to Gemini, and returns a **validation score** (0.0–1.0), plausibility flag, summary and detected attributes.
+- High-confidence photos (score ≥ 0.7) **auto-promote** the report to `verified` (with `verified_at`); lower scores stay `pending` for manual review.
+- `build_verification_prompt` / `parse_verification_response` are pure & tested (JSON extraction, score clamping, safe defaults on malformed output).
+
+### 2. Groq natural-language search (`app/services/ai/nl_search.py`)
+- `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq, then returns the matching stations plus the parsed intent.
+- `build_system_prompt` / `to_parsed_query` are pure & tested (enum normalisation/validation, casual-term mapping).
+
+### Shared
+`app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`. The Gemini/Groq SDKs are imported lazily inside the call functions, so the app starts even without keys.
 
 ---
 

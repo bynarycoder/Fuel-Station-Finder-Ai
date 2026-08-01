@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # AI APIs
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GROQ_MODEL: str = "llama-3.1-8b-instant"
 
     # Report photo uploads (local storage; swappable for object storage later)
     MEDIA_DIR: str = "media"

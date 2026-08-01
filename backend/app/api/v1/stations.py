@@ -22,10 +22,14 @@ from app.schemas import (
     FuelStationCreate,
     FuelStationPublic,
     FuelStationUpdate,
+    NaturalLanguageSearchResult,
     NearbyStations,
     PaginatedStations,
+    ParsedQueryPublic,
 )
 from app.services import stations as station_service
+from app.services.ai import AINotConfiguredError
+from app.services.ai.nl_search import parse_natural_query
 
 router = APIRouter(prefix="/stations", tags=["Fuel Stations"])
 
@@ -78,6 +82,46 @@ async def find_nearby_stations(
 ) -> NearbyStations:
     return await station_service.find_nearby(
         db, latitude, longitude, radius_meters=radius_meters, limit=limit, fuel_type=fuel_type
+    )
+
+
+@router.get(
+    "/search",
+    response_model=NaturalLanguageSearchResult,
+    summary="Natural-language station search (Groq)",
+)
+async def natural_language_search(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: Annotated[
+        str,
+        Query(min_length=1, max_length=300, description="Free-form query, e.g. 'short petrol near Ikeja'"),
+    ],
+) -> NaturalLanguageSearchResult:
+    """Parse a natural-language query with Groq into structured filters and
+    return the matching stations plus the parsed intent."""
+    try:
+        parsed = parse_natural_query(q)
+    except AINotConfiguredError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+    filters = station_service.StationFilters(
+        brand=parsed.brand,
+        city=parsed.city,
+        state=parsed.state,
+        fuel_type=parsed.fuel_type,
+    )
+    result = await station_service.list_stations(db, filters, 1, 50)
+    return NaturalLanguageSearchResult(
+        query=q,
+        parsed=ParsedQueryPublic(
+            fuel_type=parsed.fuel_type,
+            queue_length=parsed.queue_length,
+            brand=parsed.brand,
+            city=parsed.city,
+            state=parsed.state,
+        ),
+        items=result["items"],
+        total=result["total"],
     )
 
 

@@ -64,6 +64,26 @@ class ImageStorage:
         if target.is_file():
             target.unlink(missing_ok=True)
 
+    _MIME_BY_EXT = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }
+
+    def read_image(self, url: str) -> tuple[bytes, str]:
+        """Read a stored image back as ``(bytes, mime_type)``.
+
+        Raises ``FileNotFoundError`` if the file is missing (e.g. stored on a
+        different node / cleaned up).
+        """
+        filename = url.rsplit("/", 1)[-1]
+        path = self.base_dir / filename
+        if not path.is_file():
+            raise FileNotFoundError(f"Stored image not found: {url}")
+        mime = self._MIME_BY_EXT.get(path.suffix.lower(), "application/octet-stream")
+        return path.read_bytes(), mime
+
     def _read_with_size_limit(self, upload: UploadFile) -> bytes:
         total = 0
         chunks: list[bytes] = []

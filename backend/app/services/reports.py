@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -149,10 +150,24 @@ async def get_report(db: AsyncSession, report_id: Any) -> dict[str, Any] | None:
     ).scalar_one_or_none()
     if report is None:
         return None
-    # Hide rejected reports from the public feed (rendered as a 404).
+    # Hide rejected reports from the public feed (rendered as 404).
     if report.status == ReportStatus.REJECTED:
         return None
     return report_to_public(report)
+
+
+async def get_report_for_verification(
+    db: AsyncSession, report_id: Any
+) -> FuelReport | None:
+    """Fetch the raw ORM report (for AI verification), without hiding rules."""
+    return await db.get(FuelReport, report_id)
+
+
+async def mark_report_verified(db: AsyncSession, report: FuelReport) -> None:
+    """Promote a report to verified and stamp the verification time."""
+    report.status = ReportStatus.VERIFIED
+    report.verified_at = datetime.now(timezone.utc)
+    await db.commit()
 
 
 async def create_report(

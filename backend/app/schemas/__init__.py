@@ -1,5 +1,10 @@
 """Pydantic v2 validation/response schemas (re-exported for convenience)."""
 
+from app.schemas.ai import (
+    NaturalLanguageSearchResult,
+    ParsedQueryPublic,
+    VerificationResultPublic,
+)
 from app.schemas.auth import RoleInfo, TokenClaims
 from app.schemas.report import (
     FuelReportPublic,
@@ -19,6 +24,7 @@ from app.schemas.fuel_station import (
 from app.schemas.user import UserPublic
 
 __all__ = [
+    "NaturalLanguageSearchResult",
     "FuelReportPublic",
     "FuelStationCreate",
     "FuelStationPublic",
@@ -28,9 +34,11 @@ __all__ = [
     "NearbyStations",
     "PaginatedReports",
     "PaginatedStations",
+    "ParsedQueryPublic",
     "ReportStationBrief",
     "ReporterBrief",
     "RoleInfo",
     "TokenClaims",
     "UserPublic",
+    "VerificationResultPublic",
 ]
