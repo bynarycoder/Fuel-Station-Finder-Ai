@@ -1,9 +1,10 @@
 """
-Fuel report data-access and business logic (Phase 6).
+Fuel report data-access and business logic (Phase 6 + 7).
 
-Mirrors the Phase 4 service pattern: pure query *builders* (testable via SQL
-compilation without a DB) plus async executors. Visibility rules hide rejected
-reports from non-admins.
+Pure query *builders* (testable via SQL compilation without a DB) plus async
+executors. **Reads are public** (community feed): they always exclude rejected
+reports, which are only surfaced to admins via the admin dashboard (Phase 9).
+Report *submission* still requires an authenticated user.
 """
 
 from __future__ import annotations
@@ -25,7 +26,6 @@ from app.models import (
     QueueLength,
     ReportStatus,
     User,
-    UserRole,
 )
 
 DEFAULT_PAGE_SIZE = 20
@@ -97,15 +97,13 @@ def _apply_filters(stmt: Select, filters: ReportFilters) -> Select:
     return stmt
 
 
-def _apply_visibility(stmt: Select, user: User) -> Select:
-    """Non-admins never see rejected reports."""
-    if user.role != UserRole.ADMIN:
-        stmt = stmt.where(FuelReport.status != ReportStatus.REJECTED)
-    return stmt
+def _exclude_rejected(stmt: Select) -> Select:
+    """The public feed never exposes rejected reports."""
+    return stmt.where(FuelReport.status != ReportStatus.REJECTED)
 
 
 def build_list_query(
-    filters: ReportFilters, user: User, offset: int, limit: int
+    filters: ReportFilters, offset: int, limit: int
 ) -> Select:
     stmt = (
         select(FuelReport)
@@ -115,12 +113,12 @@ def build_list_query(
         .limit(limit)
     )
     stmt = _apply_filters(stmt, filters)
-    return _apply_visibility(stmt, user)
+    return _exclude_rejected(stmt)
 
 
-def build_count_query(filters: ReportFilters, user: User) -> Select:
+def build_count_query(filters: ReportFilters) -> Select:
     stmt = _apply_filters(select(func.count(FuelReport.id)), filters)
-    return _apply_visibility(stmt, user)
+    return _exclude_rejected(stmt)
 
 
 def build_get_query(report_id: Any) -> Select:
@@ -132,30 +130,27 @@ def build_get_query(report_id: Any) -> Select:
 # --------------------------------------------------------------------------- #
 async def list_reports(
     db: AsyncSession,
-    user: User,
     filters: ReportFilters,
     page: int,
     page_size: int,
 ) -> dict[str, Any]:
     offset = (page - 1) * page_size
     rows = (
-        await db.execute(build_list_query(filters, user, offset, page_size))
+        await db.execute(build_list_query(filters, offset, page_size))
     ).scalars().all()
     items = [report_to_public(report) for report in rows]
-    total = (await db.execute(build_count_query(filters, user))).scalar_one()
+    total = (await db.execute(build_count_query(filters))).scalar_one()
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
-async def get_report(
-    db: AsyncSession, user: User, report_id: Any
-) -> dict[str, Any] | None:
+async def get_report(db: AsyncSession, report_id: Any) -> dict[str, Any] | None:
     report = (
         await db.execute(build_get_query(report_id))
     ).scalar_one_or_none()
     if report is None:
         return None
-    # Hide rejected reports from non-admins (rendered as a 404 to the client).
-    if report.status == ReportStatus.REJECTED and user.role != UserRole.ADMIN:
+    # Hide rejected reports from the public feed (rendered as a 404).
+    if report.status == ReportStatus.REJECTED:
         return None
     return report_to_public(report)
 

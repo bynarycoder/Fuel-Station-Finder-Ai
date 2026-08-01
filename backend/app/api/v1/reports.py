@@ -80,9 +80,8 @@ async def create_report(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
-@router.get("", response_model=PaginatedReports, summary="List reports")
+@router.get("", response_model=PaginatedReports, summary="List reports (public feed)")
 async def list_reports(
-    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
     station_id: Annotated[Optional[uuid.UUID], Query()] = None,
     fuel_type_code: Annotated[Optional[str], Query(max_length=8)] = None,
@@ -97,7 +96,7 @@ async def list_reports(
         fuel_type_code=fuel_type_code,
         status=report_status,
     )
-    return await report_service.list_reports(db, current_user, filters, page, page_size)
+    return await report_service.list_reports(db, filters, page, page_size)
 
 
 @router.get(
@@ -107,10 +106,9 @@ async def list_reports(
 )
 async def get_report(
     report_id: uuid.UUID,
-    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> FuelReportPublic:
-    report = await report_service.get_report(db, current_user, report_id)
+    report = await report_service.get_report(db, report_id)
     if report is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Fuel report not found")
     return report

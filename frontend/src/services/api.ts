@@ -10,6 +10,7 @@ import type {
   NearbyStations,
   PaginatedStations,
 } from "@/types/station";
+import type { PaginatedReports } from "@/types/report";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
@@ -86,4 +87,16 @@ export interface NearbyParams {
 
 export function fetchNearbyStations(params: NearbyParams) {
   return request<NearbyStations>("/stations/nearby", params);
+}
+
+export interface ReportListParams {
+  station_id?: string;
+  fuel_type?: string;
+  status?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function fetchReports(params: ReportListParams) {
+  return request<PaginatedReports>("/reports", params);
 }

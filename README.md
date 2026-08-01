@@ -123,8 +123,8 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
 | **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
-| **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ⏳ *Next Step* | Supabase Realtime synchronization to feed instant crowd-sourced updates to the UI. |
-| **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Pending* | Gemini queue image analysis & validation score; Groq natural language search. |
+| **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ✔ **Completed** | Supabase Realtime (`postgres_changes`) feeds instant crowd-sourced report updates to the UI, with a polling fallback. |
+| **Phase 8** | **AI Features** | **HIGH VALUE** | ⏳ *Next Step* | Gemini queue image analysis & validation score; Groq natural language search. |
 | **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ⏳ *Pending* | Verification manager, moderation panel, user flags, and analytics. |
 | **Phase 10**| **Cloud Deployment** | **REQUIRED** | ⏳ *Pending* | Deploy frontend (Vercel), backend (Render), database (Supabase), and prepare README + Demo Video. |
 
@@ -244,6 +244,23 @@ A `FuelReport` records `fuel_type_code`, optional `price_per_litre` (₦/L), opt
 
 ### Verification lifecycle
 `status` (`pending`/`verified`/`rejected`) is captured from day one; status transitions and AI/admin verification arrive in Phases 8 & 9.
+
+---
+
+## ⚡ Phase 7 — Realtime Updates Overview
+
+Crowd-sourced reports now reach the UI instantly via **Supabase Realtime**, with graceful degradation when Supabase isn't configured.
+
+### How it works
+- **Backend** (`alembic/versions/0004_enable_realtime.py`): an idempotent, Supabase-aware migration that opts `fuel_reports` (and `fuel_stations`) into the `supabase_realtime` publication — the mechanism Supabase uses for `postgres_changes`. On vanilla Postgres (the local docker DB) it's a safe no-op.
+- **Frontend**:
+  - `lib/supabase.ts` — a lazy, config-guarded Supabase client (returns `null` when `NEXT_PUBLIC_SUPABASE_*` env vars are absent).
+  - `hooks/useReportRealtime.ts` — subscribes to `postgres_changes` on `fuel_reports` and **invalidates the React Query cache** on any insert/update, so the feed refreshes the moment a report lands.
+  - `components/reports/ReportsFeed.tsx` — a live "Community reports" panel (opened from the header) showing the public feed, with a Live/Connecting/Polling badge.
+  - **Fallback**: when Supabase isn't configured (local dev), the hook is a no-op and `useReports` polls every 30s, so the UI stays fresh without realtime infrastructure.
+
+### Note
+Report *reads* are now **public** (community feed) and always exclude rejected reports; submission still requires authentication. This lets the live feed work without a login.
 
 ---
 

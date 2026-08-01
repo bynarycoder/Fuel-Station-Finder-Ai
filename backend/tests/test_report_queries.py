@@ -1,9 +1,10 @@
 """
-Query-construction & pure-helper tests for the reports service (Phase 6).
+Query-construction & pure-helper tests for the reports service (Phase 6/7).
 
 Compiles the service ``Select`` builders against the PostgreSQL dialect (no DB,
-no mocks) to assert filters, role-based visibility, ordering and pagination, and
-exercises the pure ``report_to_public`` mapper with in-memory ORM objects.
+no mocks) to assert filters, the public-feed visibility (rejected always
+excluded), ordering and pagination, and exercises the pure ``report_to_public``
+mapper with in-memory ORM objects.
 """
 
 from __future__ import annotations
@@ -35,18 +36,12 @@ def _compile(stmt) -> str:
     )
 
 
-def _user(role: UserRole) -> User:
-    return User(id=uuid.uuid4(), email=f"{role.value}@example.com", role=role)
-
-
 # --------------------------------------------------------------------------- #
 # Query construction
 # --------------------------------------------------------------------------- #
 def test_list_query_orders_newest_first_and_paginates() -> None:
     sql = _compile(
-        report_service.build_list_query(
-            report_service.ReportFilters(), _user(UserRole.ADMIN), 40, 20
-        )
+        report_service.build_list_query(report_service.ReportFilters(), 40, 20)
     )
     assert "ORDER BY" in sql
     assert "DESC" in sql
@@ -57,39 +52,24 @@ def test_list_query_applies_filters() -> None:
     filters = report_service.ReportFilters(
         station_id=uuid.uuid4(), fuel_type_code="PMS", status=ReportStatus.VERIFIED
     )
-    sql = _compile(
-        report_service.build_list_query(filters, _user(UserRole.ADMIN), 0, 10)
-    )
+    sql = _compile(report_service.build_list_query(filters, 0, 10))
     assert "fuel_reports.fuel_type_code" in sql
     assert "fuel_reports.status" in sql
     assert "fuel_reports.station_id" in sql
 
 
-def test_non_admin_visibility_hides_rejected() -> None:
-    sql = _compile(
-        report_service.build_list_query(
-            report_service.ReportFilters(), _user(UserRole.DRIVER), 0, 10
-        )
-    )
-    # Non-admins get a "status != 'rejected'" visibility clause.
+def test_public_feed_always_excludes_rejected() -> None:
+    sql = _compile(report_service.build_list_query(report_service.ReportFilters(), 0, 10))
+    # The public feed carries a "status != 'rejected'" visibility clause.
     assert "rejected" in sql
 
 
-def test_admin_visibility_does_not_filter_rejected() -> None:
-    sql = _compile(
-        report_service.build_list_query(
-            report_service.ReportFilters(), _user(UserRole.ADMIN), 0, 10
-        )
-    )
-    assert "rejected" not in sql
-
-
-def test_count_query_respects_visibility_and_filters() -> None:
+def test_count_query_excludes_rejected_and_applies_filters() -> None:
     filters = report_service.ReportFilters(status=ReportStatus.PENDING)
-    sql = _compile(report_service.build_count_query(filters, _user(UserRole.DRIVER)))
+    sql = _compile(report_service.build_count_query(filters))
     assert "count(fuel_reports.id)" in sql
     assert "pending" in sql
-    assert "rejected" in sql  # visibility still hides rejected for non-admins
+    assert "rejected" in sql
 
 
 def test_get_query_filters_by_id() -> None:
@@ -110,7 +90,9 @@ def test_report_to_public_maps_report() -> None:
     )
     station.id = uuid.uuid4()
     fuel_type = FuelType(code="PMS", name="Premium Motor Spirit")
-    reporter = User(id=uuid.uuid4(), email="ada@naija.dev", role=UserRole.DRIVER, full_name="Ada")
+    reporter = User(
+        id=uuid.uuid4(), email="ada@naija.dev", role=UserRole.DRIVER, full_name="Ada"
+    )
 
     now = datetime.datetime.now(datetime.timezone.utc)
     report = FuelReport(
