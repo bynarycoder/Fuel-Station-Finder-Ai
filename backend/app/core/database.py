@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
@@ -8,25 +8,52 @@ from app.core.config import settings
 class Base(DeclarativeBase):
     pass
 
+
+def build_async_connect_args(database_url: str) -> dict[str, Any]:
+    """Build asyncpg ``connect_args`` for the async SQLAlchemy engine.
+
+    Two production concerns are handled here:
+
+    1. SSL — Supabase requires TLS, so when the URL points at Supabase we pass
+       ``ssl="require"`` (preserved from the original configuration).
+    2. PgBouncer / Supabase Session Pooler compatibility — the pooler uses
+       transaction-level pooling, which cannot support asyncpg's server-side
+       prepared-statement cache (prepared statements are per-connection and do
+       not survive connection rotation). We therefore disable the cache with
+       ``statement_cache_size=0`` for every asyncpg URL. This is harmless on a
+       direct (non-pooled) connection and is the documented requirement for
+       PgBouncer transaction pooling.
+
+    The kwargs are only applied to asyncpg URLs; the SQLite test driver does
+    not accept them.
+    """
+    connect_args: dict[str, Any] = {}
+
+    if database_url.startswith("postgresql+asyncpg://"):
+        # Disable asyncpg prepared-statement caching for PgBouncer/Supabase
+        # Session Pooler (port 6543) transaction pooling compatibility.
+        connect_args["statement_cache_size"] = 0
+
+    if "supabase" in database_url or "ssl=require" in database_url:
+        connect_args["ssl"] = "require"
+
+    return connect_args
+
+
 # Create database engines
 # sync engine (used for migrations and seeding)
 engine = create_engine(
-    settings.DATABASE_URL, 
+    settings.DATABASE_URL,
     pool_pre_ping=True,
     echo=False
 )
 
 # async engine (used for fast, asynchronous API endpoints)
-connect_args = (
-    {"ssl": "require"}
-    if "supabase" in settings.ASYNC_DATABASE_URL or "ssl=require" in settings.ASYNC_DATABASE_URL
-    else {}
-)
 async_engine = create_async_engine(
-    settings.ASYNC_DATABASE_URL, 
+    settings.ASYNC_DATABASE_URL,
     pool_pre_ping=True,
     echo=False,
-    connect_args=connect_args,
+    connect_args=build_async_connect_args(settings.ASYNC_DATABASE_URL),
 )
 
 # Session factories
