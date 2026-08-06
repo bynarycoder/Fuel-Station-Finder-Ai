@@ -10,11 +10,13 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { getSupabase } from "@/lib/supabase";
 import { fetchCurrentUser } from "@/services/api";
 import {
   isAuthAvailable,
   restoreSession,
   signInWithEmail,
+  signUpWithEmail,
   signOut as supabaseSignOut,
 } from "@/lib/auth";
 
@@ -49,6 +51,33 @@ export function useAuth() {
     await me.refetch();
   }
 
+  /**
+   * Register a new driver via Supabase Auth. Returns metadata describing
+   * whether the user is immediately signed in or must confirm their email.
+   * When a session is created immediately the local ``users`` row is
+   * JIT-provisioned by the backend as a ``driver`` (never admin).
+   */
+  async function signUp(
+    email: string,
+    password: string,
+  ): Promise<{ isSignedIn: boolean; requiresEmailConfirmation: boolean }> {
+    const result = await signUpWithEmail(email, password);
+    if (result.isSignedIn) {
+      // signUpWithEmail already pushed the access token into the API client;
+      // mirror it into hook state so the /auth/me profile fetch runs.
+      const supabase = getSupabase();
+      const { data } = await (supabase?.auth.getSession() ??
+        Promise.resolve({ data: { session: null } }));
+      const accessToken = data.session?.access_token ?? null;
+      setToken(accessToken);
+      if (accessToken) await me.refetch();
+    }
+    return {
+      isSignedIn: result.isSignedIn,
+      requiresEmailConfirmation: result.requiresEmailConfirmation,
+    };
+  }
+
   async function signOut() {
     await supabaseSignOut();
     setToken(null);
@@ -61,6 +90,7 @@ export function useAuth() {
     isAuthed: !!me.data,
     isAuthAvailable: isAuthAvailable(),
     signIn,
+    signUp,
     signOut,
   };
 }

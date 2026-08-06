@@ -59,6 +59,20 @@ export default function FinderPage() {
     setSignInIntent(null);
   }
 
+  async function handleSignUp(email: string, password: string) {
+    const result = await auth.signUp(email, password);
+    if (result.isSignedIn) {
+      setShowSignIn(false);
+      if (signInIntent === "report") {
+        setShowReportForm(true);
+      }
+      setSignInIntent(null);
+    }
+    // When email confirmation is required the modal stays open and shows the
+    // "check your email" notice (handled inside SignInModal).
+    return result;
+  }
+
   return (
     <main className="flex h-screen flex-col bg-gray-50">
       <header className="z-[1000] flex items-center justify-between border-b-4 border-amber-500 bg-emerald-900 px-4 py-3 text-white shadow-md sm:px-6">
@@ -175,6 +189,7 @@ export default function FinderPage() {
         <CenteredModal onClose={() => { setShowSignIn(false); setSignInIntent(null); }}>
           <SignInModal
             onSignIn={handleSignIn}
+            onSignUp={handleSignUp}
             onClose={() => { setShowSignIn(false); setSignInIntent(null); }}
           />
         </CenteredModal>

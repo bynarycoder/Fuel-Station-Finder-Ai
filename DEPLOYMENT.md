@@ -20,19 +20,22 @@ This guide is **pre-deploy only** — it assumes the code in this repo and walks
    - `anon` public key → `SUPABASE_ANON_KEY`
    - `JWT secret` → `SUPABASE_JWT_SECRET`
    - **Connection strings**:
-     - *Direct* (migrations/seed, sync): `postgresql://postgres.[ref]:[password]@db.[ref].supabase.co:5432/postgres` → `DATABASE_URL`
-     - *Pooler / Transaction* (async runtime): `postgresql+asyncpg://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres` → `ASYNC_DATABASE_URL`
+     - *Session pooler (IPv4)* — required when the host (e.g. Render) cannot reach Supabase's IPv6 direct address. Use port **5432** (session mode) for sync/migrations and port **6543** (transaction mode) for the async runtime:
+       - `DATABASE_URL` (sync: migrations/seed): `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres`
+       - `ASYNC_DATABASE_URL` (async runtime): `postgresql+asyncpg://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres`
+     - *Direct* (only from an IPv6-capable host): `postgresql://postgres.[ref]:[password]@db.[ref].supabase.co:5432/postgres`
 3. **Run migrations & seed** against the Supabase DB (from `backend/` with a local venv):
    ```bash
    # set DATABASE_URL to the Supabase direct connection, then:
    alembic upgrade head        # creates tables + PostGIS + realtime publication
    python -m app.scripts.seed  # loads Nigerian fuel types & stations
    ```
-   (Migration `0004` opts the tables into the `supabase_realtime` publication, enabling live updates.)
-4. Create your **Admin** user: sign up via the `/admin` page once the frontend is live, then in the Supabase SQL editor promote them:
+   (Migration `0004` opts the tables into the `supabase_realtime` publication, enabling live updates; migration `0005` grants `SELECT` on those tables to the `anon`/`authenticated` roles so Supabase Realtime can stream them.)
+4. Create your **Admin** user: open the frontend map, click **Sign in → Sign up**, register your account (new accounts are created as **drivers** — sign-up never grants admin), then in the Supabase SQL editor promote them:
    ```sql
    UPDATE users SET role = 'admin' WHERE email = 'you@example.com';
    ```
+   > The local `users` row is JIT-provisioned by the backend on the first authenticated request, so sign in once after registering before running the `UPDATE`. If email confirmation is enabled on the Supabase project, confirm the email first.
 
 ---
 
@@ -46,7 +49,7 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
    - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`.
    - `GEMINI_API_KEY`, `GROQ_API_KEY` — optional; enable AI features.
    - `CORS_ORIGINS` — comma-separated, **must include your Vercel frontend URL**, e.g.
-     `https://fuel-station-finder-ai.vercel.app`.
+     `https://fuel-station-finder-omega.vercel.app`.
 3. Deploy. The service is healthy when `https://<your-render-app>.onrender.com/health` returns `{"status":"ok"}`.
 
 > **Photo storage note:** uploaded report photos are written to the container's local `media/` directory, which is **ephemeral** on Render (lost on redeploy). For durability, mount a Render **Disk** at `media/` or swap `ImageStorage` for Supabase Storage — the storage layer is intentionally isolated for this.
@@ -80,13 +83,13 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 **Backend (Render)**
 | Variable | Required | Example |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | ✔ | `postgresql://postgres.[ref]:[pw]@db.[ref].supabase.co:5432/postgres` |
-| `ASYNC_DATABASE_URL` | ✔ | `postgresql+asyncpg://...@...pooler.supabase.com:6543/postgres` |
+| `DATABASE_URL` | ✔ | `postgresql://postgres.[ref]:[pw]@aws-0-[region].pooler.supabase.com:5432/postgres` (IPv4 session pooler; use direct only from an IPv6 host) |
+| `ASYNC_DATABASE_URL` | ✔ | `postgresql+asyncpg://postgres.[ref]:[pw]@aws-0-[region].pooler.supabase.com:6543/postgres` (transaction pooler; prepared-statement cache is disabled in code) |
 | `SUPABASE_URL` | ✔ | `https://[ref].supabase.co` |
 | `SUPABASE_ANON_KEY` | ✔ | `eyJhbGci...` |
 | `SUPABASE_JWT_SECRET` | ✔ | (Supabase JWT secret) |
 | `SUPABASE_JWT_AUDIENCE` | – | `authenticated` |
-| `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-ai.vercel.app` |
+| `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-omega.vercel.app` |
 | `GEMINI_API_KEY` | – | (Google AI Studio) |
 | `GROQ_API_KEY` | – | (Groq console) |
 | `GEMINI_MODEL` / `GROQ_MODEL` | – | defaults: `gemini-1.5-flash` / `llama-3.1-8b-instant` |

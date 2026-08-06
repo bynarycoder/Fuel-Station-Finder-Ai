@@ -19,6 +19,49 @@ import type { AdminAnalytics } from "@/types/admin";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+/**
+ * Resolve a backend-served media path (e.g. ``/media/abc.jpg`` returned as
+ * ``photo_url``) to an absolute URL on the **backend** origin.
+ *
+ * The backend serves uploaded photos from its own ``/media`` mount, while
+ * ``NEXT_PUBLIC_API_URL`` points at the API base which ends in ``/api/v1``.
+ * Naively using a relative ``/media/...`` path makes the browser request the
+ * Vercel (frontend) origin, where nothing is served. Here we derive the
+ * backend origin from the API URL, so:
+ *
+ *   https://api.onrender.com/api/v1  +  /media/abc.jpg
+ *     -> https://api.onrender.com/media/abc.jpg
+ *
+ * Safe handling:
+ * - ``null``/empty paths return ``null``;
+ * - already-absolute URLs (http/https/blob/data) are returned unchanged;
+ * - leading/trailing slashes are normalized;
+ * - works in local development (http://localhost:8000).
+ */
+export function resolveMediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+
+  // Already an absolute URL (http(s), data:, blob:, etc.).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
+
+  // Derive the backend origin from the API base URL.
+  let origin: string;
+  try {
+    const parsed = new URL(API_URL);
+    origin = parsed.origin;
+  } catch {
+    origin = API_URL.replace(/\/api\/v\d+\/?$/, "");
+  }
+
+  // Strip any /api/v1 segment from the origin just in case the configured base
+  // has no trailing path (defensive), and normalize slashes.
+  const normalizedPath = "/" + trimmed.replace(/^\/+/, "");
+  return `${origin.replace(/\/+$/, "")}${normalizedPath}`;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,

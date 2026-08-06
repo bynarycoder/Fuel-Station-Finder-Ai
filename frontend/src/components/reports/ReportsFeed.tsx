@@ -13,6 +13,7 @@ import { Loader2, MessageSquare, Radio } from "lucide-react";
 
 import { useReportRealtime } from "@/hooks/useReportRealtime";
 import { useReports } from "@/hooks/useReports";
+import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
 
 export function ReportsFeed() {
@@ -102,14 +103,18 @@ export function ReportsFeed() {
               <p className="mt-2 line-clamp-2 text-xs text-gray-600">{report.notes}</p>
             )}
 
-            {report.photo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={report.photo_url}
-                alt="Reported station"
-                className="mt-2 h-24 w-full rounded-lg object-cover"
-              />
-            )}
+            {(() => {
+              const photoSrc = resolveMediaUrl(report.photo_url);
+              if (!photoSrc) return null;
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoSrc}
+                  alt="Reported station"
+                  className="mt-2 h-24 w-full rounded-lg object-cover"
+                />
+              );
+            })()}
           </div>
         ))}
       </div>
