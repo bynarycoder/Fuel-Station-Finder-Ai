@@ -28,8 +28,10 @@ def _compile(stmt) -> str:
 # --------------------------------------------------------------------------- #
 def test_list_query_selects_coordinates_and_paginates() -> None:
     sql = _compile(station_service.build_list_query(station_service.StationFilters(), 40, 20))
-    assert "ST_Y(fuel_stations.location) AS latitude" in sql
-    assert "ST_X(fuel_stations.location) AS longitude" in sql
+    assert "ST_Y" in sql and "AS latitude" in sql
+    assert "ST_X" in sql and "AS longitude" in sql
+    assert "fuel_stations.location" in sql
+    assert "AS geometry" in sql
     assert "ORDER BY" in sql
     assert "LIMIT" in sql and "OFFSET" in sql
 
@@ -106,6 +108,7 @@ def test_get_query_selects_coordinates_and_filters_by_id() -> None:
     station_id = uuid.uuid4()
     sql = _compile(station_service.build_get_query(station_id))
     assert "ST_Y" in sql and "ST_X" in sql
+    assert "AS geometry" in sql
     assert "WHERE fuel_stations.id =" in sql
 
 
