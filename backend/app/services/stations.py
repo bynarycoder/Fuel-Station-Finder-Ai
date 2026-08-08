@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from geoalchemy2 import Geography, WKTElement
+from geoalchemy2 import Geography, Geometry, WKTElement
 from sqlalchemy import asc, cast, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
@@ -55,11 +55,11 @@ def geography_point(latitude: float, longitude: float) -> WKTElement:
 
 
 def _latitude_column() -> Any:
-    return func.ST_Y(FuelStation.location).label("latitude")
+    return func.ST_Y(cast(FuelStation.location, Geometry)).label("latitude")
 
 
 def _longitude_column() -> Any:
-    return func.ST_X(FuelStation.location).label("longitude")
+    return func.ST_X(cast(FuelStation.location, Geometry)).label("longitude")
 
 
 # Eager-load each station's fuel offerings in a single round-trip.
@@ -297,8 +297,8 @@ async def update_station(
             current = (
                 await db.execute(
                     select(
-                        func.ST_Y(FuelStation.location),
-                        func.ST_X(FuelStation.location),
+                        _latitude_column(),
+                        _longitude_column(),
                     ).where(FuelStation.id == station_id)
                 )
             ).one()
