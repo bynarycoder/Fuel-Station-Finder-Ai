@@ -73,6 +73,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose }: SignInModalProps) {
     setError(null);
     setNotice(null);
 
+    // Validate inputs before setting busy state
     const validationError = validate();
     if (validationError) {
       setError(validationError);
