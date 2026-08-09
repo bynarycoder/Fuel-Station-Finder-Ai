@@ -16,9 +16,9 @@ This guide is **pre-deploy only** — it assumes the code in this repo and walks
 
 1. Create a project at [supabase.com](https://supabase.com) (pick a region close to your users). Supabase ships **PostGIS** enabled.
 2. From **Project Settings → API** and **Database**, collect:
-   - `Project URL` → `SUPABASE_URL`
+   - `Project URL` → `SUPABASE_URL` (for this deployment: `https://atkikyfishwziuvyyeob.supabase.co`)
    - `anon` public key → `SUPABASE_ANON_KEY`
-   - `JWT secret` → `SUPABASE_JWT_SECRET`
+   - The backend verifies the project's asymmetric ES256 access tokens with the public JWKS endpoint; do **not** use the anon key as a signing secret.
    - **Connection strings**:
      - *Session pooler (IPv4)* — required when the host (e.g. Render) cannot reach Supabase's IPv6 direct address. Use port **5432** (session mode) for sync/migrations and port **6543** (transaction mode) for the async runtime:
        - `DATABASE_URL` (sync: migrations/seed): `postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres`
@@ -44,13 +44,29 @@ This guide is **pre-deploy only** — it assumes the code in this repo and walks
 The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 
 1. On Render, **New → Blueprint** and point it at this repository. Render reads `render.yaml` and creates the `fuel-station-finder-api` web service (Docker runtime, `/health` health check, honours `$PORT`).
-2. Fill in the prompted secret env vars (the ones marked `sync: false`):
+2. Configure the Render environment variables:
    - `DATABASE_URL`, `ASYNC_DATABASE_URL` — from Supabase (step 1).
-   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`.
+   - `SUPABASE_URL` — `https://atkikyfishwziuvyyeob.supabase.co`.
+   - `SUPABASE_ANON_KEY` — the Supabase anon key (it is not used as a JWT signing key).
+   - `SUPABASE_JWT_ALGORITHM` — exactly `ES256`.
+   - `SUPABASE_JWT_AUDIENCE` — exactly `authenticated`.
+   - `SUPABASE_JWT_ISSUER` — `https://atkikyfishwziuvyyeob.supabase.co/auth/v1`.
+   - `SUPABASE_JWKS_URL` — `https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json`.
+   - `SUPABASE_JWKS_CACHE_TTL_SECONDS` — `300` (optional; the default is five minutes).
    - `GEMINI_API_KEY`, `GROQ_API_KEY` — optional; enable AI features.
    - `CORS_ORIGINS` — comma-separated, **must include your Vercel frontend URL**, e.g.
      `https://fuel-station-finder-omega.vercel.app`.
+
+   `SUPABASE_JWT_SECRET` is not required for this ES256 deployment. Remove or
+   clear the old legacy secret if it is still present; it is never used by the
+   ES256 verifier.
 3. Deploy. The service is healthy when `https://<your-render-app>.onrender.com/health` returns `{"status":"ok"}`.
+4. Verify authentication from the production frontend after deployment:
+   - Sign in at `https://fuel-station-finder-omega.vercel.app`.
+   - In the browser Network panel, find `GET https://fuel-station-finder-ai.onrender.com/api/v1/auth/me`.
+   - Confirm it has `Authorization: Bearer <access token>` and returns `200` with the local profile.
+   - Confirm the UI changes from `Sign in | Create Account` to the authenticated email and `Sign out`.
+   - If it returns `401`, check Render logs for `algorithm`, `kid`, `category`, and `issuer_valid` without sharing the token. Confirm the token's `kid` exists in the live JWKS response and that the issuer/audience variables exactly match the values above.
 
 > **Photo storage note:** uploaded report photos are written to the container's local `media/` directory, which is **ephemeral** on Render (lost on redeploy). For durability, mount a Render **Disk** at `media/` or swap `ImageStorage` for Supabase Storage — the storage layer is intentionally isolated for this.
 
@@ -85,10 +101,13 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 | :--- | :--- | :--- |
 | `DATABASE_URL` | ✔ | `postgresql://postgres.[ref]:[pw]@aws-0-[region].pooler.supabase.com:5432/postgres` (IPv4 session pooler; use direct only from an IPv6 host) |
 | `ASYNC_DATABASE_URL` | ✔ | `postgresql+asyncpg://postgres.[ref]:[pw]@aws-0-[region].pooler.supabase.com:6543/postgres` (transaction pooler; prepared-statement cache is disabled in code) |
-| `SUPABASE_URL` | ✔ | `https://[ref].supabase.co` |
-| `SUPABASE_ANON_KEY` | ✔ | `eyJhbGci...` |
-| `SUPABASE_JWT_SECRET` | ✔ | (Supabase JWT secret) |
-| `SUPABASE_JWT_AUDIENCE` | – | `authenticated` |
+| `SUPABASE_URL` | ✔ | `https://atkikyfishwziuvyyeob.supabase.co` |
+| `SUPABASE_ANON_KEY` | ✔ | `eyJhbGci...` (not a signing secret) |
+| `SUPABASE_JWT_ALGORITHM` | ✔ | `ES256` |
+| `SUPABASE_JWT_AUDIENCE` | ✔ | `authenticated` |
+| `SUPABASE_JWT_ISSUER` | ✔ | `https://atkikyfishwziuvyyeob.supabase.co/auth/v1` |
+| `SUPABASE_JWKS_URL` | ✔ | `https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json` |
+| `SUPABASE_JWKS_CACHE_TTL_SECONDS` | – | `300` |
 | `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-omega.vercel.app` |
 | `GEMINI_API_KEY` | – | (Google AI Studio) |
 | `GROQ_API_KEY` | – | (Groq console) |

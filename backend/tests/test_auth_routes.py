@@ -2,7 +2,7 @@
 End-to-end tests for the Phase 3 auth API.
 
 These drive the real FastAPI app (and a throwaway RBAC app) over HTTP against an
-in-memory SQLite database with real HS256 JWTs — exercising JWT verification,
+in-memory SQLite database with real ES256/JWKS JWTs — exercising JWT verification,
 just-in-time user provisioning, role-based access control and account disabling.
 """
 
@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import uuid
 
-from jose import jwt as jose_jwt
+from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import select
 
 from app.models import User, UserRole
 from tests.conftest import bearer
-from tests._tokens import TEST_JWT_SECRET
+from tests._tokens import mint_token
 
 DRIVER_ID = "22222222-2222-2222-2222-222222222222"
 IDEM_ID = "33333333-3333-3333-3333-333333333333"
@@ -95,10 +95,10 @@ async def test_me_expired_token_returns_401(client, make_token) -> None:
 
 
 async def test_me_bad_signature_returns_401(client) -> None:
-    token = jose_jwt.encode(
-        {"sub": DRIVER_ID, "email": "a@b.com", "iat": 1, "exp": 9999999999},
-        "the-wrong-secret",
-        algorithm="HS256",
+    token = mint_token(
+        sub=DRIVER_ID,
+        email="a@b.com",
+        signing_key=ec.derive_private_key(2, ec.SECP256R1()),
     )
     response = await client.get("/api/v1/auth/me", headers=bearer(token))
     assert response.status_code == 401

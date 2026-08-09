@@ -1,13 +1,13 @@
-import os
 from typing import List
-from pydantic import Field
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", 
-        env_file_encoding="utf-8", 
-        extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     PROJECT_NAME: str = "Fuel Station Finder AI"
@@ -21,12 +21,14 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
-    SUPABASE_JWT_SECRET: str = ""
-    # JWT verification knobs. Supabase signs access tokens with HS256 using the
-    # project JWT secret by default; set SUPABASE_JWT_AUDIENCE to "authenticated"
-    # to additionally require that the token is a genuine user-session token.
-    SUPABASE_JWT_ALGORITHM: str = "HS256"
-    SUPABASE_JWT_AUDIENCE: str = ""
+    # Supabase Auth currently uses asymmetric ES256 signing for this project.
+    # The verifier accepts only this algorithm and obtains public keys from JWKS.
+    SUPABASE_JWT_ALGORITHM: str = "ES256"
+    SUPABASE_JWT_AUDIENCE: str = "authenticated"
+    # These can be left empty to derive the issuer/JWKS URL from SUPABASE_URL.
+    SUPABASE_JWT_ISSUER: str = ""
+    SUPABASE_JWKS_URL: str = ""
+    SUPABASE_JWKS_CACHE_TTL_SECONDS: int = 300
 
     # AI APIs
     GEMINI_API_KEY: str = ""
@@ -50,8 +52,33 @@ class Settings(BaseSettings):
     )
 
     @property
+    def supabase_jwt_issuer(self) -> str:
+        """Return the exact Supabase Auth issuer used by access tokens."""
+        configured = self.SUPABASE_JWT_ISSUER.strip().rstrip("/")
+        if configured:
+            return configured
+
+        project_url = self.SUPABASE_URL.strip().rstrip("/")
+        if not project_url:
+            return ""
+        if project_url.endswith("/auth/v1"):
+            return project_url
+        return f"{project_url}/auth/v1"
+
+    @property
+    def supabase_jwks_url(self) -> str:
+        """Return the trusted Supabase project JWKS discovery URL."""
+        configured = self.SUPABASE_JWKS_URL.strip().rstrip("/")
+        if configured:
+            return configured
+
+        issuer = self.supabase_jwt_issuer
+        return f"{issuer}/.well-known/jwks.json" if issuer else ""
+
+    @property
     def cors_origins_list(self) -> List[str]:
         """CORS origins parsed from the comma-separated ``CORS_ORIGINS`` value."""
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
 
 settings = Settings()
