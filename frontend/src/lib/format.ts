@@ -12,6 +12,40 @@ export function formatDistance(meters?: number): string {
 }
 
 /**
+ * Haversine distance between two WGS-84 points, in metres.
+ * Used as a client-side fallback when the nearby endpoint's
+ * distance_meters is unavailable (e.g. StationDetail in browse mode).
+ */
+export function haversineDistance(
+  a: LatLng,
+  b: LatLng,
+): number {
+  const R = 6371000; // Earth radius in metres
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const h =
+    sinDLat * sinDLat +
+    Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Convenience wrapper: distance from user to a station, formatted. */
+export function formatDistanceFrom(
+  user: LatLng | null,
+  station: LatLng,
+  serverMeters?: number,
+): string {
+  if (typeof serverMeters === "number") return formatDistance(serverMeters);
+  if (!user) return "";
+  return formatDistance(haversineDistance(user, station));
+}
+
+/**
  * Build a Google Maps turn-by-turn directions URL — real routing without
  * needing a dedicated routing API key. Uses the user's location as the origin
  * when available, otherwise just the destination.
