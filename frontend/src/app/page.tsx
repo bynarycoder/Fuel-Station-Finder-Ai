@@ -11,7 +11,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Flame, Info, LogOut, MessageSquare, User, X } from "lucide-react";
+import { Flame, Info, LogOut, MessageSquare, User, UserPlus, X } from "lucide-react";
 
 import { SignInModal } from "@/components/auth/SignInModal";
 import StationMap from "@/components/map/StationMap";
@@ -35,6 +35,8 @@ export default function FinderPage() {
   const [showDetail, setShowDetail] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
+  // Track which tab the auth modal should open on.
+  const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
   // When sign-in is triggered from "Report price", reopen the form afterwards.
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
 
@@ -46,6 +48,7 @@ export default function FinderPage() {
   }
 
   function handleRequireSignIn() {
+    setAuthModalMode("signin");
     setSignInIntent("report");
     setShowSignIn(true);
   }
@@ -109,16 +112,30 @@ export default function FinderPage() {
               <span className="truncate">{auth.user?.email?.split("@")[0]}</span>
             </button>
           ) : auth.ready && auth.isAuthAvailable ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSignInIntent(null);
-                setShowSignIn(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
-            >
-              <User className="h-3.5 w-3.5" /> Sign in
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalMode("signin");
+                  setSignInIntent(null);
+                  setShowSignIn(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
+              >
+                <User className="h-3.5 w-3.5" /> Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalMode("signup");
+                  setSignInIntent(null);
+                  setShowSignIn(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-emerald-950 hover:bg-amber-400"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Create Account
+              </button>
+            </>
           ) : null}
 
           <Link
@@ -184,10 +201,12 @@ export default function FinderPage() {
         </CenteredModal>
       )}
 
-      {/* Sign-in */}
+      {/* Sign-in / Sign-up */}
       {showSignIn && (
         <CenteredModal onClose={() => { setShowSignIn(false); setSignInIntent(null); }}>
           <SignInModal
+            key={authModalMode}
+            initialMode={authModalMode}
             onSignIn={handleSignIn}
             onSignUp={handleSignUp}
             onClose={() => { setShowSignIn(false); setSignInIntent(null); }}
