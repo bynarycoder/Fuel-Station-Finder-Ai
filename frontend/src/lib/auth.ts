@@ -6,7 +6,23 @@
  */
 
 import { getSupabase } from "@/lib/supabase";
-import { setAuthToken } from "@/services/api";
+import { setAuthToken, setAuthTokenProvider } from "@/services/api";
+
+/**
+ * Return the access token of the live Supabase session, auto-refreshing it if
+ * expired. Used both by session restore and by the API layer to re-sync its
+ * bearer token after an auth rejection.
+ */
+export async function getFreshAccessToken(): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+// Let the API layer pull a fresh token without importing Supabase itself
+// (avoids a circular module dependency: lib/auth -> services/api -> lib/auth).
+setAuthTokenProvider(getFreshAccessToken);
 
 export async function signInWithEmail(email: string, password: string) {
   const supabase = getSupabase();
@@ -62,12 +78,30 @@ export async function signUpWithEmail(
 }
 
 export async function restoreSession(): Promise<string | null> {
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token ?? null;
+  const token = await getFreshAccessToken();
   setAuthToken(token);
   return token;
+}
+
+/**
+ * Mirror Supabase auth events (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT) into
+ * the API client's bearer token and notify the listener so React state can
+ * follow — e.g. automatic access-token refreshes or cross-tab sign-in/out.
+ * Returns an unsubscribe function; a no-op when Supabase isn't configured.
+ */
+export function subscribeToAuthChanges(
+  onSession: (accessToken: string | null) => void,
+): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    const accessToken = session?.access_token ?? null;
+    setAuthToken(accessToken);
+    onSession(accessToken);
+  });
+  return () => subscription.unsubscribe();
 }
 
 export async function signOut() {

@@ -18,6 +18,7 @@ import {
   signInWithEmail,
   signUpWithEmail,
   signOut as supabaseSignOut,
+  subscribeToAuthChanges,
 } from "@/lib/auth";
 
 export function useAuth() {
@@ -32,8 +33,14 @@ export function useAuth() {
         setReady(true);
       }
     });
+    // Follow Supabase auth events (token refreshes, cross-tab sign-in/out) so
+    // the API client's bearer token and this hook's state never go stale.
+    const unsubscribe = subscribeToAuthChanges((t) => {
+      if (active) setToken(t);
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -41,7 +48,11 @@ export function useAuth() {
     queryKey: ["me"],
     queryFn: fetchCurrentUser,
     enabled: !!token,
-    retry: false,
+    // Transient failures (cold-starting backend, timed-out CORS preflight)
+    // must not leave an authenticated user looking signed out — retry a
+    // bounded number of times with backoff.
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 4000),
   });
   const queryClient = useQueryClient();
 

@@ -78,6 +78,20 @@ export function setAuthToken(token: string | null) {
   authToken = token;
 }
 
+/**
+ * Provider registered by the auth layer (``lib/auth``) that returns the
+ * freshest access token from the live Supabase session. Used to re-sync the
+ * in-memory bearer token after an auth rejection (e.g. the module state was
+ * dropped, or Supabase rotated the access token). Injected to keep this
+ * module free of Supabase imports (lib/auth already imports this module).
+ */
+let authTokenProvider: (() => Promise<string | null>) | null = null;
+export function setAuthTokenProvider(
+  provider: (() => Promise<string | null>) | null,
+) {
+  authTokenProvider = provider;
+}
+
 type QueryValue = string | number | boolean | undefined | null;
 
 interface RequestOptions {
@@ -236,8 +250,39 @@ export async function submitReport(input: SubmitReportInput): Promise<FuelReport
 // --------------------------------------------------------------------------- #
 // Auth
 // --------------------------------------------------------------------------- #
-export function fetchCurrentUser() {
-  return request<User>("/auth/me");
+/**
+ * Fetch the caller's application profile (this call also JIT-provisions the
+ * local user row on first sight). If the backend rejects the bearer token,
+ * re-sync it once from the live Supabase session and retry — recovering from
+ * expired or lost in-memory tokens. This never weakens authentication: only
+ * tokens issued to a real Supabase session are attached, and a genuinely
+ * invalid session still fails with the backend's original error.
+ */
+export async function fetchCurrentUser(): Promise<User> {
+  try {
+    return await request<User>("/auth/me");
+  } catch (err) {
+    const isAuthRejection =
+      err instanceof ApiError && (err.status === 401 || err.status === 403);
+    if (!isAuthRejection || !authTokenProvider) {
+      console.warn("[auth] /auth/me request failed:", err);
+      throw err;
+    }
+
+    const fresh = await authTokenProvider();
+    if (!fresh || fresh === authToken) {
+      console.warn("[auth] /auth/me request failed:", err);
+      throw err;
+    }
+
+    setAuthToken(fresh);
+    try {
+      return await request<User>("/auth/me");
+    } catch (retryErr) {
+      console.warn("[auth] /auth/me failed after token re-sync:", retryErr);
+      throw retryErr;
+    }
+  }
 }
 
 // --------------------------------------------------------------------------- #
