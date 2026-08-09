@@ -2,9 +2,9 @@
 Shared pytest fixtures for the Phase 3 authentication tests.
 
 The auth flow is exercised end-to-end against a real (in-memory SQLite) database
-and real JWT crypto — no mocks. Because the ``User`` table has no PostGIS
-dependency, it can be created on SQLite, while ``get_db`` is overridden to point
-at the test session.
+and real ES256 JWT crypto — no authentication bypasses. Because the ``User``
+table has no PostGIS dependency, it can be created on SQLite, while ``get_db``
+is overridden to point at the test session.
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user, require_roles
-from app.core import config
+from app.core import config, security
 from app.core.database import get_db
 from app.main import app as production_app
 from app.models import User, UserRole
-from tests._tokens import TEST_JWT_SECRET, mint_token
+from tests._tokens import TEST_JWK, TEST_JWKS_URL, TEST_SUPABASE_ISSUER, mint_token
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -36,11 +36,19 @@ def bearer(token: str) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 @pytest.fixture(autouse=True)
 def _configure_jwt(monkeypatch: pytest.MonkeyPatch):
-    """Pin JWT settings so the suite never depends on real Supabase."""
-    monkeypatch.setattr(config.settings, "SUPABASE_JWT_SECRET", TEST_JWT_SECRET)
-    monkeypatch.setattr(config.settings, "SUPABASE_JWT_ALGORITHM", "HS256")
-    monkeypatch.setattr(config.settings, "SUPABASE_JWT_AUDIENCE", "")
+    """Pin JWT settings and JWKS so the suite never depends on real Supabase."""
+    monkeypatch.setattr(config.settings, "SUPABASE_JWT_ALGORITHM", "ES256")
+    monkeypatch.setattr(config.settings, "SUPABASE_JWT_AUDIENCE", "authenticated")
+    monkeypatch.setattr(config.settings, "SUPABASE_JWT_ISSUER", TEST_SUPABASE_ISSUER)
+    monkeypatch.setattr(config.settings, "SUPABASE_JWKS_URL", TEST_JWKS_URL)
+    monkeypatch.setattr(
+        security,
+        "_fetch_jwks",
+        lambda _url: {"keys": [TEST_JWK]},
+    )
+    security.clear_jwks_cache()
     yield
+    security.clear_jwks_cache()
 
 
 @pytest.fixture

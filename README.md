@@ -119,7 +119,7 @@ We construct our project incrementally, strictly executing REQUIRED features fir
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Project Setup** | **REQUIRED** | ✔ **Completed** | Monorepo configuration, Next.js 15 & React 19 upgrade, Python 3.12 Docker environments, and GitHub Actions CI. |
 | **Phase 2** | **Database Schema** | **REQUIRED** | ✔ **Completed** | PostgreSQL schema, PostGIS spatial mapping, SQLAlchemy 2.0 models, Alembic migrations, and seed data for Nigerian stations (Mobil, NNPC, Conoil, etc.). |
-| **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, HS256 JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
+| **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, ES256/JWKS JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
 | **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
 | **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
 | **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
@@ -157,9 +157,9 @@ The spatial data layer is built on **PostgreSQL + PostGIS**, modelled with **SQL
 Authentication is **delegated to Supabase Auth** — it owns signup, login, password hashing and session issuance, so the backend never stores or handles credentials. The backend's job is to **verify Supabase-issued JWTs** and attach the caller's identity and application role to each request.
 
 ### How a protected request flows
-1. The frontend signs in with Supabase and receives an access token (HS256-signed with the project's JWT secret).
+1. The frontend signs in with Supabase and receives an access token signed with the project's asymmetric ES256 key.
 2. It sends that token as `Authorization: Bearer <token>` to the backend.
-3. `app/core/security.py` verifies signature, expiry, and (optionally) audience via `python-jose`.
+3. `app/core/security.py` reads the header `kid`, selects the matching cached Supabase JWKS public key, and verifies the ES256 signature, issuer, audience, expiry, and Supabase role via PyJWT.
 4. `app/api/deps.py::get_current_user` decodes the token and **just-in-time provisions** a local `User` row (creating it on first sighting, refreshing email/name thereafter) — so the `users` table always mirrors Supabase identities without a separate sync job.
 5. Endpoints declare their access needs with `require_roles(UserRole.ADMIN, ...)` for **role-based access control**.
 
@@ -179,7 +179,7 @@ Authentication is **delegated to Supabase Auth** — it owns signup, login, pass
 | `GET` | `/api/v1/auth/roles` | public | Lists application roles for the frontend sign-up flow. |
 
 ### Configuration
-Set `SUPABASE_JWT_SECRET` (required) and optionally `SUPABASE_JWT_ALGORITHM` (`HS256` default) and `SUPABASE_JWT_AUDIENCE` (set to `authenticated` to additionally require genuine user-session tokens). See `backend/.env.example`.
+Set `SUPABASE_URL`, `SUPABASE_JWT_ALGORITHM=ES256`, `SUPABASE_JWT_AUDIENCE=authenticated`, and the exact project issuer/JWKS URL (or leave those two URLs blank to derive them from `SUPABASE_URL`). `SUPABASE_JWKS_CACHE_TTL_SECONDS` defaults to 300 seconds. The backend does not use the frontend anon key or a legacy JWT secret to verify ES256 tokens. See `backend/.env.example`.
 
 ---
 
