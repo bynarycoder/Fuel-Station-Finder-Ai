@@ -32,14 +32,16 @@ interface SignInModalProps {
     password: string,
   ) => Promise<{ isSignedIn: boolean; requiresEmailConfirmation: boolean }>;
   onClose: () => void;
+  /** Open the modal in a specific tab ("signin" or "signup"). Defaults to "signin". */
+  initialMode?: Mode;
 }
 
 // Supabase enforces a 6-character minimum by default; mirror it client-side for
 // immediate feedback before the round-trip.
 const MIN_PASSWORD_LENGTH = 6;
 
-export function SignInModal({ onSignIn, onSignUp, onClose }: SignInModalProps) {
-  const [mode, setMode] = useState<Mode>("signin");
+export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignInModalProps) {
+  const [mode, setMode] = useState<Mode>(initialMode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
