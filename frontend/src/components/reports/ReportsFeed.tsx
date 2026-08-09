@@ -111,6 +111,7 @@ export function ReportsFeed() {
                 <img
                   src={photoSrc}
                   alt="Reported station"
+                  loading="lazy"
                   className="mt-2 h-24 w-full rounded-lg object-cover"
                 />
               );

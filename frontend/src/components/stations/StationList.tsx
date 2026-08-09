@@ -4,20 +4,23 @@
  * Scrollable list of stations with loading / error / empty states.
  *
  * Each row shows the station summary, its offered fuels, the distance (in
- * nearby mode), a "Focus" action (selects the station on the map) and a
- * "Directions" deep link.
+ * nearby mode), a favorite heart (authenticated), a "Focus" action (selects
+ * the station on the map) and a "Directions" deep link.
  *
  * In nearby mode the list additionally renders a prominent "Closest to you"
- * card for the nearest station, as required by the capstone spec.
+ * card for the nearest station — with real latest prices, queue length and
+ * report freshness pulled from the station's actual reports.
  */
 
-import { Crown, Fuel, MapPin, Navigation, SearchX } from "lucide-react";
+import { Crown, Fuel, Heart, MapPin, Navigation, SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useStationReports } from "@/hooks/useStationReports";
 import type { StationItem } from "@/hooks/useStations";
+import { QUEUE_LENGTH_LABELS } from "@/types/report";
 import type { LatLng } from "@/types/station";
-import { directionsUrl, formatDistance } from "@/lib/format";
+import { directionsUrl, formatDistance, formatRelative, haversineDistance } from "@/lib/format";
 
 interface StationListProps {
   items: StationItem[];
@@ -28,6 +31,9 @@ interface StationListProps {
   userLocation: LatLng | null;
   onSelect: (id: string) => void;
   onRetry: () => void;
+  /** Favorites support (optional — omitted when favorites are unavailable). */
+  favoriteIds?: Set<string>;
+  onToggleFavorite?: (stationId: string) => void;
 }
 
 export function StationList({
@@ -39,6 +45,8 @@ export function StationList({
   userLocation,
   onSelect,
   onRetry,
+  favoriteIds,
+  onToggleFavorite,
 }: StationListProps) {
   if (isLoading) {
     return (
@@ -89,9 +97,25 @@ export function StationList({
     );
   }
 
-  // In nearby mode, nearest is first (already server-sorted); otherwise sort by name.
+  // In nearby mode, sort nearest → farthest (server value, else Haversine
+  // from the user's position) so the list never depends on API ordering.
+  // In browse mode, sort by name.
   const sorted = isNearby
-    ? items
+    ? [...items].sort((a, b) => {
+        const da =
+          typeof a.distance_meters === "number"
+            ? a.distance_meters
+            : userLocation
+              ? haversineDistance(userLocation, a)
+              : Number.MAX_SAFE_INTEGER;
+        const db =
+          typeof b.distance_meters === "number"
+            ? b.distance_meters
+            : userLocation
+              ? haversineDistance(userLocation, b)
+              : Number.MAX_SAFE_INTEGER;
+        return da - db;
+      })
     : [...items].sort((a, b) => a.name.localeCompare(b.name));
 
   const closest = isNearby ? sorted[0] : null;
@@ -110,13 +134,15 @@ export function StationList({
           userLocation={userLocation}
           onSelect={onSelect}
           isSelected={closest.id === selectedId}
+          isFavorite={favoriteIds?.has(closest.id) ?? false}
+          onToggleFavorite={onToggleFavorite}
         />
       )}
 
       {/* Remaining stations (or all if not nearby) */}
       {(isNearby ? sorted.slice(1) : sorted).map((station) => {
         const isSelected = station.id === selectedId;
-        // In nearby mode the closest is already shown above; highlight none of the rest as closest.
+        const isFavorite = favoriteIds?.has(station.id) ?? false;
         return (
           <button
             key={station.id}
@@ -144,11 +170,39 @@ export function StationList({
                   </p>
                 )}
               </div>
-              {typeof station.distance_meters === "number" && (
-                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                  {formatDistance(station.distance_meters)}
-                </span>
-              )}
+              <div className="flex shrink-0 items-center gap-1.5">
+                {typeof station.distance_meters === "number" && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    {formatDistance(station.distance_meters)}
+                  </span>
+                )}
+                {onToggleFavorite && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    aria-pressed={isFavorite}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(station.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onToggleFavorite(station.id);
+                      }
+                    }}
+                    className={`rounded-full p-1.5 transition-colors ${
+                      isFavorite
+                        ? "text-amber-500 hover:text-amber-600"
+                        : "text-gray-300 hover:text-amber-400"
+                    }`}
+                  >
+                    <Heart className={`h-4 w-4 ${isFavorite ? "fill-amber-500" : ""}`} />
+                  </span>
+                )}
+              </div>
             </div>
 
             {station.fuel_types.length > 0 && (
@@ -196,23 +250,41 @@ function ClosestCard({
   userLocation,
   onSelect,
   isSelected,
+  isFavorite,
+  onToggleFavorite,
 }: {
   station: StationItem;
   userLocation: LatLng | null;
   onSelect: (id: string) => void;
   isSelected: boolean;
+  isFavorite: boolean;
+  onToggleFavorite?: (stationId: string) => void;
 }) {
+  // Pull the closest station's actual reports (prices, queue, freshness).
+  const { data, isLoading: reportsLoading } = useStationReports(station.id);
+  const reports = data?.items ?? [];
+  const latest = reports[0] ?? null;
+
   const hasPms = station.fuel_types.some((f) => f.code === "PMS");
   const hasAgo = station.fuel_types.some((f) => f.code === "AGO");
   const hasDpk = station.fuel_types.some((f) => f.code === "DPK");
   const hasLpg = station.fuel_types.some((f) => f.code === "LPG");
+  const hasCng = station.fuel_types.some((f) => f.code === "CNG");
 
-  // Build a short availability summary that mirrors the spec example.
+  // Latest price per fuel type (from the latest reports, price-only rows).
+  const latestByFuel = new Map<string, number>();
+  for (const r of reports) {
+    if (r.price_per_litre != null && !latestByFuel.has(r.fuel_type.code)) {
+      latestByFuel.set(r.fuel_type.code, r.price_per_litre);
+    }
+  }
+
   const availabilityParts: string[] = [];
   if (hasPms) availabilityParts.push("PMS");
   if (hasAgo) availabilityParts.push("AGO");
   if (hasDpk) availabilityParts.push("DPK");
-  if (hasLpg) availabilityParts.push("CNG/LPG");
+  if (hasLpg) availabilityParts.push("LPG");
+  if (hasCng) availabilityParts.push("CNG");
   const availabilityLabel =
     availabilityParts.length > 0 ? availabilityParts.join(" · ") : "Fuel info in details";
 
@@ -224,8 +296,23 @@ function ClosestCard({
           : "border-amber-400 bg-gradient-to-br from-amber-50 to-white"
       }`}
     >
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-700">
-        <Crown className="h-3.5 w-3.5" /> Closest to you
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+          <Crown className="h-3.5 w-3.5" /> Closest to you
+        </div>
+        {onToggleFavorite && (
+          <button
+            type="button"
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            aria-pressed={isFavorite}
+            onClick={() => onToggleFavorite(station.id)}
+            className={`rounded-full p-1.5 transition-colors ${
+              isFavorite ? "text-amber-500" : "text-gray-300 hover:text-amber-400"
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? "fill-amber-500" : ""}`} />
+          </button>
+        )}
       </div>
 
       <div className="flex items-start justify-between gap-2">
@@ -249,34 +336,37 @@ function ClosestCard({
         )}
       </div>
 
-      {/* Spec example fields: availability, price, queue — show what we know */}
+      {/* Latest prices + queue + freshness from real reports */}
       <div className="mt-3 space-y-1.5 rounded-xl bg-white/80 p-2.5 ring-1 ring-amber-100">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-          {hasPms ? "🟢 PMS available" : availabilityLabel}
+          {hasPms ? "🟢 Fuel available" : availabilityLabel}
         </p>
-        {/* Price / queue are per-report; the list endpoint carries fuel_types but not prices.
-            We surface fuels and direct the user to the details for live prices/queue. */}
-        <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
-          <Fuel className="h-3.5 w-3.5 text-gray-400" />
-          {station.fuel_types.length > 0 ? (
-            station.fuel_types.map((f) => (
-              <span
-                key={f.code}
-                className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
-              >
-                {f.code}
+        {reportsLoading ? (
+          <p className="text-xs text-gray-400">Loading latest prices…</p>
+        ) : latestByFuel.size > 0 ? (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            {[...latestByFuel.entries()].map(([code, price]) => (
+              <span key={code} className="text-xs font-semibold text-gray-800">
+                {code}: <span className="text-emerald-700">₦{price.toLocaleString()}/L</span>
               </span>
-            ))
-          ) : (
-            <span className="text-gray-500">Fuel options in details →</span>
-          )}
-          <span className="text-gray-400">· Tap View for prices & queue</span>
-        </p>
-        <p className="text-[11px] leading-relaxed text-gray-500">
-          Live prices, queue length and community confidence are shown in <strong>View Station</strong>.
-          Verified reports are highlighted there.
-        </p>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">No price reports yet — check View Station.</p>
+        )}
+        {latest?.queue_length && (
+          <p className="text-xs font-medium text-gray-700">
+            Queue: {QUEUE_LENGTH_LABELS[latest.queue_length]}
+          </p>
+        )}
+        {latest && (
+          <p className="flex flex-wrap items-center gap-1 text-[11px] text-gray-500">
+            <Fuel className="h-3 w-3 text-gray-400" />
+            Reported {formatRelative(latest.created_at)}
+            {latest.status === "verified" ? " · ✅ verified" : " · pending verification"}
+          </p>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">

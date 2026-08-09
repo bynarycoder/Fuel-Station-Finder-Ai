@@ -24,19 +24,33 @@ import {
   Loader2,
   MapPin,
   Navigation,
+  Phone,
   ShieldCheck,
   Star,
+  TrendingDown,
+  TrendingUp,
   X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useStationReports } from "@/hooks/useStationReports";
 import {
+  confidenceLabel,
+  confidenceColor,
+  formatConfidencePercent,
+} from "@/lib/confidence";
+import {
   directionsUrl,
   formatDistance,
   formatRelative,
   haversineDistance,
 } from "@/lib/format";
+import {
+  buildPriceSeries,
+  sparklinePoints,
+  trendDirection,
+} from "@/lib/priceHistory";
+import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS, type FuelReport } from "@/types/report";
 import {
   FUEL_TYPE_CODES,
@@ -56,6 +70,9 @@ interface StationDetailProps {
   station: Station & Partial<StationItem>;
   userLocation: LatLng | null;
   isAuthed: boolean;
+  /** Favorites support (optional). */
+  isFavorite?: boolean;
+  onToggleFavorite?: (stationId: string) => void;
   onReportPrice: () => void;
   onRequireSignIn: () => void;
   onClose: () => void;
@@ -65,6 +82,8 @@ export function StationDetail({
   station,
   userLocation,
   isAuthed,
+  isFavorite = false,
+  onToggleFavorite,
   onReportPrice,
   onRequireSignIn,
   onClose,
@@ -92,15 +111,24 @@ export function StationDetail({
     }
   }
 
-  // Confidence hint: based on latest report verification.
+  // Confidence hint: numeric AI score when available, else verification-based.
+  const aiScore = latest?.ai_confidence_score ?? null;
   const confidence =
-    latest?.status === "verified"
-      ? { label: "High — verified community report", color: "text-emerald-700 bg-emerald-50 border-emerald-200" }
-      : latest?.status === "pending"
-        ? { label: "Medium — pending verification", color: "text-amber-700 bg-amber-50 border-amber-200" }
-        : reports.length === 0
-          ? { label: "No reports yet — be the first", color: "text-gray-600 bg-gray-50 border-gray-200" }
-          : { label: "Community reports available", color: "text-gray-600 bg-gray-50 border-gray-200" };
+    aiScore != null
+      ? {
+          label: `AI Confidence ${formatConfidencePercent(aiScore)} — ${confidenceLabel(aiScore)}`,
+          color: confidenceColor(aiScore),
+        }
+      : latest?.status === "verified"
+        ? { label: "High — verified community report", color: "text-emerald-700 bg-emerald-50 border-emerald-200" }
+        : latest?.status === "pending"
+          ? { label: "Medium — pending verification", color: "text-amber-700 bg-amber-50 border-amber-200" }
+          : reports.length === 0
+            ? { label: "No reports yet — be the first", color: "text-gray-600 bg-gray-50 border-gray-200" }
+            : { label: "Community reports available", color: "text-gray-600 bg-gray-50 border-gray-200" };
+
+  // Price-history series per fuel (from ACTUAL reports only).
+  const priceSeries = buildPriceSeries(reports);
 
   return (
     <div className="flex h-full flex-col">
@@ -211,6 +239,13 @@ export function StationDetail({
           <span>Confidence: {confidence.label}</span>
         </div>
 
+        {/* Phone */}
+        {station.phone && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-gray-600">
+            <Phone className="h-3.5 w-3.5 text-gray-400" /> {station.phone}
+          </p>
+        )}
+
         <div className="mt-3 flex flex-wrap gap-2">
           <a
             href={directionsUrl(
@@ -219,19 +254,38 @@ export function StationDetail({
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800"
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800"
           >
-            <Navigation className="h-3.5 w-3.5" /> Get directions
+            <Navigation className="h-3.5 w-3.5" /> Navigate to this station
           </a>
-          <button
-            type="button"
-            disabled
-            title="Favorites coming soon — saved stations for quick access"
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-400"
-          >
-            <Heart className="h-3.5 w-3.5" /> Favorite (soon)
-          </button>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              aria-pressed={isFavorite}
+              onClick={() => onToggleFavorite(station.id)}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${
+                isFavorite
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-600"
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${isFavorite ? "fill-amber-500" : ""}`} />
+              {isFavorite ? "Favorited" : "Favorite"}
+            </button>
+          )}
         </div>
+
+        {/* Latest report photo (remote media origin — plain img, like the feed) */}
+        {latest?.photo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolveMediaUrl(latest.photo_url) ?? undefined}
+            alt={`Photo from the latest report at ${station.name}`}
+            loading="lazy"
+            className="mt-3 h-32 w-full rounded-xl border border-gray-200 object-cover"
+          />
+        )}
       </div>
 
       {/* Latest price */}
@@ -253,10 +307,93 @@ export function StationDetail({
           </p>
         )}
 
+        {/* Dedicated per-fuel price history (from actual reports only) */}
+        {priceSeries.length > 0 && (
+          <div className="mt-4">
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <DollarSign className="h-3.5 w-3.5" /> Price history by fuel
+            </h4>
+            <div className="space-y-2">
+              {priceSeries.map((series) => {
+                const direction = trendDirection(series);
+                return (
+                  <div
+                    key={series.fuelCode}
+                    className="rounded-xl border border-gray-200 bg-white p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">
+                          {series.fuelCode}
+                          <span className="ml-1.5 font-medium text-gray-400">
+                            {series.fuelName}
+                          </span>
+                        </p>
+                        <p className="mt-0.5 text-sm font-extrabold text-emerald-700">
+                          {series.latestPrice != null
+                            ? `₦${series.latestPrice.toLocaleString()}/L`
+                            : "—"}
+                          {series.change != null && series.change !== 0 && (
+                            <span
+                              className={`ml-1.5 inline-flex items-center gap-0.5 text-[11px] font-bold ${
+                                series.change > 0 ? "text-red-600" : "text-emerald-600"
+                              }`}
+                            >
+                              {series.change > 0 ? (
+                                <TrendingUp className="h-3 w-3" />
+                              ) : (
+                                <TrendingDown className="h-3 w-3" />
+                              )}
+                              {series.change > 0 ? "+" : ""}
+                              {series.changePercent != null
+                                ? `${(series.changePercent * 100).toFixed(1)}%`
+                                : `₦${Math.abs(series.change).toFixed(0)}`}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {series.points.length >= 2 && (
+                        <svg
+                          width={110}
+                          height={36}
+                          viewBox="0 0 110 36"
+                          role="img"
+                          aria-label={`${series.fuelCode} price trend sparkline`}
+                          className="shrink-0"
+                        >
+                          <polyline
+                            points={sparklinePoints(series, 110, 36)}
+                            fill="none"
+                            stroke="#059669"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-gray-500">
+                      {series.points.length} report{series.points.length === 1 ? "" : "s"} ·
+                      {direction === "up"
+                        ? " price rising"
+                        : direction === "down"
+                          ? " price falling"
+                          : direction === "flat"
+                            ? " price stable"
+                            : " no trend yet"}
+                      {series.latestAt ? ` · last ${formatRelative(series.latestAt)}` : ""}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {reports.length > 0 && (
           <div className="mt-4">
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Price history (recent)
+              Recent reports
             </h4>
             <div className="space-y-2">
               {reports.slice(0, 6).map((r) => (
@@ -264,25 +401,13 @@ export function StationDetail({
               ))}
               {reports.length > 6 && (
                 <p className="pt-1 text-center text-[11px] text-gray-400">
-                  Showing latest {Math.min(6, reports.length)} of {reports.length} reports · 7-day history available in Reports feed
+                  Showing latest {Math.min(6, reports.length)} of {reports.length} reports
                 </p>
               )}
             </div>
           </div>
         )}
 
-        {reports.length > 1 && (
-          <div className="mt-4">
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Recent community reports
-            </h4>
-            <div className="space-y-2">
-              {reports.slice(1, 6).map((r) => (
-                <ReportRow key={r.id} report={r} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Primary action */}
@@ -338,13 +463,24 @@ function LatestPriceCard({ report }: { report: FuelReport }) {
 }
 
 function ReportRow({ report }: { report: FuelReport }) {
+  const aiScore = report.ai_confidence_score ?? null;
   return (
     <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 text-xs">
-      <span className="font-medium text-gray-700">
-        {report.fuel_type.code}
-        {report.queue_length ? ` · ${QUEUE_LENGTH_LABELS[report.queue_length]}` : ""}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="font-medium text-gray-700">
+          {report.fuel_type.code}
+          {report.queue_length ? ` · ${QUEUE_LENGTH_LABELS[report.queue_length]}` : ""}
+        </span>
+        {aiScore != null && (
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${confidenceColor(aiScore)}`}
+            title="AI verification confidence"
+          >
+            AI {formatConfidencePercent(aiScore)}
+          </span>
+        )}
       </span>
-      <span className="flex items-center gap-2">
+      <span className="flex shrink-0 items-center gap-2">
         {report.price_per_litre != null && (
           <span className="font-semibold text-gray-900">
             ₦{report.price_per_litre.toLocaleString()}/L

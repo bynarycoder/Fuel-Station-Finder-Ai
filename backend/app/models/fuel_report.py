@@ -112,6 +112,12 @@ class FuelReport(TimestampMixin, Base):
     verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Gemini verification score (0..1) from the AI verify endpoint, persisted so
+    # the UI can show "AI confidence" without re-running the model. NULL until
+    # an AI verification has been performed on the report's photo.
+    ai_confidence_score: Mapped[float | None] = mapped_column(
+        Numeric(4, 3), nullable=True
+    )
 
     station: Mapped["FuelStation"] = relationship(lazy="selectin")
     reported_by: Mapped["User"] = relationship(lazy="selectin")

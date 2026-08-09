@@ -28,6 +28,7 @@ interface StationMapProps {
   userLocation: LatLng | null;
   selectedStationId: string | null;
   isNearby: boolean;
+  closestStationId?: string | null;
   onSelect: (id: string) => void;
 }
 

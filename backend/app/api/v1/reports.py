@@ -152,8 +152,15 @@ async def verify_report(
     except AINotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
 
+    # Persist the numeric AI confidence so it can be surfaced anywhere the
+    # report appears (station detail, admin, feeds) without re-running the model.
     if result.score >= VERIFICATION_THRESHOLD:
-        await report_service.mark_report_verified(db, report)
+        await report_service.mark_report_verified(db, report, result.score)
+    else:
+        # Score below threshold: keep the report pending but still store the
+        # measured confidence for audit/UI purposes.
+        report.ai_confidence_score = result.score
+        await db.commit()
 
     return VerificationResultPublic(
         score=result.score,

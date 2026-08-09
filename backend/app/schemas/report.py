@@ -50,6 +50,8 @@ class FuelReportPublic(BaseModel):
     status: ReportStatus
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    # Gemini verification score (0..1); null until an AI verification ran.
+    ai_confidence_score: float | None = None
 
 
 class PaginatedReports(BaseModel):

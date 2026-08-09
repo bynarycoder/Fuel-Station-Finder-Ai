@@ -8,16 +8,19 @@
 
 import L from "leaflet";
 
-const stationPin = (selected: boolean): string => `
-  <div class="fuel-pin ${selected ? "fuel-pin--selected" : ""}">
-    <svg width="28" height="36" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
+const stationPin = (selected: boolean, closest = false): string => {
+  const fill = closest ? "#d97706" : selected ? "#b45309" : "#047857";
+  return `
+  <div class="fuel-pin ${selected ? "fuel-pin--selected" : ""} ${closest ? "fuel-pin--closest" : ""}">
+    <svg width="${closest ? 34 : 28}" height="${closest ? 44 : 36}" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z"
-        fill="${selected ? "#b45309" : "#047857"}" stroke="white" stroke-width="1.5"/>
+        fill="${fill}" stroke="white" stroke-width="1.5"/>
       <circle cx="12" cy="12" r="6" fill="white"/>
       <text x="12" y="16" text-anchor="middle" font-size="9" font-weight="700"
-        fill="${selected ? "#b45309" : "#047857"}">⛽</text>
+        fill="${fill}">${closest ? "👑" : "⛽"}</text>
     </svg>
   </div>`;
+};
 
 export const stationIcon = L.divIcon({
   className: "fuel-station-marker",
@@ -30,6 +33,15 @@ export const stationIcon = L.divIcon({
 export const selectedStationIcon = L.divIcon({
   className: "fuel-station-marker fuel-station-marker--selected",
   html: stationPin(true),
+  iconSize: [34, 44],
+  iconAnchor: [17, 44],
+  popupAnchor: [0, -40],
+});
+
+/** Distinct amber "crown" pin for the closest station in nearby mode. */
+export const closestStationIcon = L.divIcon({
+  className: "fuel-station-marker fuel-station-marker--closest",
+  html: stationPin(false, true),
   iconSize: [34, 44],
   iconAnchor: [17, 44],
   popupAnchor: [0, -40],

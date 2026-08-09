@@ -75,6 +75,11 @@ def report_to_public(report: FuelReport) -> dict[str, Any]:
         "status": report.status,
         "created_at": report.created_at,
         "updated_at": report.updated_at,
+        "ai_confidence_score": (
+            float(report.ai_confidence_score)
+            if report.ai_confidence_score is not None
+            else None
+        ),
     }
 
 
@@ -163,10 +168,18 @@ async def get_report_for_verification(
     return await db.get(FuelReport, report_id)
 
 
-async def mark_report_verified(db: AsyncSession, report: FuelReport) -> None:
-    """Promote a report to verified and stamp the verification time."""
+async def mark_report_verified(
+    db: AsyncSession, report: FuelReport, ai_confidence_score: float | None = None
+) -> None:
+    """Promote a report to verified and stamp the verification time.
+
+    ``ai_confidence_score`` (0..1, from Gemini) is persisted alongside so the
+    UI can surface the numeric AI confidence for the report.
+    """
     report.status = ReportStatus.VERIFIED
     report.verified_at = datetime.now(timezone.utc)
+    if ai_confidence_score is not None:
+        report.ai_confidence_score = ai_confidence_score
     await db.commit()
 
 

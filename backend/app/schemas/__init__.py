@@ -12,6 +12,7 @@ from app.schemas.ai import (
     VerificationResultPublic,
 )
 from app.schemas.auth import RoleInfo, TokenClaims
+from app.schemas.favorites import FavoriteList, FavoritePublic
 from app.schemas.report import (
     FuelReportPublic,
     PaginatedReports,
@@ -31,6 +32,8 @@ from app.schemas.user import UserPublic
 
 __all__ = [
     "AnalyticsSummary",
+    "FavoriteList",
+    "FavoritePublic",
     "NaturalLanguageSearchResult",
     "FuelReportPublic",
     "FuelStationCreate",

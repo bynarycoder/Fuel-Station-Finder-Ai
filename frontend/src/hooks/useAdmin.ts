@@ -14,6 +14,7 @@ import {
   fetchAdminUsers,
   setReportStatus,
   updateUser,
+  verifyReport,
 } from "@/services/api";
 
 export const ADMIN_KEYS = {
@@ -27,6 +28,18 @@ export function useAdminAnalytics(enabled = true) {
     queryKey: ADMIN_KEYS.analytics,
     queryFn: fetchAdminAnalytics,
     enabled,
+  });
+}
+
+/** Run Gemini photo verification on a report (admin only — backend enforces). */
+export function useVerifyReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reportId: string) => verifyReport(reportId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.reports });
+      void queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
   });
 }
 
