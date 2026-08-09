@@ -21,6 +21,7 @@ import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Circle,
   MapContainer,
   Marker,
   Popup,
@@ -31,11 +32,13 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 
 import {
+  closestStationIcon,
   clusterIcon,
   selectedStationIcon,
   stationIcon,
   userLocationIcon,
 } from "./icons";
+import { useMapStore } from "@/store/useMapStore";
 import type { StationItem } from "@/hooks/useStations";
 import type { LatLng } from "@/types/station";
 import { directionsUrl, formatDistance } from "@/lib/format";
@@ -49,6 +52,8 @@ interface MapViewProps {
   userLocation: LatLng | null;
   selectedStationId: string | null;
   isNearby: boolean;
+  /** Id of the nearest station (highlighted with a crown pin). */
+  closestStationId?: string | null;
   onSelect: (id: string) => void;
 }
 
@@ -78,34 +83,43 @@ function MapController({
   // manual panning. Subsequent location updates are reflected only by the
   // marker moving; the user can recenter explicitly.
   useEffect(() => {
-    const enteredNearby = isNearby && !prevNearbyRef.current;
+    if (!isNearby) {
+      // Reset the "has centered" flag when leaving nearby mode.
+      hasCenteredNearbyRef.current = false;
+      prevNearbyRef.current = false;
+      return;
+    }
+
+    const enteredNearby = !prevNearbyRef.current;
+
     if (enteredNearby && userLocation) {
-      // If we have stations, try to fit both user + stations with padding,
-      // otherwise just center on the user at a sensible zoom.
-      if (items.length > 0) {
-        try {
-          const bounds = L.latLngBounds(
-            [userLocation.latitude, userLocation.longitude],
-            [userLocation.latitude, userLocation.longitude],
-          );
-          for (const s of items) bounds.extend([s.latitude, s.longitude]);
-          // Don't zoom out too far if stations are spread; maxZoom 14 keeps detail.
-          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: true });
-          hasCenteredNearbyRef.current = true;
-          prevNearbyRef.current = isNearby;
-          return;
-        } catch {
-          // fall through to flyTo
-        }
-      }
+      // Entering nearby mode: center on the user right away (don't wait for
+      // the nearby query), at a sensible zoom.
       map.flyTo([userLocation.latitude, userLocation.longitude], 13, {
         duration: 0.75,
       });
-      hasCenteredNearbyRef.current = true;
     }
-    // Reset the "has centered" flag when leaving nearby mode.
-    if (!isNearby) hasCenteredNearbyRef.current = false;
-    prevNearbyRef.current = isNearby;
+
+    // Fit user + stations once results are available (either immediately on
+    // entry, or when they arrive a moment later). Never re-fits afterwards,
+    // so manual pans are respected.
+    if (userLocation && items.length > 0 && !hasCenteredNearbyRef.current) {
+      try {
+        const bounds = L.latLngBounds(
+          [userLocation.latitude, userLocation.longitude],
+          [userLocation.latitude, userLocation.longitude],
+        );
+        for (const s of items) bounds.extend([s.latitude, s.longitude]);
+        // Don't zoom out too far if stations are spread; maxZoom 14 keeps detail.
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: true });
+        hasCenteredNearbyRef.current = true;
+      } catch {
+        // Malformed coordinates — keep the flyTo center from above.
+        hasCenteredNearbyRef.current = true;
+      }
+    }
+
+    prevNearbyRef.current = true;
   }, [isNearby, userLocation, items, map]);
 
   // Explicit recenter (button or event) — always flies to user.
@@ -136,9 +150,11 @@ export default function MapView({
   userLocation,
   selectedStationId,
   isNearby,
+  closestStationId,
   onSelect,
 }: MapViewProps) {
   const [recenterKey, setRecenterKey] = useState(0);
+  const radiusMeters = useMapStore((s) => s.radiusMeters);
 
   const triggerRecenter = useCallback(() => {
     setRecenterKey((k) => k + 1);
@@ -185,7 +201,9 @@ export default function MapView({
               icon={
                 station.id === selectedStationId
                   ? selectedStationIcon
-                  : stationIcon
+                  : closestStationId === station.id
+                    ? closestStationIcon
+                    : stationIcon
               }
               eventHandlers={{ click: () => onSelect(station.id) }}
             >
@@ -238,12 +256,35 @@ export default function MapView({
         </MarkerClusterGroup>
 
         {userLocation && (
-          <Marker
-            position={[userLocation.latitude, userLocation.longitude]}
-            icon={userLocationIcon}
-          >
-            <Popup>You are here</Popup>
-          </Marker>
+          <>
+            {/* Nearby-search radius visualization (nearby mode only) */}
+            {isNearby && radiusMeters > 0 && (
+              <Circle
+                center={[userLocation.latitude, userLocation.longitude]}
+                radius={radiusMeters}
+                pathOptions={{
+                  color: "#10b981",
+                  weight: 1,
+                  dashArray: "4 4",
+                  fillColor: "#10b981",
+                  fillOpacity: 0.04,
+                }}
+              />
+            )}
+            <Marker
+              position={[userLocation.latitude, userLocation.longitude]}
+              icon={userLocationIcon}
+            >
+              <Popup>
+                <p className="text-xs font-bold text-gray-900">You are here</p>
+                {isNearby && (
+                  <p className="text-[11px] text-gray-500">
+                    Searching within {radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`}
+                  </p>
+                )}
+              </Popup>
+            </Marker>
+          </>
         )}
       </MapContainer>
 

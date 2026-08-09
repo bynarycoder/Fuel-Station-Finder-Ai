@@ -51,7 +51,7 @@ export interface LatLng {
 }
 
 /** Canonical Nigerian fuel product codes (for filter dropdowns). */
-export const FUEL_TYPE_CODES = ["PMS", "AGO", "DPK", "LPG"] as const;
+export const FUEL_TYPE_CODES = ["PMS", "AGO", "DPK", "LPG", "CNG"] as const;
 export type FuelTypeCode = (typeof FUEL_TYPE_CODES)[number];
 
 export const FUEL_TYPE_LABELS: Record<FuelTypeCode, string> = {
@@ -59,4 +59,5 @@ export const FUEL_TYPE_LABELS: Record<FuelTypeCode, string> = {
   AGO: "Diesel (AGO)",
   DPK: "Kerosene (DPK)",
   LPG: "Cooking Gas (LPG)",
+  CNG: "Compressed Natural Gas (CNG)",
 };

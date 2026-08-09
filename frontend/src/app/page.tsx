@@ -10,26 +10,31 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flame, Info, LogOut, MessageSquare, User, UserPlus, X } from "lucide-react";
 
 import { SignInModal } from "@/components/auth/SignInModal";
 import StationMap from "@/components/map/StationMap";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { ReportPriceForm } from "@/components/reports/ReportPriceForm";
 import { ReportsFeed } from "@/components/reports/ReportsFeed";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
 import { useAuth } from "@/hooks/useAuth";
+import { useFavorites } from "@/hooks/useFavorites";
 import { useStationsQuery } from "@/hooks/useStations";
 import { useMapStore } from "@/store/useMapStore";
 
 export default function FinderPage() {
-  const { items, isLoading, isError, refetch, isNearby } = useStationsQuery();
+  const auth = useAuth();
+  const favorites = useFavorites(auth.isAuthed);
+  const { items, isLoading, isError, refetch, isNearby } = useStationsQuery(
+    favorites.favoriteIds,
+  );
   const userLocation = useMapStore((s) => s.userLocation);
   const selectedStationId = useMapStore((s) => s.selectedStationId);
   const setSelectedStationId = useMapStore((s) => s.setSelectedStationId);
-  const auth = useAuth();
 
   const [showReports, setShowReports] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -41,6 +46,16 @@ export default function FinderPage() {
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
+  const closestStationId = isNearby && items.length > 0 ? items[0].id : null;
+
+  // "Recenter on Me" (and any explicit user refresh) re-runs the active query
+  // so the nearby list reflects the freshest position immediately.
+  useEffect(() => {
+    const handler = () => void refetch();
+    window.addEventListener("nearby-refresh-requested", handler as EventListener);
+    return () =>
+      window.removeEventListener("nearby-refresh-requested", handler as EventListener);
+  }, [refetch]);
 
   function handleSelect(id: string) {
     setSelectedStationId(id);
@@ -78,21 +93,22 @@ export default function FinderPage() {
 
   return (
     <main className="flex h-screen flex-col bg-gray-50">
-      <header className="z-[1000] flex items-center justify-between border-b-4 border-amber-500 bg-emerald-900 px-4 py-3 text-white shadow-md sm:px-6">
-        <div className="flex items-center gap-3">
+      <OfflineBanner />
+      <header className="z-[1000] flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b-4 border-amber-500 bg-emerald-900 px-4 py-3 text-white shadow-md sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="rounded-xl bg-amber-500 p-2 shadow-inner">
             <Flame className="h-5 w-5 animate-pulse text-emerald-950" />
           </div>
-          <div>
-            <h1 className="text-base font-bold leading-tight sm:text-lg">
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
               Fuel Station Finder AI
             </h1>
-            <p className="text-[11px] text-emerald-200">
+            <p className="hidden truncate text-[11px] text-emerald-200 sm:block">
               Find fuel across Nigeria — live map &amp; nearby search
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowReports(true)}
@@ -162,6 +178,10 @@ export default function FinderPage() {
             userLocation={userLocation}
             onSelect={handleSelect}
             onRetry={() => void refetch()}
+            favoriteIds={favorites.favoriteIds}
+            onToggleFavorite={
+              auth.isAuthed ? favorites.toggleFavorite : undefined
+            }
           />
         </section>
 
@@ -171,6 +191,7 @@ export default function FinderPage() {
             userLocation={userLocation}
             selectedStationId={selectedStationId}
             isNearby={isNearby}
+            closestStationId={closestStationId}
             onSelect={handleSelect}
           />
         </section>
@@ -183,6 +204,10 @@ export default function FinderPage() {
             station={selectedStation}
             userLocation={userLocation}
             isAuthed={auth.isAuthed}
+            isFavorite={favorites.favoriteIds.has(selectedStation.id)}
+            onToggleFavorite={
+              auth.isAuthed ? favorites.toggleFavorite : undefined
+            }
             onReportPrice={() => setShowReportForm(true)}
             onRequireSignIn={handleRequireSignIn}
             onClose={() => setShowDetail(false)}

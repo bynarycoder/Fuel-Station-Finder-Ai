@@ -31,7 +31,20 @@ This guide is **pre-deploy only** — it assumes the code in this repo and walks
    python -m app.scripts.seed  # loads Nigerian fuel types & stations
    ```
    (Migration `0004` opts the tables into the `supabase_realtime` publication, enabling live updates; migration `0005` grants `SELECT` on those tables to the `anon`/`authenticated` roles so Supabase Realtime can stream them.)
-4. Create your **Admin** user: open the frontend map, click **Sign in → Sign up**, register your account (new accounts are created as **drivers** — sign-up never grants admin), then in the Supabase SQL editor promote them:
+4. **Apply the feature-completion migrations** (CNG fuel type, favorites, AI confidence):
+   ```bash
+   alembic upgrade head
+   python -m app.scripts.seed   # idempotent — adds the CNG fuel type + stations
+   ```
+   Migrations `0006` (CNG), `0007` (`favorites` table) and `0008`
+   (`fuel_reports.ai_confidence_score`) run automatically as part of
+   `alembic upgrade head`.
+5. **Enable RLS for favorites** (Supabase SQL editor): run
+   `backend/supabase/rls_favorites.sql`. It creates the `favorites` table
+   (idempotent — skip if migration 0007 already created it), enables Row Level
+   Security, and adds per-user policies so users can only see/manage their own
+   favorites. The backend's `service_role` connection bypasses RLS by design.
+6. Create your **Admin** user: open the frontend map, click **Sign in → Sign up**, register your account (new accounts are created as **drivers** — sign-up never grants admin), then in the Supabase SQL editor promote them:
    ```sql
    UPDATE users SET role = 'admin' WHERE email = 'you@example.com';
    ```

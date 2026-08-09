@@ -13,6 +13,7 @@ import type {
 } from "@/types/station";
 import type { PaginatedReports } from "@/types/report";
 import type { FuelReport } from "@/types/report";
+import type { FavoriteList, Favorite } from "@/types/favorite";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
 
@@ -168,8 +169,32 @@ export interface NearbyParams {
   limit?: number;
 }
 
+/**
+ * Nearby search — GET /stations/nearby?latitude=…&longitude=…&radius_meters=…
+ *
+ * The backend (FastAPI + PostGIS) computes `distance_meters` via ST_Distance
+ * and returns items sorted nearest-first. Development-only diagnostics log the
+ * request and response so the location lifecycle can be traced end-to-end;
+ * nothing is logged in production builds.
+ */
 export function fetchNearbyStations(params: NearbyParams) {
-  return request<NearbyStations>("/stations/nearby", { params });
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[geo] nearby request", {
+      latitude: params.latitude.toFixed(4),
+      longitude: params.longitude.toFixed(4),
+      radius_meters: params.radius_meters,
+      fuel_type: params.fuel_type,
+    });
+  }
+  return request<NearbyStations>("/stations/nearby", { params }).then((result) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[geo] nearby response", {
+        count: result.items.length,
+        nearest: result.items[0]?.distance_meters ?? null,
+      });
+    }
+    return result;
+  });
 }
 
 // --------------------------------------------------------------------------- #
@@ -283,6 +308,41 @@ export async function fetchCurrentUser(): Promise<User> {
       throw retryErr;
     }
   }
+}
+
+// --------------------------------------------------------------------------- #
+// Favorites (authenticated, user-scoped)
+// --------------------------------------------------------------------------- #
+export function fetchFavorites() {
+  return request<FavoriteList>("/favorites");
+}
+
+/** Add a station to favorites. Idempotent server-side. */
+export function addFavorite(stationId: string) {
+  return request<Favorite>(`/favorites/${stationId}`, { method: "PUT" });
+}
+
+/** Remove a station from favorites. Idempotent server-side. */
+export function removeFavorite(stationId: string) {
+  return request<void>(`/favorites/${stationId}`, { method: "DELETE" });
+}
+
+// --------------------------------------------------------------------------- #
+// AI verification (admin-only; backend enforces the Admin role)
+// --------------------------------------------------------------------------- #
+export interface VerificationResult {
+  score: number;
+  is_plausible: boolean;
+  summary: string;
+  detected_attributes: string[];
+  report_status: string;
+}
+
+/** Run Gemini photo verification on a report. Backend rejects non-admins. */
+export function verifyReport(reportId: string) {
+  return request<VerificationResult>(`/reports/${reportId}/verify`, {
+    method: "POST",
+  });
 }
 
 // --------------------------------------------------------------------------- #

@@ -55,6 +55,12 @@ FUEL_TYPES: list[dict[str, str | bool]] = [
         "description": "Cooking Gas — increasingly retailed at modern filling stations.",
         "is_active": True,
     },
+    {
+        "code": "CNG",
+        "name": "Compressed Natural Gas",
+        "description": "Autogas (CNG) — cleaner alternative fuel for vehicles, expanding across Nigerian corridors.",
+        "is_active": True,
+    },
 ]
 
 
@@ -75,7 +81,7 @@ STATIONS: list[dict] = [
         "state": "Lagos",
         "latitude": 6.6018,
         "longitude": 3.3515,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
     },
     {
         "name": "TotalEnergies Victoria Island",
@@ -236,7 +242,7 @@ STATIONS: list[dict] = [
         "state": "FCT",
         "latitude": 9.0250,
         "longitude": 7.4880,
-        "fuel_types": ["PMS", "AGO", "DPK"],
+        "fuel_types": ["PMS", "AGO", "DPK", "CNG"],
     },
     {
         "name": "Oando Maitama",

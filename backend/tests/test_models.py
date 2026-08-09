@@ -34,6 +34,7 @@ EXPECTED_TABLES = {
     "fuel_station_fuel_types",
     "users",
     "fuel_reports",
+    "favorites",
 }
 
 
@@ -66,7 +67,7 @@ def test_fuel_type_code_domain_check_constraint() -> None:
 
 
 def test_fuel_type_codes_are_canonical_nigerian_products() -> None:
-    assert {c.value for c in FuelTypeCode} == {"PMS", "AGO", "DPK", "LPG"}
+    assert {c.value for c in FuelTypeCode} == {"PMS", "AGO", "DPK", "LPG", "CNG"}
 
 
 # --------------------------------------------------------------------------- #

@@ -35,6 +35,7 @@ class FuelTypeCode(str, enum.Enum):
     AGO = "AGO"  # Automotive Gas Oil (Diesel)
     DPK = "DPK"  # Dual Purpose Kerosene (Household Kerosene)
     LPG = "LPG"  # Liquefied Petroleum Gas (Cooking Gas)
+    CNG = "CNG"  # Compressed Natural Gas (autogas)
 
     @classmethod
     def codes(cls) -> set[str]:
@@ -51,7 +52,7 @@ class FuelType(TimestampMixin, Base):
         # the table, even via a stray raw insert. The canonical list is also
         # enumerated in code (``FuelTypeCode``).
         CheckConstraint(
-            "code IN ('PMS', 'AGO', 'DPK', 'LPG')",
+            "code IN ('PMS', 'AGO', 'DPK', 'LPG', 'CNG')",
             name="ck_fuel_types_code_domain",
         ),
     )

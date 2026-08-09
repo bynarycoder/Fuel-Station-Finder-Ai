@@ -1,179 +1,213 @@
 "use client";
 
 /**
- * Browser geolocation hook — complete Near Me location experience.
+ * Browser geolocation hook — thin wrapper around `navigator.geolocation`.
  *
- * Provides:
- * - `request()` — one-shot getCurrentPosition (permission prompt once)
- * - `startWatch(onUpdate)` — continuous watchPosition with automatic cleanup
- * - `stopWatch()` — stop watching
- * - Comprehensive error mapping (permission denied / unavailable / timeout / unsupported)
- * - `isWatching` flag and `errorCode` for UI differentiation
+ * Responsibilities (and ONLY these):
+ * - `request()`  — one-shot `getCurrentPosition` (permission prompt once)
+ * - `refresh()`  — silent one-shot refresh that never throws (recenter flow)
+ * - `startWatch(onUpdate, onError)` — `watchPosition` with a SINGLE watcher
+ * - `stopWatch()` — clear the watcher
+ * - cleanup on unmount
  *
- * The hook never polls permission in a loop; callers decide when to request.
- * Watcher is cleaned up on unmount.
+ * Everything else (status machine, error mapping, user-facing messages,
+ * movement threshold) lives in `lib/geo.ts` and the Zustand store, so the
+ * browser-facing surface stays small and testable.
+ *
+ * Lifecycle guarantees:
+ * - Exactly one active watcher, ever. Repeated `startWatch` calls restart the
+ *   same watcher slot instead of stacking watchers.
+ * - The watcher is cleared on `stopWatch()` and on unmount.
+ * - Errors are reported through typed `GeoFailure` objects; this hook NEVER
+ *   decides what is fatal — callers do, using `lib/geo.ts`.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  GEO_OPTIONS_DEFAULT,
+  GEO_OPTIONS_WATCH,
+  geoLog,
+  mapGeolocationError,
+  type GeoFailure,
+} from "@/lib/geo";
 import type { LatLng } from "@/types/station";
 
-export type GeoErrorCode = 1 | 2 | 3 | 0; // 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT, 0=UNSUPPORTED/UNKNOWN
-
 interface UseGeolocation {
+  /** One-shot acquisition. Rejects with a typed GeoFailure on error. */
   request: () => Promise<LatLng>;
-  startWatch: (onUpdate: (pos: LatLng) => void) => number | null;
+  /**
+   * Silent one-shot acquisition for the recenter flow. Resolves with the
+   * fix, or `null` on failure — never throws, never clears anything.
+   */
+  refresh: () => Promise<LatLng | null>;
+  /**
+   * Start (or restart) the single continuous watcher. `onUpdate` receives
+   * fresh coordinates; `onError` receives a typed failure (timeout,
+   * unavailable, permission denied, …). Returns the watcher id or null.
+   */
+  startWatch: (
+    onUpdate: (pos: LatLng) => void,
+    onError?: (failure: GeoFailure) => void,
+  ) => number | null;
+  /** Stop and clear the watcher. */
   stopWatch: () => void;
+  /** True while a one-shot acquisition is in flight. */
   loading: boolean;
+  /** True while the continuous watcher is active. */
   isWatching: boolean;
-  error: string | null;
-  errorCode: GeoErrorCode | null;
 }
 
-function mapGeolocationError(err: GeolocationPositionError): { message: string; code: GeoErrorCode } {
-  if (err.code === 1) {
-    return {
-      code: 1,
-      message:
-        "Location permission denied. Enable location access in your browser settings to find stations near you, or browse all stations.",
-    };
-  }
-  if (err.code === 2) {
-    return {
-      code: 2,
-      message:
-        "Your location could not be determined. Try moving to an open area, check that location services are enabled, and try again.",
-    };
-  }
-  if (err.code === 3) {
-    return {
-      code: 3,
-      message: "Location request timed out. Please try again in a moment.",
-    };
-  }
-  return { code: 0, message: `Could not get your location: ${err.message}` };
+function toLatLng(position: GeolocationPosition): LatLng {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+  };
 }
 
 export function useGeolocation(): UseGeolocation {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorCode, setErrorCode] = useState<GeoErrorCode | null>(null);
   const [isWatching, setIsWatching] = useState(false);
   const watchIdRef = useRef<number | null>(null);
   const watchCallbackRef = useRef<((pos: LatLng) => void) | null>(null);
-
-  const clearError = useCallback(() => {
-    setError(null);
-    setErrorCode(null);
-  }, []);
-
-  const request = useCallback((): Promise<LatLng> => {
-    return new Promise<LatLng>((resolve, reject) => {
-      if (typeof navigator === "undefined" || !navigator.geolocation) {
-        const message =
-          "Geolocation is not supported by this browser. Try a modern browser or browse all stations.";
-        setError(message);
-        setErrorCode(0);
-        reject(new Error(message));
-        return;
-      }
-
-      setLoading(true);
-      clearError();
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLoading(false);
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        },
-        (err: GeolocationPositionError) => {
-          setLoading(false);
-          const mapped = mapGeolocationError(err);
-          setError(mapped.message);
-          setErrorCode(mapped.code);
-          reject(new Error(mapped.message));
-        },
-        { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
-      );
-    });
-  }, [clearError]);
+  const watchErrorRef = useRef<((failure: GeoFailure) => void) | null>(null);
 
   const stopWatch = useCallback(() => {
     if (watchIdRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
       try {
         navigator.geolocation.clearWatch(watchIdRef.current);
-      } catch {
-        // ignore
+        geoLog("watch cleared", { id: watchIdRef.current });
+      } catch (err) {
+        geoLog("watch clear failed", err);
       }
     }
     watchIdRef.current = null;
     watchCallbackRef.current = null;
+    watchErrorRef.current = null;
     setIsWatching(false);
   }, []);
 
-  const startWatch = useCallback(
-    (onUpdate: (pos: LatLng) => void): number | null => {
+  const request = useCallback((): Promise<LatLng> => {
+    return new Promise<LatLng>((resolve, reject) => {
       if (typeof navigator === "undefined" || !navigator.geolocation) {
-        const message =
-          "Geolocation is not supported by this browser. Live tracking is unavailable.";
-        setError(message);
-        setErrorCode(0);
+        reject(mapGeolocationError({ code: 0 }));
+        return;
+      }
+
+      setLoading(true);
+      geoLog("request: getCurrentPosition", {
+        enableHighAccuracy: GEO_OPTIONS_DEFAULT.enableHighAccuracy,
+        timeout: GEO_OPTIONS_DEFAULT.timeout,
+        maximumAge: GEO_OPTIONS_DEFAULT.maximumAge,
+      });
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLoading(false);
+          const loc = toLatLng(position);
+          geoLog("request: success", {
+            lat: loc.latitude.toFixed(4),
+            lng: loc.longitude.toFixed(4),
+          });
+          resolve(loc);
+        },
+        (err: GeolocationPositionError) => {
+          setLoading(false);
+          const failure = mapGeolocationError(err);
+          geoLog("request: failure", { code: failure.code });
+          reject(failure);
+        },
+        GEO_OPTIONS_DEFAULT,
+      );
+    });
+  }, []);
+
+  const refresh = useCallback((): Promise<LatLng | null> => {
+    return new Promise<LatLng | null>((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        geoLog("refresh: unsupported");
+        resolve(null);
+        return;
+      }
+
+      geoLog("refresh: getCurrentPosition (silent)");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc = toLatLng(position);
+          geoLog("refresh: success", {
+            lat: loc.latitude.toFixed(4),
+            lng: loc.longitude.toFixed(4),
+          });
+          resolve(loc);
+        },
+        (err: GeolocationPositionError) => {
+          const failure = mapGeolocationError(err);
+          geoLog("refresh: failure", { code: failure.code });
+          // Never fatal: the caller already has a last known position.
+          resolve(null);
+        },
+        GEO_OPTIONS_DEFAULT,
+      );
+    });
+  }, []);
+
+  const startWatch = useCallback(
+    (onUpdate: (pos: LatLng) => void, onError?: (failure: GeoFailure) => void): number | null => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        onError?.(mapGeolocationError({ code: 0 }));
         return null;
       }
 
-      // Avoid duplicate watchers; restart if already watching with new callback.
+      // Guarantee a single watcher: restart the slot rather than stacking.
       if (watchIdRef.current != null) {
         stopWatch();
       }
 
-      clearError();
       watchCallbackRef.current = onUpdate;
+      watchErrorRef.current = onError ?? null;
+
+      geoLog("watch: starting watchPosition", {
+        enableHighAccuracy: GEO_OPTIONS_WATCH.enableHighAccuracy,
+        timeout: GEO_OPTIONS_WATCH.timeout,
+        maximumAge: GEO_OPTIONS_WATCH.maximumAge,
+      });
 
       const id = navigator.geolocation.watchPosition(
         (position) => {
-          // Clear any previous transient error on successful update.
-          setError(null);
-          setErrorCode(null);
-          const loc: LatLng = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
+          const loc = toLatLng(position);
+          geoLog("watch: success", {
+            lat: loc.latitude.toFixed(4),
+            lng: loc.longitude.toFixed(4),
+          });
           watchCallbackRef.current?.(loc);
         },
         (err: GeolocationPositionError) => {
-          const mapped = mapGeolocationError(err);
-          // Permission denied while watching is fatal — stop the watcher to avoid spamming.
-          if (mapped.code === 1) {
-            stopWatch();
-          }
-          setError(mapped.message);
-          setErrorCode(mapped.code);
+          const failure = mapGeolocationError(err);
+          geoLog("watch: failure", { code: failure.code });
+          // The watcher stays active for transient failures (timeout /
+          // unavailable) so the browser can retry; callers decide whether a
+          // failure is fatal via lib/geo.
+          watchErrorRef.current?.(failure);
         },
-        { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+        GEO_OPTIONS_WATCH,
       );
 
       watchIdRef.current = id;
       setIsWatching(true);
+      geoLog("watch: active", { id });
       return id;
     },
-    [clearError, stopWatch],
+    [stopWatch],
   );
 
-  // Clean up watcher when the component unmounts.
+  // Clean up the watcher when the component unmounts.
   useEffect(() => {
     return () => {
-      if (watchIdRef.current != null && typeof navigator !== "undefined" && navigator.geolocation) {
-        try {
-          navigator.geolocation.clearWatch(watchIdRef.current);
-        } catch {
-          // ignore
-        }
+      if (watchIdRef.current != null) {
+        stopWatch();
       }
     };
-  }, []);
+  }, [stopWatch]);
 
-  return { request, startWatch, stopWatch, loading, isWatching, error, errorCode };
+  return { request, refresh, startWatch, stopWatch, loading, isWatching };
 }

@@ -30,6 +30,8 @@ export interface FuelReport {
   status: ReportStatus;
   created_at: string;
   updated_at: string;
+  /** Gemini verification score (0..1); null until an AI verification ran. */
+  ai_confidence_score?: number | null;
 }
 
 export interface PaginatedReports {
