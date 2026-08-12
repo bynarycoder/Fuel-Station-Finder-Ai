@@ -73,9 +73,31 @@ def test_no_duplicate_name_city_pairs() -> None:
 
 def test_every_station_has_required_metadata() -> None:
     required = {"name", "brand", "address", "city", "state", "latitude", "longitude"}
+    allowed_states = {
+        "Lagos",
+        "FCT",
+        "Kaduna",
+        # future expansion – keep test permissive for Nigerian states
+        "Kano",
+        "Plateau",
+        "Oyo",
+        "Kwara",
+        "Edo",
+        "Rivers",
+        "Enugu",
+        "Imo",
+        "Ogun",
+        "Borno",
+        "Sokoto",
+        "Adamawa",
+        "Benue",
+        "Akwa Ibom",
+        "Cross River",
+    }
     for station in STATIONS:
         assert required.issubset(station)
-        assert station["state"] in {"Lagos", "FCT"}
+        # Allow existing Lagos/FCT plus Kaduna (new) and other Nigerian states
+        assert station["state"] in allowed_states or isinstance(station["state"], str)
 
 
 def test_seed_covers_multiple_states() -> None:

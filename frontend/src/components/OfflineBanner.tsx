@@ -12,11 +12,13 @@ import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 
 export function OfflineBanner() {
-  const [offline, setOffline] = useState(
-    typeof navigator !== "undefined" ? !navigator.onLine : false,
-  );
+  // Deterministic initial state for SSR – server and client first render both false.
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
+    // Determine actual online status only after mount (client-only).
+    setOffline(typeof navigator !== "undefined" ? !navigator.onLine : false);
+
     const goOffline = () => setOffline(true);
     const goOnline = () => setOffline(false);
     window.addEventListener("offline", goOffline);

@@ -65,14 +65,28 @@ export function directionsUrl(
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-/** Human-relative timestamp, e.g. `just now`, `12m ago`, `3h ago`, `2d ago`. */
-export function formatRelative(iso: string): string {
+/**
+ * Human-relative timestamp, e.g. `just now`, `12m ago`, `3h ago`, `2d ago`.
+ * Pure – requires `nowMs` to be passed in so it never calls Date.now() during SSR.
+ * Use the <RelativeTime /> client component for render paths to avoid hydration mismatch.
+ */
+export function formatRelative(iso: string, nowMs: number): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
-  const mins = Math.round((Date.now() - then) / 60000);
+  const diffMs = nowMs - then;
+  const mins = Math.round(diffMs / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+/**
+ * Legacy wrapper that still uses Date.now() – only safe to call inside
+ * useEffect / event handlers, never during SSR/render. Prefer formatRelative
+ * with explicit nowMs or <RelativeTime />.
+ */
+export function formatRelativeFromNow(iso: string): string {
+  return formatRelative(iso, Date.now());
 }
