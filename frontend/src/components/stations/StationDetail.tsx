@@ -42,9 +42,9 @@ import {
 import {
   directionsUrl,
   formatDistance,
-  formatRelative,
   haversineDistance,
 } from "@/lib/format";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 import {
   buildPriceSeries,
   sparklinePoints,
@@ -165,7 +165,7 @@ export function StationDetail({
                 </span>
               )}
               <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                <Clock3 className="h-3 w-3" /> Updated {formatRelative(station.updated_at)}
+                <Clock3 className="h-3 w-3" /> Updated <RelativeTime iso={station.updated_at} />
               </span>
             </div>
             <p className="mt-1.5 font-mono text-[11px] text-gray-400">
@@ -381,7 +381,14 @@ export function StationDetail({
                           : direction === "flat"
                             ? " price stable"
                             : " no trend yet"}
-                      {series.latestAt ? ` · last ${formatRelative(series.latestAt)}` : ""}
+                      {series.latestAt ? (
+                        <>
+                          {" "}
+                          · last <RelativeTime iso={series.latestAt} />
+                        </>
+                      ) : (
+                        ""
+                      )}
                     </p>
                   </div>
                 );
@@ -452,7 +459,7 @@ function LatestPriceCard({ report }: { report: FuelReport }) {
         {report.queue_length ? ` · ${QUEUE_LENGTH_LABELS[report.queue_length]}` : ""}
       </p>
       <p className="mt-1 text-[11px] text-gray-500">
-        Reported {formatRelative(report.created_at)}
+        Reported <RelativeTime iso={report.created_at} />
         {report.reported_by?.full_name ? ` by ${report.reported_by.full_name}` : ""}
       </p>
       {report.notes && (
@@ -486,7 +493,9 @@ function ReportRow({ report }: { report: FuelReport }) {
             ₦{report.price_per_litre.toLocaleString()}/L
           </span>
         )}
-        <span className="text-[11px] text-gray-400">{formatRelative(report.created_at)}</span>
+        <span className="text-[11px] text-gray-400">
+          <RelativeTime iso={report.created_at} />
+        </span>
       </span>
     </div>
   );

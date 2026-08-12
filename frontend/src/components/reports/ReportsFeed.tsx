@@ -13,6 +13,7 @@ import { Loader2, MessageSquare, Radio } from "lucide-react";
 
 import { useReportRealtime } from "@/hooks/useReportRealtime";
 import { useReports } from "@/hooks/useReports";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 import { confidenceColor, formatConfidencePercent } from "@/lib/confidence";
 import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
@@ -94,7 +95,7 @@ export function ReportsFeed() {
                   )}
                 </div>
                 <span className="text-[11px] text-gray-400">
-                  {formatRelative(report.created_at)}
+                  <RelativeTime iso={report.created_at} />
                 </span>
               </div>
             </div>
@@ -134,17 +135,4 @@ export function ReportsFeed() {
       </div>
     </div>
   );
-}
-
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diffMs = Date.now() - then;
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
 }

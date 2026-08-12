@@ -20,7 +20,8 @@ import { useStationReports } from "@/hooks/useStationReports";
 import type { StationItem } from "@/hooks/useStations";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
 import type { LatLng } from "@/types/station";
-import { directionsUrl, formatDistance, formatRelative, haversineDistance } from "@/lib/format";
+import { directionsUrl, formatDistance, haversineDistance } from "@/lib/format";
+import { RelativeTime } from "@/components/ui/RelativeTime";
 import { useMapStore } from "@/store/useMapStore";
 
 interface StationListProps {
@@ -370,7 +371,7 @@ function ClosestCard({
         {latest && (
           <p className="flex flex-wrap items-center gap-1 text-[11px] text-gray-500">
             <Fuel className="h-3 w-3 text-gray-400" />
-            Reported {formatRelative(latest.created_at)}
+            Reported <RelativeTime iso={latest.created_at} />
             {latest.status === "verified" ? " · ✅ verified" : " · pending verification"}
           </p>
         )}

@@ -1,6 +1,7 @@
 """
 Seed the database with Nigerian fuel types and a representative catalogue of
-fuel stations across Lagos and the FCT (Abuja).
+fuel stations across Lagos, FCT (Abuja) and Kaduna (with focus on Kaduna
+city centre for the nearby-search demo).
 
 Designed to be **idempotent**: re-running it updates existing rows in place
 rather than creating duplicates. It is invoked as a module so that the
@@ -70,6 +71,8 @@ FUEL_TYPES: list[dict[str, str | bool]] = [
 # Coordinates are approximate, drawn from well-known neighbourhoods so that the
 # dataset is geographically realistic for nearby-search testing. Phone numbers
 # are intentionally omitted to avoid fabricating personal contact details.
+# Kaduna stations are demo/seed records centred around 10.5207,7.4386 to
+# support the nearby-search feature for users in Kaduna.
 # --------------------------------------------------------------------------- #
 STATIONS: list[dict] = [
     # ---- Lagos ----
@@ -252,6 +255,128 @@ STATIONS: list[dict] = [
         "state": "FCT",
         "latitude": 9.0900,
         "longitude": 7.4900,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+    },
+    # ---- Kaduna (within ~5km of 10.5207,7.4386) ----
+    # Demo/seed records for nearby-search testing in Kaduna.
+    {
+        "name": "NNPC Retail Kaduna Central (Demo)",
+        "brand": "NNPC",
+        "address": "Independence Way, Kaduna Central",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5207,
+        "longitude": 7.4386,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
+    },
+    {
+        "name": "TotalEnergies Kaduna North (Demo)",
+        "brand": "TotalEnergies",
+        "address": "Kaduna North, near Independence Way",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5350,
+        "longitude": 7.4386,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+    },
+    {
+        "name": "Conoil Kaduna South (Demo)",
+        "brand": "Conoil",
+        "address": "Kaduna South, Ahmadu Bello Way axis",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5050,
+        "longitude": 7.4386,
+        "fuel_types": ["PMS", "AGO", "DPK"],
+    },
+    {
+        "name": "Mobil Ungwan Rimi (Demo)",
+        "brand": "Mobil",
+        "address": "Ungwan Rimi, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5200,
+        "longitude": 7.4450,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+    },
+    {
+        "name": "Oando Hayin Banki (Demo)",
+        "brand": "Oando",
+        "address": "Hayin Banki, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5250,
+        "longitude": 7.4200,
+        "fuel_types": ["PMS", "AGO", "DPK"],
+    },
+    {
+        "name": "MRS Oil Malali (Demo)",
+        "brand": "MRS",
+        "address": "Malali, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5400,
+        "longitude": 7.4580,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+    },
+    {
+        "name": "Bovas Tudun Wada (Demo)",
+        "brand": "Bovas",
+        "address": "Tudun Wada, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5100,
+        "longitude": 7.4300,
+        "fuel_types": ["PMS", "AGO", "DPK"],
+    },
+    {
+        "name": "NIPCO Sabon Tasha (Demo)",
+        "brand": "NIPCO",
+        "address": "Sabon Tasha, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.4850,
+        "longitude": 7.4550,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
+    },
+    {
+        "name": "Forte Oil Kakuri (Demo)",
+        "brand": "Forte Oil",
+        "address": "Kakuri, Kaduna South",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.4950,
+        "longitude": 7.4100,
+        "fuel_types": ["PMS", "AGO", "DPK"],
+    },
+    {
+        "name": "AA Rano Kawo (Demo)",
+        "brand": "AA Rano",
+        "address": "Kawo, Kaduna North",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5607,
+        "longitude": 7.4386,
+        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
+    },
+    {
+        "name": "AYM Shafa Command Junction (Demo)",
+        "brand": "AYM Shafa",
+        "address": "Command Junction, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.5150,
+        "longitude": 7.4500,
+        "fuel_types": ["PMS", "AGO", "DPK"],
+    },
+    {
+        "name": "Optima Energy Television (Demo)",
+        "brand": "Optima",
+        "address": "Television, Kaduna",
+        "city": "Kaduna",
+        "state": "Kaduna",
+        "latitude": 10.4807,
+        "longitude": 7.4300,
         "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
     },
 ]
