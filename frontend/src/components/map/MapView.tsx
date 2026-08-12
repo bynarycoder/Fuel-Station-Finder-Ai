@@ -238,17 +238,29 @@ export default function MapView({
                       {formatDistance(station.distance_meters)} away
                     </p>
                   )}
-                  <a
-                    href={directionsUrl(
-                      { latitude: station.latitude, longitude: station.longitude },
-                      userLocation,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs font-semibold text-white no-underline hover:bg-emerald-800"
-                  >
-                    🧭 Get directions
-                  </a>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(station.id);
+                      }}
+                      className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-xs font-bold text-emerald-950 hover:bg-amber-400"
+                    >
+                      ℹ️ View details
+                    </button>
+                    <a
+                      href={directionsUrl(
+                        { latitude: station.latitude, longitude: station.longitude },
+                        userLocation,
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs font-semibold text-white no-underline hover:bg-emerald-800"
+                    >
+                      🧭 Get directions
+                    </a>
+                  </div>
                 </div>
               </Popup>
             </Marker>
