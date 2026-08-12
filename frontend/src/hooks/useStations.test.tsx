@@ -179,6 +179,27 @@ describe("nearby query wiring (test A)", () => {
     );
   });
 
+  it("refetches with CNG fuel filter when CNG is selected", async () => {
+    mockedNearby.mockResolvedValue({
+      items: [],
+      latitude: JOS.latitude,
+      longitude: JOS.longitude,
+      radius_meters: 5000,
+    } as unknown as Awaited<ReturnType<typeof fetchNearbyStations>>);
+    mockedStations.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 100 });
+
+    useMapStore.setState({ mode: "nearby", userLocation: JOS });
+    renderProbe();
+    await waitFor(() => expect(mockedNearby).toHaveBeenCalledTimes(1));
+
+    act(() => useMapStore.getState().setFilters({ fuelType: "CNG" }));
+    await waitFor(() =>
+      expect(mockedNearby).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fuel_type: "CNG" }),
+      ),
+    );
+  });
+
   it("browse mode uses the catalogue endpoint instead", async () => {
     mockedNearby.mockResolvedValue({
       items: [],

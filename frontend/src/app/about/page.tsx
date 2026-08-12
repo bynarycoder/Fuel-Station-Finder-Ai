@@ -19,8 +19,8 @@ export default function AboutPage() {
     { name: "Interactive Map", met: true, desc: "Live OpenStreetMap + Leaflet map with marker clustering, nearby search & directions." },
     { name: "Fuel Station List", met: true, desc: "Paginated list with filters and distance-based nearby search." },
     { name: "Filters", met: true, desc: "Filter by fuel type, brand, city and station name search." },
-    { name: "Fuel Price Reports", met: false, desc: "Unlocks in Phase 6: Crowd-sourced pricing logs." },
-    { name: "Reporting System", met: false, desc: "Unlocks in Phase 6: Active submission form for live station updates." },
+    { name: "Fuel Price Reports", met: true, desc: "Crowd-sourced pricing logs and price history by fuel product." },
+    { name: "Reporting System", met: true, desc: "Active submission form for live station updates with AI fraud verification." },
   ];
 
   const phases = [
@@ -29,11 +29,11 @@ export default function AboutPage() {
     { number: 3, name: "Authentication", status: "completed", desc: "Supabase Auth, JWT verification, and roles." },
     { number: 4, name: "Fuel Stations API", status: "completed", desc: "CRUD endpoints, nearby spatial search, and filters." },
     { number: 5, name: "Interactive Map UI", status: "completed", desc: "Leaflet, marker clustering, routing, and user geolocation." },
-    { number: 6, name: "Fuel Reports Engine", status: "pending", desc: "User reports submission, queue times, and photo uploads." },
-    { number: 7, name: "Realtime Updates", status: "pending", desc: "Supabase Realtime syncing for instant dashboard refreshes." },
-    { number: 8, name: "AI Queue & Fraud Verification", status: "pending", desc: "Gemini visual queue analyzer and Groq natural search." },
-    { number: 9, name: "Admin Dashboard", status: "pending", desc: "User reporting review, spam moderation, and metrics analytics." },
-    { number: 10, name: "Production Deployment", status: "pending", desc: "Vercel + Render + Supabase multi-cloud setup." },
+    { number: 6, name: "Fuel Reports Engine", status: "completed", desc: "User reports submission, queue times, and photo uploads." },
+    { number: 7, name: "Realtime Updates", status: "completed", desc: "Supabase Realtime syncing for instant dashboard refreshes." },
+    { number: 8, name: "AI Queue & Fraud Verification", status: "completed", desc: "Gemini visual queue analyzer and Groq natural search." },
+    { number: 9, name: "Admin Dashboard", status: "completed", desc: "User reporting review, spam moderation, and metrics analytics." },
+    { number: 10, name: "Production Deployment", status: "completed", desc: "Vercel + Render + Supabase multi-cloud setup." },
   ];
 
   return (
@@ -52,7 +52,7 @@ export default function AboutPage() {
           <div className="flex items-center gap-3">
             <div className="flex items-center space-x-2 bg-emerald-950/60 border border-emerald-700/50 px-4 py-1.5 rounded-full">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span className="text-xs font-semibold text-emerald-300">Phase 5: Interactive Map Completed</span>
+              <span className="text-xs font-semibold text-emerald-300">Phase 10: Capstone Complete • Live</span>
             </div>
             <Link
               href="/"
@@ -71,7 +71,7 @@ export default function AboutPage() {
               <MapPin className="h-80 w-80 text-white" />
             </div>
             <span className="bg-amber-500 text-emerald-950 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-              Phase 5 • Interactive Map
+              Phase 10 • Capstone Ready
             </span>
             <h2 className="text-3xl font-bold mt-4 leading-tight">
               Combating Fuel Scarcity & Station Hunts Across Nigeria

@@ -21,6 +21,7 @@ import type { StationItem } from "@/hooks/useStations";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
 import type { LatLng } from "@/types/station";
 import { directionsUrl, formatDistance, formatRelative, haversineDistance } from "@/lib/format";
+import { useMapStore } from "@/store/useMapStore";
 
 interface StationListProps {
   items: StationItem[];
@@ -48,6 +49,8 @@ export function StationList({
   favoriteIds,
   onToggleFavorite,
 }: StationListProps) {
+  const activeFuelType = useMapStore((s) => s.filters.fuelType);
+
   if (isLoading) {
     return (
       <ListShell>
@@ -86,7 +89,11 @@ export function StationList({
       <ListShell>
         <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
           <MapPin className="h-8 w-8 text-gray-300" />
-          <p className="text-sm font-medium text-gray-700">No stations found</p>
+          <p className="text-sm font-medium text-gray-700">
+            {activeFuelType
+              ? "No stations currently match this fuel type."
+              : "No fuel stations found."}
+          </p>
           <p className="max-w-xs text-xs text-gray-500">
             {isNearby
               ? "Try widening the search radius, or browse all stations."

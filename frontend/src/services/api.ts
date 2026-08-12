@@ -18,7 +18,7 @@ import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ?? "https://fuel-station-finder-ai.onrender.com/api/v1";
 
 /**
  * Resolve a backend-served media path (e.g. ``/media/abc.jpg`` returned as

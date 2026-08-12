@@ -11,7 +11,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Flame, Info, LogOut, MessageSquare, User, UserPlus, X } from "lucide-react";
+import { Flame, Info, LogOut, MessageSquare, ShieldCheck, User, UserPlus, X } from "lucide-react";
 
 import { SignInModal } from "@/components/auth/SignInModal";
 import StationMap from "@/components/map/StationMap";
@@ -118,15 +118,25 @@ export default function FinderPage() {
           </button>
 
           {auth.ready && auth.isAuthed ? (
-            <button
-              type="button"
-              onClick={() => auth.signOut()}
-              className="inline-flex max-w-[140px] items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
-              title={auth.user?.email}
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{auth.user?.email?.split("@")[0]}</span>
-            </button>
+            <>
+              {auth.user?.role === "admin" && (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/30"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" /> Admin
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => auth.signOut()}
+                className="inline-flex max-w-[140px] items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
+                title={auth.user?.email}
+              >
+                <LogOut className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{auth.user?.email?.split("@")[0]}</span>
+              </button>
+            </>
           ) : auth.ready && auth.isAuthAvailable ? (
             <>
               <button
@@ -179,9 +189,13 @@ export default function FinderPage() {
             onSelect={handleSelect}
             onRetry={() => void refetch()}
             favoriteIds={favorites.favoriteIds}
-            onToggleFavorite={
-              auth.isAuthed ? favorites.toggleFavorite : undefined
-            }
+            onToggleFavorite={(stationId) => {
+              if (!auth.isAuthed) {
+                handleRequireSignIn();
+                return;
+              }
+              favorites.toggleFavorite(stationId);
+            }}
           />
         </section>
 
@@ -205,9 +219,13 @@ export default function FinderPage() {
             userLocation={userLocation}
             isAuthed={auth.isAuthed}
             isFavorite={favorites.favoriteIds.has(selectedStation.id)}
-            onToggleFavorite={
-              auth.isAuthed ? favorites.toggleFavorite : undefined
-            }
+            onToggleFavorite={(stationId) => {
+              if (!auth.isAuthed) {
+                handleRequireSignIn();
+                return;
+              }
+              favorites.toggleFavorite(stationId);
+            }}
             onReportPrice={() => setShowReportForm(true)}
             onRequireSignIn={handleRequireSignIn}
             onClose={() => setShowDetail(false)}

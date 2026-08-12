@@ -13,6 +13,7 @@ import { Loader2, MessageSquare, Radio } from "lucide-react";
 
 import { useReportRealtime } from "@/hooks/useReportRealtime";
 import { useReports } from "@/hooks/useReports";
+import { confidenceColor, formatConfidencePercent } from "@/lib/confidence";
 import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
 
@@ -77,9 +78,21 @@ export function ReportsFeed() {
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold capitalize text-emerald-700">
-                  {report.status}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold capitalize text-emerald-700">
+                    {report.status}
+                  </span>
+                  {report.ai_confidence_score != null && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${confidenceColor(
+                        report.ai_confidence_score,
+                      )}`}
+                      title="AI verification confidence"
+                    >
+                      AI {formatConfidencePercent(report.ai_confidence_score)}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[11px] text-gray-400">
                   {formatRelative(report.created_at)}
                 </span>
