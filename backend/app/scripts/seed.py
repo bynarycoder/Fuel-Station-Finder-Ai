@@ -1,392 +1,66 @@
 """
 Seed the database with Nigerian fuel types and a representative catalogue of
-fuel stations across Lagos, FCT (Abuja) and Kaduna (with focus on Kaduna
-city centre for the nearby-search demo).
+fuel stations across all 36 states + FCT.
 
 Designed to be **idempotent**: re-running it updates existing rows in place
-rather than creating duplicates. It is invoked as a module so that the
-``app`` package and project settings resolve correctly:
+rather than creating duplicates. The natural key is the ``(name, city)`` pair
+already enforced by the ``uq_fuel_stations_name_city`` unique constraint, so
+upsert semantics fall out naturally.
+
+It is invoked as a module so that the ``app`` package and project settings
+resolve correctly:
 
     cd backend
     python -m app.scripts.seed            # upsert seed data
     python -m app.scripts.seed --reset    # wipe then re-insert (dev only)
+    python -m app.scripts.seed --diagnose # print health/diagnostic summary
 
 The seed uses the *synchronous* engine/session (see ``app.core.database``)
 because seeding is a batch, blocking task — no need for the async machinery
 that serves live API traffic.
+
+**Demo-data notice.** The nationwide catalogue in
+:mod:`app.scripts.seed_data.nationwide` is **synthetic** and clearly labelled
+with a ``(Demo)`` name suffix. It is intended to give the application
+realistic nationwide coverage for the nearby-search demo and is **not** a
+verified directory of real-world businesses. The original 15 Lagos + 3 FCT
+records (kept verbatim) are real-seed rows that the production database
+already contains; they are preserved here for backward compatibility and
+upsert idempotency.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
+from typing import Any
 
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models import FuelStation, FuelStationFuelType, FuelType
 
-# --------------------------------------------------------------------------- #
-# Reference data: canonical Nigerian petroleum products.
-# --------------------------------------------------------------------------- #
-FUEL_TYPES: list[dict[str, str | bool]] = [
-    {
-        "code": "PMS",
-        "name": "Premium Motor Spirit",
-        "description": "Petrol — the primary fuel for most passenger vehicles in Nigeria.",
-        "is_active": True,
-    },
-    {
-        "code": "AGO",
-        "name": "Automotive Gas Oil",
-        "description": "Diesel — used by heavy-duty vehicles, commercial transport and generators.",
-        "is_active": True,
-    },
-    {
-        "code": "DPK",
-        "name": "Dual Purpose Kerosene",
-        "description": "Household Kerosene (HHK) — used for cooking stoves and lighting.",
-        "is_active": True,
-    },
-    {
-        "code": "LPG",
-        "name": "Liquefied Petroleum Gas",
-        "description": "Cooking Gas — increasingly retailed at modern filling stations.",
-        "is_active": True,
-    },
-    {
-        "code": "CNG",
-        "name": "Compressed Natural Gas",
-        "description": "Autogas (CNG) — cleaner alternative fuel for vehicles, expanding across Nigerian corridors.",
-        "is_active": True,
-    },
-]
-
+# Re-export public seed-data symbols so callers (CLI, tests) keep importing
+# them from this module: `from app.scripts.seed import FUEL_TYPES, STATIONS`.
+from app.scripts.seed_data import STATIONS as STATIONS  # noqa: E402
+from app.scripts.seed_data import LAGOS_FCT_STATIONS  # noqa: E402,F401
+from app.scripts.seed_data import NATIONWIDE_STATIONS  # noqa: E402,F401
+from app.scripts.seed_data.fuel_types import FUEL_TYPES  # noqa: E402
 
 # --------------------------------------------------------------------------- #
-# Catalogue data: representative Nigerian filling stations.
-#
-# Coordinates are approximate, drawn from well-known neighbourhoods so that the
-# dataset is geographically realistic for nearby-search testing. Phone numbers
-# are intentionally omitted to avoid fabricating personal contact details.
-# Kaduna stations are demo/seed records centred around 10.5207,7.4386 to
-# support the nearby-search feature for users in Kaduna.
+# Geometry helper
 # --------------------------------------------------------------------------- #
-STATIONS: list[dict] = [
-    # ---- Lagos ----
-    {
-        "name": "NNPC Retail Ikeja",
-        "brand": "NNPC",
-        "address": "Obafemi Awolowo Way, Ikeja",
-        "city": "Ikeja",
-        "state": "Lagos",
-        "latitude": 6.6018,
-        "longitude": 3.3515,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
-    },
-    {
-        "name": "TotalEnergies Victoria Island",
-        "brand": "TotalEnergies",
-        "address": "Adeola Odeku Street, Victoria Island",
-        "city": "Victoria Island",
-        "state": "Lagos",
-        "latitude": 6.4306,
-        "longitude": 3.4217,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Mobil Lekki Phase 1",
-        "brand": "Mobil",
-        "address": "Lekki-Epe Expressway, Lekki Phase 1",
-        "city": "Lekki",
-        "state": "Lagos",
-        "latitude": 6.4474,
-        "longitude": 3.4688,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Conoil Surulere",
-        "brand": "Conoil",
-        "address": "Adeniran Ogunsanya Street, Surulere",
-        "city": "Surulere",
-        "state": "Lagos",
-        "latitude": 6.4922,
-        "longitude": 3.3545,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Oando Yaba",
-        "brand": "Oando",
-        "address": "Herbert Macaulay Way, Yaba",
-        "city": "Yaba",
-        "state": "Lagos",
-        "latitude": 6.4896,
-        "longitude": 3.3733,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "MRS Oil Ikoyi",
-        "brand": "MRS",
-        "address": "Awolowo Road, Ikoyi",
-        "city": "Ikoyi",
-        "state": "Lagos",
-        "latitude": 6.4476,
-        "longitude": 3.4345,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "NIPCO Apapa",
-        "brand": "NIPCO",
-        "address": "Wharf Road, Apapa",
-        "city": "Apapa",
-        "state": "Lagos",
-        "latitude": 6.4497,
-        "longitude": 3.3625,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Forte Oil Festac Town",
-        "brand": "Forte Oil",
-        "address": "1st Avenue, Festac Town",
-        "city": "Festac",
-        "state": "Lagos",
-        "latitude": 6.4667,
-        "longitude": 3.3167,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Bovas Agege",
-        "brand": "Bovas",
-        "address": "Agege-Ogba Road, Agege",
-        "city": "Agege",
-        "state": "Lagos",
-        "latitude": 6.6167,
-        "longitude": 3.3333,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "AA Rano Ikorodu",
-        "brand": "AA Rano",
-        "address": "Ikorodu-Sagamu Road, Ikorodu",
-        "city": "Ikorodu",
-        "state": "Lagos",
-        "latitude": 6.6194,
-        "longitude": 3.5106,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "NNPC Retail Alausa",
-        "brand": "NNPC",
-        "address": "Secretariat Road, Alausa, Ikeja",
-        "city": "Alausa",
-        "state": "Lagos",
-        "latitude": 6.6160,
-        "longitude": 3.3550,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "TotalEnergies Maryland",
-        "brand": "TotalEnergies",
-        "address": "Ikorodu Road, Maryland",
-        "city": "Maryland",
-        "state": "Lagos",
-        "latitude": 6.5750,
-        "longitude": 3.3680,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Oando Ojuelegba",
-        "brand": "Oando",
-        "address": "Ojuelegba Roundabout, Surulere",
-        "city": "Ojuelegba",
-        "state": "Lagos",
-        "latitude": 6.4970,
-        "longitude": 3.3647,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Conoil Ojota",
-        "brand": "Conoil",
-        "address": "Ikorodu Road, Ojota",
-        "city": "Ojota",
-        "state": "Lagos",
-        "latitude": 6.5556,
-        "longitude": 3.3719,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Mobil Ojodu-Berger",
-        "brand": "Mobil",
-        "address": "Lagos-Ibadan Expressway, Ojodu-Berger",
-        "city": "Berger",
-        "state": "Lagos",
-        "latitude": 6.6444,
-        "longitude": 3.3567,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    # ---- FCT (Abuja) ----
-    {
-        "name": "NNPC Retail Wuse 2",
-        "brand": "NNPC",
-        "address": "Aminu Kano Crescent, Wuse 2, Abuja",
-        "city": "Wuse 2",
-        "state": "FCT",
-        "latitude": 9.0820,
-        "longitude": 7.4720,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "TotalEnergies Garki",
-        "brand": "TotalEnergies",
-        "address": "Area 1, Garki, Abuja",
-        "city": "Garki",
-        "state": "FCT",
-        "latitude": 9.0250,
-        "longitude": 7.4880,
-        "fuel_types": ["PMS", "AGO", "DPK", "CNG"],
-    },
-    {
-        "name": "Oando Maitama",
-        "brand": "Oando",
-        "address": "Aguiyi Ironsi Street, Maitama, Abuja",
-        "city": "Maitama",
-        "state": "FCT",
-        "latitude": 9.0900,
-        "longitude": 7.4900,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    # ---- Kaduna (within ~5km of 10.5207,7.4386) ----
-    # Demo/seed records for nearby-search testing in Kaduna.
-    {
-        "name": "NNPC Retail Kaduna Central (Demo)",
-        "brand": "NNPC",
-        "address": "Independence Way, Kaduna Central",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5207,
-        "longitude": 7.4386,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
-    },
-    {
-        "name": "TotalEnergies Kaduna North (Demo)",
-        "brand": "TotalEnergies",
-        "address": "Kaduna North, near Independence Way",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5350,
-        "longitude": 7.4386,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Conoil Kaduna South (Demo)",
-        "brand": "Conoil",
-        "address": "Kaduna South, Ahmadu Bello Way axis",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5050,
-        "longitude": 7.4386,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Mobil Ungwan Rimi (Demo)",
-        "brand": "Mobil",
-        "address": "Ungwan Rimi, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5200,
-        "longitude": 7.4450,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Oando Hayin Banki (Demo)",
-        "brand": "Oando",
-        "address": "Hayin Banki, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5250,
-        "longitude": 7.4200,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "MRS Oil Malali (Demo)",
-        "brand": "MRS",
-        "address": "Malali, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5400,
-        "longitude": 7.4580,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Bovas Tudun Wada (Demo)",
-        "brand": "Bovas",
-        "address": "Tudun Wada, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5100,
-        "longitude": 7.4300,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "NIPCO Sabon Tasha (Demo)",
-        "brand": "NIPCO",
-        "address": "Sabon Tasha, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.4850,
-        "longitude": 7.4550,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-    {
-        "name": "Forte Oil Kakuri (Demo)",
-        "brand": "Forte Oil",
-        "address": "Kakuri, Kaduna South",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.4950,
-        "longitude": 7.4100,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "AA Rano Kawo (Demo)",
-        "brand": "AA Rano",
-        "address": "Kawo, Kaduna North",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5607,
-        "longitude": 7.4386,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG", "CNG"],
-    },
-    {
-        "name": "AYM Shafa Command Junction (Demo)",
-        "brand": "AYM Shafa",
-        "address": "Command Junction, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.5150,
-        "longitude": 7.4500,
-        "fuel_types": ["PMS", "AGO", "DPK"],
-    },
-    {
-        "name": "Optima Energy Television (Demo)",
-        "brand": "Optima",
-        "address": "Television, Kaduna",
-        "city": "Kaduna",
-        "state": "Kaduna",
-        "latitude": 10.4807,
-        "longitude": 7.4300,
-        "fuel_types": ["PMS", "AGO", "DPK", "LPG"],
-    },
-]
-
-
 def _to_geography(latitude: float, longitude: float) -> WKTElement:
     """Build a WGS-84 geography point (WKT is lon/lat ordered)."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
 
 
+# --------------------------------------------------------------------------- #
+# Persistence helpers
+# --------------------------------------------------------------------------- #
 def _reset_catalogue(session: Session) -> None:
     """Delete all seeded rows. Order respects FK cascades."""
     session.execute(delete(FuelStationFuelType))
@@ -459,6 +133,82 @@ def _sync_fuel_type_links(session: Session, station: FuelStation, codes: list[st
     session.flush()
 
 
+# --------------------------------------------------------------------------- #
+# Diagnostic / health check
+# --------------------------------------------------------------------------- #
+def collect_diagnostics(session: Session) -> dict[str, Any]:
+    """Read-only database health check for the fuel-station catalogue.
+
+    Returns a dict useful both for ad-hoc CLI diagnostics and for the
+    `GET /api/v1/admin/diagnostics`-style health endpoints. Never modifies
+    the database.
+
+    Computed via plain SQL aggregates so the function works against any
+    engine that supports the ``fuel_stations`` table (Postgres with PostGIS
+    in production, SQLite in tests).
+    """
+    total = int(
+        session.execute(select(func.count(FuelStation.id))).scalar_one()
+    )
+    active = int(
+        session.execute(
+            select(func.count(FuelStation.id)).where(FuelStation.is_active.is_(True))
+        ).scalar_one()
+    )
+
+    state_rows = session.execute(
+        select(FuelStation.state, func.count(FuelStation.id)).group_by(
+            FuelStation.state
+        )
+    ).all()
+    city_rows = session.execute(
+        select(FuelStation.city, func.count(FuelStation.id)).group_by(
+            FuelStation.city
+        )
+    ).all()
+
+    return {
+        "total_stations": total,
+        "active_stations": active,
+        "states_covered": len(state_rows),
+        "cities_covered": len(city_rows),
+        "states": sorted(s for (s, _) in state_rows if s is not None),
+        "cities": sorted(c for (c, _) in city_rows if c is not None),
+        "stations_per_state": dict(
+            (s, c) for (s, c) in state_rows if s is not None
+        ),
+        "stations_per_city": dict(
+            (c, n) for (c, n) in city_rows if c is not None
+        ),
+    }
+
+
+def print_diagnostics(diag: dict[str, Any]) -> None:
+    """Pretty-print the diagnostic report to stdout."""
+    print("── Fuel Station Diagnostics ─────────────────────────────")
+    print(f"  Total stations : {diag['total_stations']}")
+    print(f"  Active stations: {diag['active_stations']}")
+    print(f"  States covered : {diag['states_covered']}")
+    print(f"  Cities covered : {diag['cities_covered']}")
+    print()
+    print("  Per-state breakdown:")
+    states = diag["states"]
+    per_state = diag["stations_per_state"]
+    for s in states:
+        print(f"    {s:<20} {per_state.get(s, 0):>4} station(s)")
+    print()
+    # Print the 10 most-covered cities as a quick spot check.
+    per_city = diag["stations_per_city"]
+    top_cities = Counter(per_city).most_common(10)
+    print("  Top 10 cities by station count:")
+    for c, n in top_cities:
+        print(f"    {c:<25} {n:>3} station(s)")
+    print("────────────────────────────────────────────────────────")
+
+
+# --------------------------------------------------------------------------- #
+# Orchestration
+# --------------------------------------------------------------------------- #
 def run(reset: bool = False) -> dict[str, int]:
     """Run the seed inside a single transaction; commit only on success."""
     with SessionLocal() as session:
@@ -478,18 +228,34 @@ def run(reset: bool = False) -> dict[str, int]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Seed the Fuel Station Finder AI database with Nigerian "
-        "fuel types and stations.",
+        description=(
+            "Seed the Fuel Station Finder AI database with Nigerian fuel "
+            "types and stations across all 36 states + FCT."
+        ),
     )
     parser.add_argument(
         "--reset",
         action="store_true",
         help="Delete existing seed rows before re-inserting (development use).",
     )
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help=(
+            "Print a health/diagnostic summary (total/active station counts, "
+            "states and cities covered) without modifying the database."
+        ),
+    )
     args = parser.parse_args(argv)
 
-    if args.reset:
+    if args.reset and not args.diagnose:
         print("⚠️  Reset requested: wiping fuel types, stations and links...")
+
+    if args.diagnose:
+        with SessionLocal() as session:
+            diag = collect_diagnostics(session)
+        print_diagnostics(diag)
+        return 0
 
     try:
         summary = run(reset=args.reset)
