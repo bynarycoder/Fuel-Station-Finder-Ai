@@ -11,7 +11,7 @@ override is configured: asyncpg's default resolution connects over IPv4.
 
 from __future__ import annotations
 
-from app.core.database import build_async_connect_args
+from app.core.database import build_async_connect_args, build_sync_connect_args
 
 
 def test_asyncpg_pooler_url_disables_statement_cache():
@@ -52,3 +52,28 @@ def test_explicit_ssl_require_flag_is_honored():
     assert args["statement_cache_size"] == 0
     assert args["ssl"] == "require"
     assert "family" not in args
+
+
+def test_sync_supabase_url_enables_sslmode():
+    args = build_sync_connect_args(
+        "postgresql://postgres.ref:pw@aws-0-region.pooler.supabase.com:5432/postgres"
+    )
+    assert args == {"sslmode": "require"}
+
+
+def test_sync_url_with_explicit_sslmode_is_left_alone():
+    args = build_sync_connect_args(
+        "postgresql://postgres.ref:pw@aws-0-region.pooler.supabase.com:5432/postgres?sslmode=verify-full"
+    )
+    assert args == {}
+
+
+def test_sync_local_postgres_has_no_extra_args():
+    args = build_sync_connect_args(
+        "postgresql://postgres:postgres@localhost:5432/fuel_station_db"
+    )
+    assert args == {}
+
+
+def test_sync_sqlite_has_no_extra_args():
+    assert build_sync_connect_args("sqlite:///tmp.db") == {}
