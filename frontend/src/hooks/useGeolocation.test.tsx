@@ -205,6 +205,63 @@ describe("startWatch / stopWatch", () => {
   });
 });
 
+describe("simulated GPS override (?geo= URL param)", () => {
+  const KADUNA = { latitude: 10.5207, longitude: 7.4386 };
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("request() resolves the simulated fix WITHOUT calling navigator.geolocation", async () => {
+    window.history.replaceState(null, "", "/?geo=10.5207,7.4386");
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    await act(async () => {
+      resolved = await result.current.request();
+    });
+    // Kaduna — the simulated position, never a default city.
+    expect(resolved).toEqual(KADUNA);
+    expect(geo.calls.getCurrentPosition).toBe(0);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("refresh() returns the simulated fix without real GPS", async () => {
+    window.history.replaceState(null, "", "/?geo=9.082,7.472,50");
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: unknown;
+    await act(async () => {
+      resolved = await result.current.refresh();
+    });
+    expect(resolved).toEqual({ latitude: 9.082, longitude: 7.472 });
+    expect(geo.calls.getCurrentPosition).toBe(0);
+  });
+
+  it("startWatch() is skipped while the override is active (real fixes cannot overwrite the simulated one)", () => {
+    window.history.replaceState(null, "", "/?geo=10.5207,7.4386");
+    const { result } = renderHook(() => useGeolocation());
+    let watchId: number | null = 999;
+    act(() => {
+      watchId = result.current.startWatch(vi.fn());
+    });
+    expect(watchId).toBeNull();
+    expect(geo.calls.watchPosition).toBe(0);
+  });
+
+  it("request() uses the REAL browser geolocation when no ?geo= param is present", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    act(() => {
+      result.current.request().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(6.5244, 3.3792);
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 6.5244, longitude: 3.3792 });
+    expect(geo.calls.getCurrentPosition).toBe(1);
+  });
+});
+
 describe("refresh()", () => {
   it("resolves null on failure instead of throwing (test I)", async () => {
     const { result } = renderHook(() => useGeolocation());

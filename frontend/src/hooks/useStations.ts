@@ -130,5 +130,12 @@ export function useStationsQuery(favoriteIds?: Set<string>) {
     error: active.error,
     refetch: active.refetch,
     isNearby: nearbyEnabled,
+    /**
+     * True while the nearby list is displaying placeholder (keepPreviousData)
+     * items fetched for a DIFFERENT location/query. The UI uses this to show
+     * a loading state instead of presenting another city's stations as if
+     * they belonged to the current position (NEARBY_LOADING).
+     */
+    isPlaceholderData: active.isPlaceholderData,
   };
 }

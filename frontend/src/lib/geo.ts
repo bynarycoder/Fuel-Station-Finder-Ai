@@ -48,6 +48,19 @@ export const GEO_CODE_POSITION_UNAVAILABLE = 2;
 export const GEO_CODE_TIMEOUT = 3;
 export const GEO_CODE_UNSUPPORTED = 0;
 
+/** Human-readable names for browser PositionError codes (diagnostics only). */
+export const GEO_CODE_NAMES: Record<number, string> = {
+  [GEO_CODE_PERMISSION_DENIED]: "PERMISSION_DENIED",
+  [GEO_CODE_POSITION_UNAVAILABLE]: "POSITION_UNAVAILABLE",
+  [GEO_CODE_TIMEOUT]: "TIMEOUT",
+  [GEO_CODE_UNSUPPORTED]: "UNSUPPORTED",
+};
+
+/** Stable, greppable name for a geolocation error code. */
+export function geoCodeName(code: number): string {
+  return GEO_CODE_NAMES[code] ?? `UNKNOWN(code=${code})`;
+}
+
 /**
  * How far the user must move (metres) before we treat a watchPosition update
  * as meaningful: updates the marker, recalculates distances, and refetches
@@ -249,11 +262,70 @@ export function hasMovedEnough(
  *
  * Logs geolocation lifecycle events tagged `[geo]` in development only.
  * In production builds `process.env.NODE_ENV` is "production", so nothing is
- * logged — no user coordinates or PII ever reach production logs from here.
+ * logged — no user coordinates or PII ever reach production logs from here —
+ * UNLESS the tester explicitly opted in with `?geo_debug=1` (or a `?geo=`
+ * simulation override) in the URL. Those params are a deliberate on-device
+ * debugging action (e.g. chrome://inspect on a physical phone); they require
+ * the URL to be typed by hand and are never set by the app itself.
  */
+export function geoDebugEnabled(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("geo_debug") || params.has("geo");
+  } catch {
+    return false;
+  }
+}
+
 export function geoLog(...args: unknown[]): void {
-  if (process.env.NODE_ENV !== "production") {
+  if (geoDebugEnabled()) {
     // eslint-disable-next-line no-console
     console.info("[geo]", ...args);
   }
+}
+
+export interface SimulatedPosition {
+  latitude: number;
+  longitude: number;
+  /** Horizontal accuracy in metres (default 20 m). */
+  accuracy: number;
+}
+
+/**
+ * Test-only GPS override, parsed from the page URL:
+ *
+ *   https://<app>/?geo=10.5207,7.4386          (accuracy defaults to 20 m)
+ *   https://<app>/?geo=10.5207,7.4386,500      (coarse 500 m fix)
+ *
+ * Purpose: prove the FE → API → Supabase pipeline on a physical device
+ * WITHOUT the phone's GPS hardware/browser (separates "GPS failed" from
+ * "pipeline used the wrong coordinates"). Returns `null` unless the param
+ * is explicitly present and valid, so normal production behavior is
+ * completely unchanged. The active override is announced loudly via geoLog
+ * and the simulated coordinates are shown in the UI like any real fix.
+ *
+ * Ranges are validated (|lat| ≤ 90, |lon| ≤ 180, accuracy > 0); an invalid
+ * value is ignored rather than silently producing nonsense coordinates.
+ */
+export function getSimulatedPosition(): SimulatedPosition | null {
+  if (typeof window === "undefined") return null;
+  let raw: string | null;
+  try {
+    raw = new URLSearchParams(window.location.search).get("geo");
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+
+  const parts = raw.split(",").map((p) => Number(p.trim()));
+  if (parts.length < 2 || parts.length > 3 || parts.some((n) => !Number.isFinite(n))) {
+    return null;
+  }
+  const [latitude, longitude, accuracy = 20] = parts;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || accuracy <= 0) {
+    return null;
+  }
+  return { latitude, longitude, accuracy };
 }

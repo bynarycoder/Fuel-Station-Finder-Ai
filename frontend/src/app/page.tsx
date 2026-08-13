@@ -29,9 +29,19 @@ import { useMapStore } from "@/store/useMapStore";
 export default function FinderPage() {
   const auth = useAuth();
   const favorites = useFavorites(auth.isAuthed);
-  const { items, isLoading, isError, refetch, isNearby } = useStationsQuery(
-    favorites.favoriteIds,
-  );
+  const {
+    items,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+    isNearby,
+    isPlaceholderData,
+  } = useStationsQuery(favorites.favoriteIds);
+  // A placeholder set belongs to a previous location/query — while the nearby
+  // fetch for the CURRENT position is in flight show the loading state
+  // instead of potentially another city's stations.
+  const showLoading = isLoading || (isNearby && isFetching && isPlaceholderData);
   const userLocation = useMapStore((s) => s.userLocation);
   const selectedStationId = useMapStore((s) => s.selectedStationId);
   const setSelectedStationId = useMapStore((s) => s.setSelectedStationId);
@@ -46,7 +56,9 @@ export default function FinderPage() {
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
-  const closestStationId = isNearby && items.length > 0 ? items[0].id : null;
+  // Never crown a "closest" station from placeholder (previous-location) data.
+  const closestStationId =
+    isNearby && !showLoading && items.length > 0 ? items[0].id : null;
 
   // "Recenter on Me" (and any explicit user refresh) re-runs the active query
   // so the nearby list reflects the freshest position immediately.
@@ -181,7 +193,7 @@ export default function FinderPage() {
         <section className="order-2 min-h-0 lg:order-1">
           <StationList
             items={items}
-            isLoading={isLoading}
+            isLoading={showLoading}
             isError={isError}
             isNearby={isNearby}
             selectedId={selectedStationId}

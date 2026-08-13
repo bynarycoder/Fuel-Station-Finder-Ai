@@ -9,7 +9,7 @@
  *   - the movement threshold protects the nearby API from GPS jitter.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   GEO_CODE_PERMISSION_DENIED,
@@ -21,6 +21,8 @@ import {
   GEO_OPTIONS_FALLBACK,
   applyLocationEvent,
   failureState,
+  geoCodeName,
+  getSimulatedPosition,
   hasMovedEnough,
   mapGeolocationError,
 } from "@/lib/geo";
@@ -171,5 +173,61 @@ describe("hasMovedEnough (movement threshold)", () => {
     const moved = { latitude: NINE_JOS.latitude + 0.001, longitude: NINE_JOS.longitude };
     expect(hasMovedEnough(NINE_JOS, moved, 200)).toBe(false);
     expect(hasMovedEnough(NINE_JOS, moved, 50)).toBe(true);
+  });
+});
+
+describe("geoCodeName (error-code vocabulary)", () => {
+  it("names the three browser codes + synthetic unsupported distinctly", () => {
+    expect(geoCodeName(GEO_CODE_PERMISSION_DENIED)).toBe("PERMISSION_DENIED");
+    expect(geoCodeName(GEO_CODE_POSITION_UNAVAILABLE)).toBe("POSITION_UNAVAILABLE");
+    expect(geoCodeName(GEO_CODE_TIMEOUT)).toBe("TIMEOUT");
+    expect(geoCodeName(GEO_CODE_UNSUPPORTED)).toBe("UNSUPPORTED");
+    // TIMEOUT must never be reported as POSITION_UNAVAILABLE (and vice versa).
+    expect(geoCodeName(GEO_CODE_TIMEOUT)).not.toBe(geoCodeName(GEO_CODE_POSITION_UNAVAILABLE));
+  });
+});
+
+describe("getSimulatedPosition (?geo= test override)", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("returns null when the param is absent (normal production behavior)", () => {
+    window.history.replaceState(null, "", "/");
+    expect(getSimulatedPosition()).toBeNull();
+  });
+
+  it("parses lat,lon with the default 20 m accuracy (Kaduna)", () => {
+    window.history.replaceState(null, "", "/?geo=10.5207,7.4386");
+    expect(getSimulatedPosition()).toEqual({
+      latitude: 10.5207,
+      longitude: 7.4386,
+      accuracy: 20,
+    });
+  });
+
+  it("parses an explicit accuracy as the third segment", () => {
+    window.history.replaceState(null, "", "/?geo=9.082,7.472,500");
+    expect(getSimulatedPosition()).toEqual({
+      latitude: 9.082,
+      longitude: 7.472,
+      accuracy: 500,
+    });
+  });
+
+  it("rejects out-of-range coordinates instead of producing nonsense", () => {
+    window.history.replaceState(null, "", "/?geo=95,7.4386");
+    expect(getSimulatedPosition()).toBeNull();
+    window.history.replaceState(null, "", "/?geo=10.5,190");
+    expect(getSimulatedPosition()).toBeNull();
+    window.history.replaceState(null, "", "/?geo=10.5,7.4,-5");
+    expect(getSimulatedPosition()).toBeNull();
+  });
+
+  it("rejects garbage input", () => {
+    window.history.replaceState(null, "", "/?geo=abuja");
+    expect(getSimulatedPosition()).toBeNull();
+    window.history.replaceState(null, "", "/?geo=10.5");
+    expect(getSimulatedPosition()).toBeNull();
   });
 });
