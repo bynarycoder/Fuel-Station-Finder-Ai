@@ -54,11 +54,34 @@ describe("request()", () => {
     });
     await vi.waitFor(() => expect(failure).toBeDefined());
     expect(failure!.code).toBe(3);
-    expect(failure!.message).toContain("timed out");
+    expect(failure!.message).toContain("couldn't get your location in time");
+    expect(failure!.message).not.toMatch(/\bTIMEOUT\b|code 3/i);
     expect(geo.calls.getCurrentPosition).toBe(2);
   });
 
-  it("uses the fallback fix when high-accuracy times out (Kaduna, not a default city)", async () => {
+  it("does not invent coordinates when both attempts time out", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: unknown = "pending";
+    let failure: { code: number } | undefined;
+    act(() => {
+      result.current
+        .request()
+        .then((loc) => {
+          resolved = loc;
+        })
+        .catch((err: { code: number }) => {
+          failure = err;
+          resolved = null;
+        });
+      geo.getCurrentError(3);
+      geo.getCurrentError(3);
+    });
+    await vi.waitFor(() => expect(resolved).not.toBe("pending"));
+    expect(resolved).toBeNull();
+    expect(failure?.code).toBe(3);
+  });
+
+  it("uses the fallback fix when attempt 1 times out (browser coords, not a default city)", async () => {
     const { result } = renderHook(() => useGeolocation());
     let resolved: { latitude: number; longitude: number } | undefined;
     act(() => {
@@ -71,6 +94,36 @@ describe("request()", () => {
     await vi.waitFor(() => expect(resolved).toBeDefined());
     expect(resolved).toEqual({ latitude: 10.5207, longitude: 7.4386 });
     expect(geo.calls.getCurrentPosition).toBe(2);
+  });
+
+  it("retries POSITION_UNAVAILABLE once, then rejects without inventing a city", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let failure: { code: number; message: string } | undefined;
+    act(() => {
+      result.current.request().catch((err: { code: number; message: string }) => {
+        failure = err;
+      });
+      geo.getCurrentError(2);
+      geo.getCurrentError(2);
+    });
+    await vi.waitFor(() => expect(failure).toBeDefined());
+    expect(failure!.code).toBe(2);
+    expect(failure!.message).toContain("couldn't determine your location");
+    expect(geo.calls.getCurrentPosition).toBe(2);
+  });
+
+  it("does not retry PERMISSION_DENIED", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let failure: { code: number } | undefined;
+    act(() => {
+      result.current.request().catch((err: { code: number }) => {
+        failure = err;
+      });
+      geo.getCurrentError(1);
+    });
+    await vi.waitFor(() => expect(failure).toBeDefined());
+    expect(failure!.code).toBe(1);
+    expect(geo.calls.getCurrentPosition).toBe(1);
   });
 
   it("rejects with code 1 on PERMISSION_DENIED (test E)", async () => {

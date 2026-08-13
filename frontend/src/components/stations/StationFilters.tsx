@@ -90,6 +90,7 @@ export function StationFilters() {
   lastKnownRef.current = userLocation;
 
   // ---- Debounced text search (name / brand / city) -------------------------
+  const cityInputRef = useRef<HTMLInputElement>(null);
   const [searchInput, setSearchInput] = useState({
     q: filters.q,
     brand: filters.brand,
@@ -213,6 +214,12 @@ export function StationFilters() {
     setMode("browse");
     setSelectedStationId(null);
     handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "watch_stop" }));
+  }
+
+  /** Failed geolocation → stay in browse and let the user type a city. Never invent coords. */
+  function handleSearchByCity() {
+    handleBrowseAll();
+    window.setTimeout(() => cityInputRef.current?.focus(), 0);
   }
 
   function handleRecenter() {
@@ -436,17 +443,27 @@ export function StationFilters() {
             </p>
             <p className="mt-0.5 opacity-90">{locationMessage}</p>
             {locationStatus === "permission_denied" ? (
-              <p className="mt-1.5 text-[11px] opacity-80">
-                Tip: In your browser address bar, click the lock/location icon → allow location,
-                then click <strong>Near me</strong> again. You can still browse all stations in the meantime.
-              </p>
+              <>
+                <p className="mt-1.5 text-[11px] opacity-80">
+                  Tip: In your browser address bar, click the lock/location icon → allow location,
+                  then click <strong>Near me</strong> again.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => void handleNearMe()}>
+                    Try again
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleSearchByCity}>
+                    Search by city
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button variant="secondary" size="sm" onClick={() => void handleNearMe()}>
                   Try again
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleBrowseAll}>
-                  Browse all stations
+                <Button variant="ghost" size="sm" onClick={handleSearchByCity}>
+                  Search by city
                 </Button>
               </div>
             )}
@@ -508,6 +525,8 @@ export function StationFilters() {
           className="h-10 rounded-lg border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
         <input
+          ref={cityInputRef}
+          id="station-city-filter"
           type="text"
           placeholder="City"
           value={searchInput.city}

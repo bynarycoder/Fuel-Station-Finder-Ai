@@ -43,7 +43,8 @@ import type { StationItem } from "@/hooks/useStations";
 import type { LatLng } from "@/types/station";
 import { directionsUrl, formatDistance } from "@/lib/format";
 
-// Default view: Lagos mainland (used before the user shares their location).
+// Visual-only map start (Lagos mainland). NEVER used as the nearby-search
+// origin — userSearchLocation lives in the Zustand store and starts as null.
 const DEFAULT_CENTER: L.LatLngExpression = [6.5244, 3.3792];
 const DEFAULT_ZOOM = 12;
 

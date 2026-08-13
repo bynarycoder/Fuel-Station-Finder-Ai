@@ -27,7 +27,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   GEO_CODE_PERMISSION_DENIED,
   GEO_OPTIONS_DEFAULT,
-  GEO_OPTIONS_HIGH_ACCURACY,
+  GEO_OPTIONS_FALLBACK,
   GEO_OPTIONS_WATCH,
   geoLog,
   isTransientCode,
@@ -117,26 +117,27 @@ export function useGeolocation(): UseGeolocation {
         reject(failure);
       };
 
-      // GPS first so a Kaduna phone is not silently placed in Abuja via IP.
-      // Timeout / unavailable → one low-accuracy retry (laptops without GPS).
-      geoLog("request: getCurrentPosition high-accuracy", GEO_OPTIONS_HIGH_ACCURACY);
+      // Attempt 1: reasonable (recent cache allowed so phones don't stall on GPS).
+      // Attempt 2 (timeout / unavailable only): looser network/cached fix.
+      // Never invent coordinates — a failed pair of attempts rejects.
+      geoLog("request: attempt 1", GEO_OPTIONS_DEFAULT);
       navigator.geolocation.getCurrentPosition(
-        (position) => succeed(position, "high-accuracy"),
+        (position) => succeed(position, "attempt-1"),
         (err: GeolocationPositionError) => {
           if (err.code === GEO_CODE_PERMISSION_DENIED || !isTransientCode(err.code)) {
             fail(err);
             return;
           }
-          geoLog("request: high-accuracy missed, retrying low-accuracy", {
+          geoLog("request: attempt 1 missed, retrying less-restrictive", {
             code: err.code,
           });
           navigator.geolocation.getCurrentPosition(
-            (position) => succeed(position, "low-accuracy-fallback"),
+            (position) => succeed(position, "attempt-2-fallback"),
             fail,
-            GEO_OPTIONS_DEFAULT,
+            GEO_OPTIONS_FALLBACK,
           );
         },
-        GEO_OPTIONS_HIGH_ACCURACY,
+        GEO_OPTIONS_DEFAULT,
       );
     });
   }, []);

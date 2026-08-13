@@ -58,42 +58,61 @@ export const MOVEMENT_THRESHOLD_METERS = 75;
 /**
  * Geolocation option presets.
  *
- * Initial Near Me acquisition tries HIGH accuracy first (GPS on phones) with
- * `maximumAge: 0` so we never reuse a stale IP-geolocated city (Nigerian ISP
- * lookups commonly resolve to Abuja). If that times out or is unavailable —
- * typical on laptops without GPS — we fall back to low-accuracy Wi-Fi/IP.
+ * Attempt 1 (GEO_OPTIONS_DEFAULT) is *reasonable*: allow a recent cached /
+ * network-assisted fix so a phone does not sit on a cold GPS lock until the
+ * browser fires TIMEOUT. `maximumAge: 0` + `enableHighAccuracy` is what made
+ * Near Me fail on mobile.
  *
- * Watch stays low-accuracy so a missing GPS chip cannot kill live tracking.
+ * Attempt 2 (GEO_OPTIONS_FALLBACK) is *less restrictive*: no GPS requirement,
+ * longer timeout, older cache allowed. Used only after TIMEOUT /
+ * POSITION_UNAVAILABLE. Permission-denied is never retried.
+ *
+ * We never invent coordinates. A failed acquisition leaves userLocation null
+ * and does not query nearby.
  */
-export const GEO_OPTIONS_HIGH_ACCURACY: PositionOptions = {
-  enableHighAccuracy: true,
-  timeout: 12_000,
-  maximumAge: 0,
-};
-
 export const GEO_OPTIONS_DEFAULT: PositionOptions = {
-  enableHighAccuracy: false,
-  timeout: 20_000,
+  enableHighAccuracy: true,
+  timeout: 10_000,
   maximumAge: 60_000,
 };
 
-/** Watch options: cached fixes allowed (30 s) so transient hiccups don't kill tracking. */
-export const GEO_OPTIONS_WATCH: PositionOptions = {
+export const GEO_OPTIONS_FALLBACK: PositionOptions = {
   enableHighAccuracy: false,
-  timeout: 20_000,
-  maximumAge: 30_000,
+  timeout: 15_000,
+  maximumAge: 300_000,
 };
 
-/** User-facing messages per error code (used when mapping to a status). */
+/** Alias kept so existing imports of the first-attempt preset keep working. */
+export const GEO_OPTIONS_HIGH_ACCURACY = GEO_OPTIONS_DEFAULT;
+
+/** Watch: network/wifi is enough; a generous cache avoids a post-success timeout. */
+export const GEO_OPTIONS_WATCH: PositionOptions = {
+  enableHighAccuracy: false,
+  timeout: 25_000,
+  maximumAge: 60_000,
+};
+
+/**
+ * User-facing messages. No browser error codes, no "TIMEOUT" jargon.
+ * These are the FATAL (no position) copies.
+ */
 export const GEO_MESSAGES: Record<number, string> = {
   [GEO_CODE_PERMISSION_DENIED]:
-    "Location access is blocked. Allow location access in your browser settings to use Near Me.",
+    "Location access is blocked. Please allow location access in your browser settings and try again.",
+  [GEO_CODE_POSITION_UNAVAILABLE]:
+    "Your device couldn't determine your location. Please try again or choose your location manually.",
+  [GEO_CODE_TIMEOUT]:
+    "We couldn't get your location in time. Please try again or choose your location manually.",
+  [GEO_CODE_UNSUPPORTED]:
+    "This browser can't share your location. Try a modern browser or search for a city instead.",
+};
+
+/** Copies used when a last-known position already exists (non-fatal banner). */
+export const GEO_MESSAGES_WITH_POSITION: Record<number, string> = {
   [GEO_CODE_POSITION_UNAVAILABLE]:
     "Your current location is temporarily unavailable. Showing nearby stations from your last known location.",
   [GEO_CODE_TIMEOUT]:
-    "Location request timed out. Please try again in a moment.",
-  [GEO_CODE_UNSUPPORTED]:
-    "Geolocation is not supported by this browser. Try a modern browser or browse all stations.",
+    "Using your last known location. Trying to update...",
 };
 
 export interface GeoFailure {
@@ -200,17 +219,14 @@ export function failureState(hasPosition: boolean, code: number): LocationState 
     return {
       status: "temporarily_unavailable",
       message:
-        code === GEO_CODE_TIMEOUT
-          ? "Using your last known location. Trying to update..."
-          : GEO_MESSAGES[GEO_CODE_POSITION_UNAVAILABLE],
+        GEO_MESSAGES_WITH_POSITION[code] ??
+        GEO_MESSAGES_WITH_POSITION[GEO_CODE_POSITION_UNAVAILABLE],
     };
   }
   return {
     status: "error",
     message:
-      code === GEO_CODE_TIMEOUT
-        ? GEO_MESSAGES[GEO_CODE_TIMEOUT]
-        : GEO_MESSAGES[GEO_CODE_POSITION_UNAVAILABLE],
+      GEO_MESSAGES[code] ?? GEO_MESSAGES[GEO_CODE_POSITION_UNAVAILABLE],
   };
 }
 
