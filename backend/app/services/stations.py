@@ -241,7 +241,7 @@ async def find_nearby(
     fuel_type: str | None = None,
 ) -> dict[str, Any]:
     logger.info(
-        "nearby received latitude=%s longitude=%s radius_meters=%s limit=%s fuel_type=%s",
+        "[NEARBY REQUEST] latitude=%s longitude=%s radius_meters=%s limit=%s fuel_type=%s",
         latitude,
         longitude,
         radius_meters,
@@ -260,10 +260,11 @@ async def find_nearby(
         items.append(station)
     first = items[0] if items else None
     logger.info(
-        "nearby returned count=%s first_name=%s first_city=%s first_distance_m=%s",
+        "[NEARBY RESULT] count=%s first_station=%s first_station_city=%s first_station_state=%s first_station_distance_m=%s",
         len(items),
         first["name"] if first else None,
         first["city"] if first else None,
+        first["state"] if first else None,
         first["distance_meters"] if first else None,
     )
     return {

@@ -29,7 +29,9 @@ import {
   GEO_OPTIONS_DEFAULT,
   GEO_OPTIONS_FALLBACK,
   GEO_OPTIONS_WATCH,
+  geoCodeName,
   geoLog,
+  getSimulatedPosition,
   isTransientCode,
   mapGeolocationError,
   type GeoFailure,
@@ -92,6 +94,19 @@ export function useGeolocation(): UseGeolocation {
 
   const request = useCallback((): Promise<LatLng> => {
     return new Promise<LatLng>((resolve, reject) => {
+      // Test-only override (?geo=lat,lon[,acc]): prove the FE → API → DB
+      // pipeline on-device without involving the phone's GPS at all.
+      const simulated = getSimulatedPosition();
+      if (simulated) {
+        geoLog("[GEO] SIMULATED FIX (?geo= URL override — NOT real GPS)", {
+          latitude: simulated.latitude.toFixed(4),
+          longitude: simulated.longitude.toFixed(4),
+          accuracy_m: simulated.accuracy,
+        });
+        resolve({ latitude: simulated.latitude, longitude: simulated.longitude });
+        return;
+      }
+
       if (typeof navigator === "undefined" || !navigator.geolocation) {
         reject(mapGeolocationError({ code: 0 }));
         return;
@@ -102,9 +117,10 @@ export function useGeolocation(): UseGeolocation {
       const succeed = (position: GeolocationPosition, via: string) => {
         setLoading(false);
         const loc = toLatLng(position);
-        geoLog(`request: success (${via})`, {
-          lat: loc.latitude.toFixed(4),
-          lng: loc.longitude.toFixed(4),
+        // [GEO SUCCESS] — the exact fix that will drive the nearby query.
+        geoLog(`[GEO SUCCESS] attempt=${via}`, {
+          latitude: loc.latitude.toFixed(4),
+          longitude: loc.longitude.toFixed(4),
           accuracy_m: Math.round(position.coords.accuracy),
         });
         resolve(loc);
@@ -113,27 +129,50 @@ export function useGeolocation(): UseGeolocation {
       const fail = (err: GeolocationPositionError) => {
         setLoading(false);
         const failure = mapGeolocationError(err);
-        geoLog("request: failure", { code: failure.code });
+        geoLog("[GEO] request failed", {
+          code: failure.code,
+          name: geoCodeName(failure.code),
+          message: err?.message ?? null,
+        });
         reject(failure);
       };
+
+      // Structured attempt diagnostics: attempt number + raw browser code +
+      // effective options, so a TIMEOUT (3) is never confused with
+      // POSITION_UNAVAILABLE (2) or PERMISSION_DENIED (1).
+      const started = (attempt: number, options: PositionOptions) =>
+        geoLog(`[GEO] attempt ${attempt}: started`, {
+          enableHighAccuracy: options.enableHighAccuracy,
+          timeout: options.timeout,
+          maximumAge: options.maximumAge,
+        });
+
+      const attemptError = (attempt: number, err: GeolocationPositionError) =>
+        geoLog(`[GEO] attempt ${attempt}: error`, {
+          code: err?.code ?? -1,
+          name: geoCodeName(err?.code ?? -1),
+          message: err?.message ?? null,
+        });
 
       // Attempt 1: reasonable (recent cache allowed so phones don't stall on GPS).
       // Attempt 2 (timeout / unavailable only): looser network/cached fix.
       // Never invent coordinates — a failed pair of attempts rejects.
-      geoLog("request: attempt 1", GEO_OPTIONS_DEFAULT);
+      started(1, GEO_OPTIONS_DEFAULT);
       navigator.geolocation.getCurrentPosition(
-        (position) => succeed(position, "attempt-1"),
+        (position) => succeed(position, "1"),
         (err: GeolocationPositionError) => {
+          attemptError(1, err);
           if (err.code === GEO_CODE_PERMISSION_DENIED || !isTransientCode(err.code)) {
             fail(err);
             return;
           }
-          geoLog("request: attempt 1 missed, retrying less-restrictive", {
-            code: err.code,
-          });
+          started(2, GEO_OPTIONS_FALLBACK);
           navigator.geolocation.getCurrentPosition(
-            (position) => succeed(position, "attempt-2-fallback"),
-            fail,
+            (position) => succeed(position, "2-fallback"),
+            (err2: GeolocationPositionError) => {
+              attemptError(2, err2);
+              fail(err2);
+            },
             GEO_OPTIONS_FALLBACK,
           );
         },
@@ -144,6 +183,16 @@ export function useGeolocation(): UseGeolocation {
 
   const refresh = useCallback((): Promise<LatLng | null> => {
     return new Promise<LatLng | null>((resolve) => {
+      // Test-only override (?geo=lat,lon[,acc]) — same as request().
+      const simulated = getSimulatedPosition();
+      if (simulated) {
+        geoLog("refresh: SIMULATED fix (?geo= override)", {
+          latitude: simulated.latitude.toFixed(4),
+          longitude: simulated.longitude.toFixed(4),
+        });
+        resolve({ latitude: simulated.latitude, longitude: simulated.longitude });
+        return;
+      }
       if (typeof navigator === "undefined" || !navigator.geolocation) {
         geoLog("refresh: unsupported");
         resolve(null);
@@ -173,6 +222,12 @@ export function useGeolocation(): UseGeolocation {
 
   const startWatch = useCallback(
     (onUpdate: (pos: LatLng) => void, onError?: (failure: GeoFailure) => void): number | null => {
+      // Simulation mode: never start a real watcher — a real fix would
+      // overwrite the simulated test position mid-test.
+      if (getSimulatedPosition()) {
+        geoLog("watch: skipped — SIMULATED fix active (?geo= override)");
+        return null;
+      }
       if (typeof navigator === "undefined" || !navigator.geolocation) {
         onError?.(mapGeolocationError({ code: 0 }));
         return null;

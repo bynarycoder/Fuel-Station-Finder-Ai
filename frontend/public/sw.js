@@ -1,19 +1,26 @@
 /* Fuel Station Finder AI — service worker (Phase 11 PWA).
 
 Strategy (runtime, careful by design):
-  * Navigation requests: network-first, falling back to the cached offline
-    page when the network is unreachable.
-  * Same-origin static assets (JS/CSS/images): cache-first with background
-    revalidation, so the app shell loads instantly on repeat visits.
-  * PUBLIC station API GETs (the backend origin, paths containing
-    "/stations"): stale-while-revalidate — cached station catalogue remains
-    browsable offline and is clearly labelled by the OfflineBanner.
-  * NEVER cached: requests with an Authorization header (auth/admin/reports
-    POSTs), non-GET methods, or anything outside the public station paths.
-  * Version bump CACHE_VERSION to invalidate old caches on deploy.
+  * Navigation requests (HTML documents): NETWORK-FIRST, ALWAYS. The previous
+    strategy served the precached "/" cache-first, so phones kept running the
+    OLD app bundle after a deploy — the exact reason a deployed location fix
+    did not reach users. Fresh HTML always references fresh content-hashed
+    JS chunks. Offline, navigations fall back to the cached page, else the
+    offline page.
+  * /_next/static/* (immutable, content-hashed): cache-first — safe forever.
+  * Other same-origin GETs (icons, manifest): stale-while-revalidate.
+  * PUBLIC station catalogue API GETs (backend origin, "/stations" list):
+    stale-while-revalidate — cached catalogue remains browsable offline and is
+    clearly labelled by the OfflineBanner.
+  * NEVER cached: /stations/nearby and /stations/search (location-specific —
+    a cached response from another city must never be reused), anything with
+    an Authorization header, non-GET methods, /admin.
+  * CACHE_VERSION is bumped on every behavioral SW change: activate() deletes
+    every cache whose name does not start with the current version, wiping
+    stale shells AND stale API responses written by older workers.
 */
 
-const CACHE_VERSION = "fsf-v1";
+const CACHE_VERSION = "fsf-v2";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const API_CACHE = `${CACHE_VERSION}-stations`;
 
@@ -23,7 +30,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(APP_SHELL_CACHE)
-      .then((cache) => cache.addAll([OFFLINE_URL, "/", "/manifest.webmanifest"]))
+      // NOTE: "/" is deliberately NOT precached — a precached HTML shell is
+      // served stale after deploys. Only the offline fallback page is.
+      .then((cache) => cache.addAll([OFFLINE_URL, "/manifest.webmanifest"]))
       .then(() => self.skipWaiting()),
   );
 });
@@ -49,6 +58,8 @@ function isCacheableStationApi(request) {
   if (request.headers.get("Authorization")) return false;
   const url = new URL(request.url);
   // Backend origin (configurable) — cache only the public station catalogue.
+  // /nearby and /search depend on the caller's location and must always hit
+  // the network: reusing another city's response was a production bug.
   return (
     url.origin !== self.location.origin &&
     /\/stations(\/|$|\?)/.test(url.pathname) &&
@@ -64,7 +75,7 @@ self.addEventListener("fetch", (event) => {
   // Only handle GETs.
   if (request.method !== "GET") return;
 
-  // 1) Public station API — stale-while-revalidate.
+  // 1) Public station catalogue API — stale-while-revalidate (never /nearby).
   if (isCacheableStationApi(request)) {
     event.respondWith(
       caches.open(API_CACHE).then(async (cache) => {
@@ -81,17 +92,48 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2) Same-origin static assets — cache-first with background refresh.
-  if (request.url.startsWith(self.location.origin)) {
-    // Never cache the offline/admin/auth pages' HTML themselves (auth state).
-    const url = new URL(request.url);
-    if (
-      request.mode === "navigate" &&
-      (url.pathname.startsWith("/admin") || url.pathname.startsWith("/about"))
-    ) {
-      event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
-      return;
-    }
+  const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  // 2) Navigations — NETWORK-FIRST so a deploy reaches every device on the
+  //    next load. Cached document (then offline page) only when offline.
+  if (sameOrigin && request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches
+              .open(APP_SHELL_CACHE)
+              .then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached || caches.match(OFFLINE_URL);
+        }),
+    );
+    return;
+  }
+
+  // 3) Immutable Next.js build assets — content-hashed, cache-first forever.
+  if (sameOrigin && url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.open(APP_SHELL_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response && response.ok) cache.put(request, response.clone());
+          return response;
+        });
+      }),
+    );
+    return;
+  }
+
+  // 4) Other same-origin static assets (icons, manifest) — SWR.
+  if (sameOrigin) {
     event.respondWith(
       caches.open(APP_SHELL_CACHE).then(async (cache) => {
         const cached = await cache.match(request);
@@ -109,10 +151,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3) Navigation (other origins) — network-first, offline page fallback.
+  // 5) Cross-origin navigations — network-first, offline page fallback.
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL)),
-    );
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
   }
 });
