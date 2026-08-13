@@ -58,15 +58,19 @@ export const MOVEMENT_THRESHOLD_METERS = 75;
 /**
  * Geolocation option presets.
  *
- * First acquisition & watch: LOW accuracy first. On laptops/desktops Chrome
- * frequently has no GPS and falls back to Wi-Fi/IP positioning; demanding
- * `enableHighAccuracy` with `maximumAge: 0` makes those requests time out
- * (exactly the production bug). `maximumAge` also lets the browser reuse a
- * recent fix instead of blocking on a fresh one.
+ * Initial Near Me acquisition tries HIGH accuracy first (GPS on phones) with
+ * `maximumAge: 0` so we never reuse a stale IP-geolocated city (Nigerian ISP
+ * lookups commonly resolve to Abuja). If that times out or is unavailable —
+ * typical on laptops without GPS — we fall back to low-accuracy Wi-Fi/IP.
  *
- *  - timeout: 20_000  — generous enough for Wi-Fi/IP fallback (spec: 20–30 s)
- *  - maximumAge: 60_000 — reuse fixes up to a minute old (spec: 30–120 s)
+ * Watch stays low-accuracy so a missing GPS chip cannot kill live tracking.
  */
+export const GEO_OPTIONS_HIGH_ACCURACY: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 12_000,
+  maximumAge: 0,
+};
+
 export const GEO_OPTIONS_DEFAULT: PositionOptions = {
   enableHighAccuracy: false,
   timeout: 20_000,

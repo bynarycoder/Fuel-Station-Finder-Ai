@@ -37,6 +37,7 @@ function renderFilters() {
 }
 
 const JOS_COORDS = { latitude: 9.0567, longitude: 7.49698 };
+const KADUNA_COORDS = { latitude: 10.5207, longitude: 7.4386 };
 
 let geo: GeoMock;
 
@@ -103,7 +104,11 @@ describe("initial timeout (test B)", () => {
   it("shows a fatal error and stays in browse mode", async () => {
     renderFilters();
     clickNearMe();
-    act(() => geo.getCurrentError(3));
+    act(() => {
+      // High-accuracy timeout then low-accuracy timeout → fatal (no position).
+      geo.getCurrentError(3);
+      geo.getCurrentError(3);
+    });
 
     await waitFor(() => {
       expect(useMapStore.getState().locationStatus).toBe("error");

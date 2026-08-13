@@ -53,6 +53,7 @@ function isCacheableStationApi(request) {
     url.origin !== self.location.origin &&
     /\/stations(\/|$|\?)/.test(url.pathname) &&
     !url.pathname.includes("/search") &&
+    !url.pathname.includes("/nearby") &&
     !url.pathname.includes("/admin")
   );
 }

@@ -48,11 +48,29 @@ describe("request()", () => {
       result.current.request().catch((err: { code: number; message: string }) => {
         failure = err;
       });
+      // High-accuracy attempt times out → hook retries at low accuracy.
+      geo.getCurrentError(3);
       geo.getCurrentError(3);
     });
     await vi.waitFor(() => expect(failure).toBeDefined());
     expect(failure!.code).toBe(3);
     expect(failure!.message).toContain("timed out");
+    expect(geo.calls.getCurrentPosition).toBe(2);
+  });
+
+  it("uses the fallback fix when high-accuracy times out (Kaduna, not a default city)", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    act(() => {
+      result.current.request().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentError(3);
+      geo.getCurrentSuccess(10.5207, 7.4386);
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 10.5207, longitude: 7.4386 });
+    expect(geo.calls.getCurrentPosition).toBe(2);
   });
 
   it("rejects with code 1 on PERMISSION_DENIED (test E)", async () => {

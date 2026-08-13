@@ -16,6 +16,8 @@ import {
   GEO_CODE_POSITION_UNAVAILABLE,
   GEO_CODE_TIMEOUT,
   GEO_CODE_UNSUPPORTED,
+  GEO_OPTIONS_DEFAULT,
+  GEO_OPTIONS_HIGH_ACCURACY,
   applyLocationEvent,
   failureState,
   hasMovedEnough,
@@ -116,6 +118,17 @@ describe("applyLocationEvent state machine", () => {
     );
     expect(afterRecovery.status).toBe("tracking");
     expect(afterRecovery.message).toBeNull();
+  });
+});
+
+describe("geolocation option presets", () => {
+  it("asks for a fresh high-accuracy fix on the first Near Me request", () => {
+    expect(GEO_OPTIONS_HIGH_ACCURACY.enableHighAccuracy).toBe(true);
+    expect(GEO_OPTIONS_HIGH_ACCURACY.maximumAge).toBe(0);
+  });
+
+  it("keeps a low-accuracy fallback for devices without GPS", () => {
+    expect(GEO_OPTIONS_DEFAULT.enableHighAccuracy).toBe(false);
   });
 });
 
