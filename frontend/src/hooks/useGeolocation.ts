@@ -25,9 +25,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  GEO_CODE_PERMISSION_DENIED,
   GEO_OPTIONS_DEFAULT,
+  GEO_OPTIONS_FALLBACK,
   GEO_OPTIONS_WATCH,
   geoLog,
+  isTransientCode,
   mapGeolocationError,
   type GeoFailure,
 } from "@/lib/geo";
@@ -95,27 +98,44 @@ export function useGeolocation(): UseGeolocation {
       }
 
       setLoading(true);
-      geoLog("request: getCurrentPosition", {
-        enableHighAccuracy: GEO_OPTIONS_DEFAULT.enableHighAccuracy,
-        timeout: GEO_OPTIONS_DEFAULT.timeout,
-        maximumAge: GEO_OPTIONS_DEFAULT.maximumAge,
-      });
 
+      const succeed = (position: GeolocationPosition, via: string) => {
+        setLoading(false);
+        const loc = toLatLng(position);
+        geoLog(`request: success (${via})`, {
+          lat: loc.latitude.toFixed(4),
+          lng: loc.longitude.toFixed(4),
+          accuracy_m: Math.round(position.coords.accuracy),
+        });
+        resolve(loc);
+      };
+
+      const fail = (err: GeolocationPositionError) => {
+        setLoading(false);
+        const failure = mapGeolocationError(err);
+        geoLog("request: failure", { code: failure.code });
+        reject(failure);
+      };
+
+      // Attempt 1: reasonable (recent cache allowed so phones don't stall on GPS).
+      // Attempt 2 (timeout / unavailable only): looser network/cached fix.
+      // Never invent coordinates — a failed pair of attempts rejects.
+      geoLog("request: attempt 1", GEO_OPTIONS_DEFAULT);
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLoading(false);
-          const loc = toLatLng(position);
-          geoLog("request: success", {
-            lat: loc.latitude.toFixed(4),
-            lng: loc.longitude.toFixed(4),
-          });
-          resolve(loc);
-        },
+        (position) => succeed(position, "attempt-1"),
         (err: GeolocationPositionError) => {
-          setLoading(false);
-          const failure = mapGeolocationError(err);
-          geoLog("request: failure", { code: failure.code });
-          reject(failure);
+          if (err.code === GEO_CODE_PERMISSION_DENIED || !isTransientCode(err.code)) {
+            fail(err);
+            return;
+          }
+          geoLog("request: attempt 1 missed, retrying less-restrictive", {
+            code: err.code,
+          });
+          navigator.geolocation.getCurrentPosition(
+            (position) => succeed(position, "attempt-2-fallback"),
+            fail,
+            GEO_OPTIONS_FALLBACK,
+          );
         },
         GEO_OPTIONS_DEFAULT,
       );

@@ -69,13 +69,11 @@ def test_count_query_mirrors_filters() -> None:
 # Nearby query (the spatial core)
 # --------------------------------------------------------------------------- #
 def test_nearby_query_uses_postgis_distance_functions() -> None:
-    sql = _compile(
-        station_service.build_nearby_query(
-            station_service.geography_point(6.6, 3.35), 5000.0, 10
-        )
-    )
+    sql = _compile(station_service.build_nearby_query(6.6, 3.35, 5000.0, 10))
     assert "ST_DWithin" in sql
     assert "ST_Distance" in sql
+    assert "ST_MakePoint" in sql
+    assert "ST_SetSRID" in sql
     # The origin point must be cast to geography to match the location column.
     assert "AS geography" in sql
     assert "ORDER BY distance_meters ASC" in sql
@@ -83,19 +81,13 @@ def test_nearby_query_uses_postgis_distance_functions() -> None:
 
 
 def test_nearby_query_filters_to_active_stations() -> None:
-    sql = _compile(
-        station_service.build_nearby_query(
-            station_service.geography_point(6.6, 3.35), 1000.0, 5
-        )
-    )
+    sql = _compile(station_service.build_nearby_query(6.6, 3.35, 1000.0, 5))
     assert "is_active IS true" in sql
 
 
 def test_nearby_query_supports_fuel_type_filter() -> None:
     sql = _compile(
-        station_service.build_nearby_query(
-            station_service.geography_point(6.6, 3.35), 1000.0, 5, fuel_type="LPG"
-        )
+        station_service.build_nearby_query(6.6, 3.35, 1000.0, 5, fuel_type="LPG")
     )
     assert "EXISTS" in sql
     assert "LPG" in sql or "fuel_type_code" in sql
@@ -121,6 +113,16 @@ def test_geography_point_is_wgs84_lonlat_ordered() -> None:
     assert point.srid == 4326
     # WKT is longitude-first.
     assert "POINT(3.35 6.6)" in str(point)
+
+
+def test_user_origin_geography_uses_st_makepoint_lon_lat() -> None:
+    """Nearby search must bind X=longitude, Y=latitude — never the reverse."""
+    expr = station_service.user_origin_geography(10.5207, 7.4386)
+    compiled = str(expr.compile(dialect=postgresql.dialect()))
+    assert "ST_MakePoint" in compiled
+    assert "ST_SetSRID" in compiled
+    # Cast must keep SRID 4326 (not the GeoAlchemy default of -1).
+    assert "4326" in compiled
 
 
 def test_station_to_public_maps_station_and_fuel_links() -> None:

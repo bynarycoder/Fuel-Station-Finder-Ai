@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_roles
@@ -71,6 +71,7 @@ async def list_stations(
 )
 async def find_nearby_stations(
     db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
     latitude: Annotated[float, Query(ge=-90.0, le=90.0)],
     longitude: Annotated[float, Query(ge=-180.0, le=180.0)],
     radius_meters: Annotated[
@@ -80,6 +81,8 @@ async def find_nearby_stations(
     limit: Annotated[int, Query(ge=1, le=station_service.MAX_LIMIT)] = station_service.DEFAULT_LIMIT,
     fuel_type: Annotated[str | None, Query(max_length=8)] = None,
 ) -> NearbyStations:
+    # Location-specific: never let a proxy/CDN/PWA reuse another city's result.
+    response.headers["Cache-Control"] = "no-store"
     return await station_service.find_nearby(
         db, latitude, longitude, radius_meters=radius_meters, limit=limit, fuel_type=fuel_type
     )

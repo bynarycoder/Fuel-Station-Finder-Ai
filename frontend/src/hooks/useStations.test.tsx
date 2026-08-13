@@ -27,6 +27,8 @@ const mockedNearby = vi.mocked(fetchNearbyStations);
 const mockedStations = vi.mocked(fetchStations);
 
 const JOS = { latitude: 9.0567, longitude: 7.49698 };
+const KADUNA = { latitude: 10.5207, longitude: 7.4386 };
+const ABUJA = { latitude: 9.0765, longitude: 7.3986 };
 
 function makeStation(id: string, lat: number, lng: number): StationItem {
   return {
@@ -116,6 +118,33 @@ describe("nearby query wiring (test A)", () => {
       }),
     );
     expect(mockedStations).not.toHaveBeenCalled();
+  });
+
+  it("forwards Kaduna coordinates as latitude/longitude — never a default Abuja point", async () => {
+    mockedNearby.mockResolvedValue({
+      items: [makeStation("aa-rano", KADUNA.latitude + 0.001, KADUNA.longitude)],
+      latitude: KADUNA.latitude,
+      longitude: KADUNA.longitude,
+      radius_meters: 5000,
+    } as unknown as Awaited<ReturnType<typeof fetchNearbyStations>>);
+    mockedStations.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 100 });
+
+    useMapStore.setState({ mode: "nearby", userLocation: KADUNA });
+    renderProbe();
+
+    await waitFor(() => expect(mockedNearby).toHaveBeenCalled());
+    expect(mockedNearby).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latitude: 10.5207,
+        longitude: 7.4386,
+        radius_meters: 5000,
+      }),
+    );
+    const sent = mockedNearby.mock.calls[0][0];
+    expect(sent).not.toEqual(expect.objectContaining({ lat: expect.anything() }));
+    expect(sent).not.toEqual(expect.objectContaining({ lng: expect.anything() }));
+    expect(sent.latitude).not.toBe(ABUJA.latitude);
+    expect(sent.longitude).not.toBe(ABUJA.longitude);
   });
 
   it("does NOT refetch when the store receives identical coordinates", async () => {

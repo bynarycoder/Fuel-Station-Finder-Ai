@@ -14,6 +14,7 @@ converted to/from ``geography`` here.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,6 +25,8 @@ from sqlalchemy.sql import Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FuelStation, FuelStationFuelType, FuelType
+
+logger = logging.getLogger(__name__)
 
 # Pagination / radius defaults and ceilings (enforced in the route layer too).
 DEFAULT_PAGE_SIZE = 20
@@ -50,8 +53,27 @@ class StationFilters:
 # Pure helpers
 # --------------------------------------------------------------------------- #
 def geography_point(latitude: float, longitude: float) -> WKTElement:
-    """Build a WGS-84 geography point (WKT is lon/lat ordered)."""
+    """Build a WGS-84 geography point for INSERT/UPDATE (WKT is lon/lat ordered)."""
     return WKTElement(f"POINT({longitude} {latitude})", srid=4326)
+
+
+def user_origin_geography(latitude: float, longitude: float) -> Any:
+    """Geography point at the caller's coordinates for ST_DWithin / ST_Distance.
+
+    PostGIS axis order is X = longitude, Y = latitude. The expression is
+    built from two plain floats so the supplied location cannot be dropped,
+    swapped, or replaced by a bind-processor default:
+
+        ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography(POINT, 4326)
+
+    A bare ``cast(WKTElement, Geography)`` compiles to
+    ``ST_GeogFromText(...)::geography(GEOMETRY, -1)`` (unknown SRID) and is
+    not safe for the nearby search.
+    """
+    return cast(
+        func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326),
+        Geography(geometry_type="POINT", srid=4326),
+    )
 
 
 def _latitude_column() -> Any:
@@ -146,20 +168,23 @@ def build_get_query(station_id: Any) -> Select:
 
 
 def build_nearby_query(
-    point: WKTElement,
+    latitude: float,
+    longitude: float,
     radius_meters: float,
     limit: int,
     fuel_type: str | None = None,
 ) -> Select:
-    """Stations within ``radius_meters`` of ``point``, ordered nearest-first.
+    """Stations within ``radius_meters`` of the user, ordered nearest-first.
 
     Uses ``ST_DWithin`` (GiST-index-backed) for the radius filter and
-    ``ST_Distance`` to compute and order by the distance in metres.
+    ``ST_Distance`` to compute and order by the distance in metres. The
+    origin is ``ST_MakePoint(longitude, latitude)`` — X = lon, Y = lat —
+    cast to ``geography(POINT, 4326)`` so distances are in metres on the
+    spheroid. No city/state filter is applied; only the supplied point
+    and radius decide membership.
     """
-    # Cast the point to geography so the PostGIS geography/geometry types match
-    # the ``location`` column (avoids mixed-type ST_DWithin/ST_Distance).
-    point_geo = cast(point, Geography)
-    distance = func.ST_Distance(FuelStation.location, point_geo).label("distance_meters")
+    origin = user_origin_geography(latitude, longitude)
+    distance = func.ST_Distance(FuelStation.location, origin).label("distance_meters")
     stmt = (
         select(
             FuelStation,
@@ -169,7 +194,7 @@ def build_nearby_query(
         )
         .options(_STATION_LINKS)
         .where(FuelStation.is_active.is_(True))
-        .where(func.ST_DWithin(FuelStation.location, point_geo, radius_meters))
+        .where(func.ST_DWithin(FuelStation.location, origin, radius_meters))
         .order_by(asc(distance))
         .limit(limit)
     )
@@ -215,10 +240,17 @@ async def find_nearby(
     limit: int,
     fuel_type: str | None = None,
 ) -> dict[str, Any]:
-    point = geography_point(latitude, longitude)
+    logger.info(
+        "nearby received latitude=%s longitude=%s radius_meters=%s limit=%s fuel_type=%s",
+        latitude,
+        longitude,
+        radius_meters,
+        limit,
+        fuel_type,
+    )
     rows = (
         await db.execute(
-            build_nearby_query(point, radius_meters, limit, fuel_type)
+            build_nearby_query(latitude, longitude, radius_meters, limit, fuel_type)
         )
     ).all()
     items: list[dict[str, Any]] = []
@@ -226,6 +258,14 @@ async def find_nearby(
         station = station_to_public(row[0], row.latitude, row.longitude)
         station["distance_meters"] = float(row.distance_meters)
         items.append(station)
+    first = items[0] if items else None
+    logger.info(
+        "nearby returned count=%s first_name=%s first_city=%s first_distance_m=%s",
+        len(items),
+        first["name"] if first else None,
+        first["city"] if first else None,
+        first["distance_meters"] if first else None,
+    )
     return {
         "items": items,
         "latitude": latitude,

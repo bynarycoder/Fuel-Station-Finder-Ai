@@ -16,6 +16,9 @@ import {
   GEO_CODE_POSITION_UNAVAILABLE,
   GEO_CODE_TIMEOUT,
   GEO_CODE_UNSUPPORTED,
+  GEO_MESSAGES,
+  GEO_OPTIONS_DEFAULT,
+  GEO_OPTIONS_FALLBACK,
   applyLocationEvent,
   failureState,
   hasMovedEnough,
@@ -28,19 +31,24 @@ describe("mapGeolocationError", () => {
   it("maps PERMISSION_DENIED to the permission message", () => {
     const f = mapGeolocationError({ code: 1, message: "denied" });
     expect(f.code).toBe(GEO_CODE_PERMISSION_DENIED);
-    expect(f.message).toContain("Allow location access");
+    expect(f.message).toContain("Location access is blocked");
+    expect(f.message).not.toMatch(/PERMISSION_DENIED|code 1/i);
   });
 
   it("maps POSITION_UNAVAILABLE to the unavailable message", () => {
     const f = mapGeolocationError({ code: 2 });
     expect(f.code).toBe(GEO_CODE_POSITION_UNAVAILABLE);
-    expect(f.message).toContain("temporarily unavailable");
+    expect(f.message).toContain("couldn't determine your location");
+    expect(f.message).toContain("choose your location manually");
+    expect(f.message).not.toMatch(/POSITION_UNAVAILABLE|code 2/i);
   });
 
   it("maps TIMEOUT to the timeout message", () => {
     const f = mapGeolocationError({ code: 3 });
     expect(f.code).toBe(GEO_CODE_TIMEOUT);
-    expect(f.message).toContain("timed out");
+    expect(f.message).toContain("couldn't get your location in time");
+    expect(f.message).toContain("choose your location manually");
+    expect(f.message).not.toMatch(/\bTIMEOUT\b|code 3/i);
   });
 
   it("maps unknown codes to UNSUPPORTED with a fallback message", () => {
@@ -59,7 +67,7 @@ describe("failureState (the core timeout fix)", () => {
   it("TIMEOUT without any position → fatal error", () => {
     const s = failureState(false, GEO_CODE_TIMEOUT);
     expect(s.status).toBe("error");
-    expect(s.message).toContain("timed out");
+    expect(s.message).toContain("couldn't get your location in time");
   });
 
   it("POSITION_UNAVAILABLE with a valid position → temporarily_unavailable", () => {
@@ -116,6 +124,27 @@ describe("applyLocationEvent state machine", () => {
     );
     expect(afterRecovery.status).toBe("tracking");
     expect(afterRecovery.message).toBeNull();
+  });
+});
+
+describe("geolocation option presets", () => {
+  it("attempt 1 is reasonable — recent cache allowed so phones do not stall on GPS", () => {
+    expect(GEO_OPTIONS_DEFAULT.enableHighAccuracy).toBe(true);
+    expect(GEO_OPTIONS_DEFAULT.maximumAge).toBeGreaterThan(0);
+    expect((GEO_OPTIONS_DEFAULT.timeout ?? 0)).toBeLessThanOrEqual(15_000);
+  });
+
+  it("attempt 2 is less restrictive — network/cached location allowed", () => {
+    expect(GEO_OPTIONS_FALLBACK.enableHighAccuracy).toBe(false);
+    expect((GEO_OPTIONS_FALLBACK.maximumAge ?? 0)).toBeGreaterThan(
+      GEO_OPTIONS_DEFAULT.maximumAge ?? 0,
+    );
+  });
+
+  it("user-facing copies never mention browser error codes", () => {
+    for (const message of Object.values(GEO_MESSAGES)) {
+      expect(message).not.toMatch(/PERMISSION_DENIED|POSITION_UNAVAILABLE|\bTIMEOUT\b|code \d/i);
+    }
   });
 });
 

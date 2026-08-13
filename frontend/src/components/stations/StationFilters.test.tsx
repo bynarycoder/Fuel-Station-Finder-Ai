@@ -37,6 +37,7 @@ function renderFilters() {
 }
 
 const JOS_COORDS = { latitude: 9.0567, longitude: 7.49698 };
+const KADUNA_COORDS = { latitude: 10.5207, longitude: 7.4386 };
 
 let geo: GeoMock;
 
@@ -103,7 +104,11 @@ describe("initial timeout (test B)", () => {
   it("shows a fatal error and stays in browse mode", async () => {
     renderFilters();
     clickNearMe();
-    act(() => geo.getCurrentError(3));
+    act(() => {
+      // High-accuracy timeout then low-accuracy timeout → fatal (no position).
+      geo.getCurrentError(3);
+      geo.getCurrentError(3);
+    });
 
     await waitFor(() => {
       expect(useMapStore.getState().locationStatus).toBe("error");
@@ -111,11 +116,49 @@ describe("initial timeout (test B)", () => {
     });
     // Fatal panel — no valid location exists, so this IS fatal.
     expect(screen.getByText("Could not get your location")).toBeInTheDocument();
-    expect(screen.getByText(/Location request timed out/)).toBeInTheDocument();
-    // No watcher was created.
+    expect(screen.getByText(/couldn't get your location in time/)).toBeInTheDocument();
+    // No watcher was created, and no silent city was stored.
     expect(geo.calls.watchPosition).toBe(0);
-    // A retry path exists.
+    expect(useMapStore.getState().userLocation).toBeNull();
+    expect(useMapStore.getState().userLocation).not.toEqual({
+      latitude: 9.0765,
+      longitude: 7.3986,
+    });
+    // Retry + manual city search — never a hardcoded fallback city.
     expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search by city/i })).toBeInTheDocument();
+  });
+
+  it("Search by city stays in browse and does not invent coordinates", async () => {
+    renderFilters();
+    clickNearMe();
+    act(() => {
+      geo.getCurrentError(3);
+      geo.getCurrentError(3);
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: /search by city/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /search by city/i }));
+    expect(useMapStore.getState().mode).toBe("browse");
+    expect(useMapStore.getState().userLocation).toBeNull();
+    await waitFor(() => {
+      expect(document.getElementById("station-city-filter")).toBe(document.activeElement);
+    });
+  });
+});
+
+describe("initial POSITION_UNAVAILABLE", () => {
+  it("shows a fatal panel with retry + search by city and stores no coordinates", async () => {
+    renderFilters();
+    clickNearMe();
+    act(() => {
+      geo.getCurrentError(2);
+      geo.getCurrentError(2);
+    });
+    await waitFor(() => expect(useMapStore.getState().locationStatus).toBe("error"));
+    expect(useMapStore.getState().userLocation).toBeNull();
+    expect(screen.getByText(/couldn't determine your location/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search by city/i })).toBeInTheDocument();
   });
 });
 
