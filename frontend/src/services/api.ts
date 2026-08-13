@@ -154,11 +154,50 @@ export interface StationListParams {
   state?: string;
   fuel_type?: string;
   is_active?: boolean;
+  page?: number;
   page_size?: number;
 }
 
 export function fetchStations(params: StationListParams) {
   return request<PaginatedStations>("/stations", { params });
+}
+
+/** Largest page the backend accepts (matches `station_service.MAX_PAGE_SIZE`). */
+export const STATIONS_PAGE_SIZE = 100;
+
+/**
+ * Fetch *every* station the catalogue endpoint returns for the given filters.
+ *
+ * The backend paginates (`page_size` is capped at 100) and reports a `total`;
+ * the browse view needs the whole catalogue, so we walk every page until we
+ * hold `total` items and merge them into a single `PaginatedStations`-shaped
+ * result (the same shape `fetchStations` returns for one page).
+ *
+ * Items are deduplicated by `id` so a row inserted between page requests can
+ * never surface twice; deterministic ordering (`name ASC, id ASC`) otherwise
+ * keeps page boundaries clean.
+ */
+export async function fetchAllStations(
+  params: StationListParams = {},
+): Promise<PaginatedStations> {
+  const pageSize = STATIONS_PAGE_SIZE;
+  const first = await fetchStations({ ...params, page: 1, page_size: pageSize });
+
+  const byId = new Map<string, PaginatedStations["items"][number]>();
+  for (const station of first.items) byId.set(station.id, station);
+
+  const totalPages = Math.ceil(first.total / pageSize);
+  for (let page = 2; page <= totalPages; page += 1) {
+    const next = await fetchStations({ ...params, page, page_size: pageSize });
+    for (const station of next.items) byId.set(station.id, station);
+  }
+
+  return {
+    items: [...byId.values()],
+    total: first.total,
+    page: 1,
+    page_size: pageSize,
+  };
 }
 
 export interface NearbyParams {

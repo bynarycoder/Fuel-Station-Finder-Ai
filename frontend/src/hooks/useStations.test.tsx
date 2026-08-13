@@ -15,16 +15,16 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useStationsQuery, type StationItem } from "@/hooks/useStations";
-import { fetchNearbyStations, fetchStations } from "@/services/api";
+import { fetchAllStations, fetchNearbyStations } from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
 
 vi.mock("@/services/api", () => ({
   fetchNearbyStations: vi.fn(),
-  fetchStations: vi.fn(),
+  fetchAllStations: vi.fn(),
 }));
 
 const mockedNearby = vi.mocked(fetchNearbyStations);
-const mockedStations = vi.mocked(fetchStations);
+const mockedStations = vi.mocked(fetchAllStations);
 
 const JOS = { latitude: 9.0567, longitude: 7.49698 };
 const KADUNA = { latitude: 10.5207, longitude: 7.4386 };
@@ -244,6 +244,42 @@ describe("nearby query wiring (test A)", () => {
     await waitFor(() => expect(mockedStations).toHaveBeenCalled());
     expect(mockedNearby).not.toHaveBeenCalled();
     expect(readProbe().isNearby).toBe(false);
+  });
+});
+
+describe("browse mode pagination (full-catalogue regression)", () => {
+  it("surfaces every station returned by the paginated catalogue fetch", async () => {
+    // 176 stations (the seeded catalogue spans >1 API page at page_size=100).
+    const full = Array.from({ length: 176 }, (_, i) =>
+      makeStation(`s-${i}`, JOS.latitude + i * 0.0001, JOS.longitude),
+    );
+    mockedNearby.mockResolvedValue({
+      items: [],
+      latitude: JOS.latitude,
+      longitude: JOS.longitude,
+      radius_meters: 5000,
+    } as unknown as Awaited<ReturnType<typeof fetchNearbyStations>>);
+    mockedStations.mockResolvedValue({
+      items: full,
+      total: 176,
+      page: 1,
+      page_size: 100,
+    });
+
+    useMapStore.setState({ mode: "browse", userLocation: null });
+    renderProbe();
+
+    await waitFor(() => expect(readProbe().items).toHaveLength(176));
+
+    // The hook must call the all-pages helper (never a single page) with the
+    // active-only catalogue filters.
+    expect(mockedStations).toHaveBeenCalledWith(
+      expect.objectContaining({ is_active: true }),
+    );
+    expect(mockedStations.mock.calls[0][0]).not.toEqual(
+      expect.objectContaining({ page_size: 100 }),
+    );
+    expect(mockedNearby).not.toHaveBeenCalled();
   });
 });
 

@@ -22,7 +22,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 import { geoLog } from "@/lib/geo";
 import { haversineDistance } from "@/lib/format";
-import { fetchNearbyStations, fetchStations } from "@/services/api";
+import { fetchAllStations, fetchNearbyStations } from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
 import type { Station } from "@/types/station";
 
@@ -85,14 +85,15 @@ export function useStationsQuery(favoriteIds?: Set<string>) {
 
   const browse = useQuery({
     queryKey: ["stations", "browse", filters],
+    // The catalogue endpoint paginates (hard cap of 100 per page); the browse
+    // view must show the whole catalogue, so fetch every page and merge them.
     queryFn: () =>
-      fetchStations({
+      fetchAllStations({
         q: filters.q || undefined,
         brand: filters.brand || undefined,
         city: filters.city || undefined,
         fuel_type: filters.fuelType || undefined,
         is_active: true,
-        page_size: 100,
       }),
     enabled: !nearbyEnabled,
     placeholderData: keepPreviousData,
@@ -103,7 +104,7 @@ export function useStationsQuery(favoriteIds?: Set<string>) {
   const rawItems: StationItem[] = active.data
     ? nearbyEnabled
       ? (active.data as Awaited<ReturnType<typeof fetchNearbyStations>>).items
-      : (active.data as Awaited<ReturnType<typeof fetchStations>>).items
+      : (active.data as Awaited<ReturnType<typeof fetchAllStations>>).items
     : [];
 
   // Nearby mode: sort nearest → farthest; fall back to Haversine when the
