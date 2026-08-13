@@ -308,8 +308,19 @@ export interface SimulatedPosition {
  *
  * Ranges are validated (|lat| ≤ 90, |lon| ≤ 180, accuracy > 0); an invalid
  * value is ignored rather than silently producing nonsense coordinates.
+ *
+ * PRODUCTION SAFETY: the override is disabled entirely when
+ * ``process.env.NODE_ENV === "production"``. A stale or bookmarked test URL
+ * (``?geo=lat,lon``) must never replace real GPS for production users — in a
+ * production build this function always returns ``null`` and the browser's
+ * own geolocation is used. Development and test environments are unaffected.
  */
 export function getSimulatedPosition(): SimulatedPosition | null {
+  // Never honor the ?geo= override in production: a stale/bookmarked test
+  // URL must not hijack real GPS for real users. Next.js inlines
+  // process.env.NODE_ENV at build time, so this compiles to `return null`
+  // and the parser below is dead-code eliminated from production bundles.
+  if (process.env.NODE_ENV === "production") return null;
   if (typeof window === "undefined") return null;
   let raw: string | null;
   try {
