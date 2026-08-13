@@ -46,21 +46,49 @@ export function formatDistanceFrom(
 }
 
 /**
- * Build a Google Maps turn-by-turn directions URL — real routing without
- * needing a dedicated routing API key. Uses the user's location as the origin
- * when available, otherwise just the destination.
+ * Build a Google Maps directions URL — real routing without needing a
+ * dedicated routing API key. The destination is ALWAYS the station's exact
+ * latitude/longitude (never the name alone), safely URL-encoded via
+ * URLSearchParams. Uses the user's location as the origin when available.
+ *
+ * Returns `null` (never a malformed URL) when the destination coordinates are
+ * missing or not finite numbers — callers must render the link only when a
+ * URL is returned. This guarantees no `destination=undefined,undefined` URL
+ * can ever be emitted, and latitude/longitude are never swapped.
  */
 export function directionsUrl(
   destination: LatLng,
   origin: LatLng | null,
-): string {
+): string | null {
+  const destLat = Number(destination?.latitude);
+  const destLon = Number(destination?.longitude);
+  if (!Number.isFinite(destLat) || !Number.isFinite(destLon)) {
+    return null;
+  }
+  // Range sanity: reject impossible coordinates rather than sending them to
+  // the navigation provider (e.g. a reversed lat/lon pair).
+  if (destLat < -90 || destLat > 90 || destLon < -180 || destLon > 180) {
+    return null;
+  }
+
   const params = new URLSearchParams({
     api: "1",
-    destination: `${destination.latitude},${destination.longitude}`,
+    destination: `${destLat},${destLon}`,
     travelmode: "driving",
   });
   if (origin) {
-    params.set("origin", `${origin.latitude},${origin.longitude}`);
+    const originLat = Number(origin.latitude);
+    const originLon = Number(origin.longitude);
+    if (
+      Number.isFinite(originLat) &&
+      Number.isFinite(originLon) &&
+      originLat >= -90 &&
+      originLat <= 90 &&
+      originLon >= -180 &&
+      originLon <= 180
+    ) {
+      params.set("origin", `${originLat},${originLon}`);
+    }
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }

@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock3,
   Loader2,
   LogOut,
   ShieldAlert,
@@ -23,15 +24,16 @@ import {
 } from "lucide-react";
 
 import { useAdminAnalytics, useAdminReports, useAdminUsers, useSetReportStatus, useUpdateUser, useVerifyReport } from "@/hooks/useAdmin";
-import { fetchCurrentUser, type VerificationResult } from "@/services/api";
+import { fetchCurrentUser, resolveMediaUrl, type VerificationResult } from "@/services/api";
 import { confidenceLabel, formatConfidencePercent } from "@/lib/confidence";
 import { isAuthAvailable, restoreSession, signInWithEmail, signOut } from "@/lib/auth";
 import type { AdminAnalytics } from "@/types/admin";
 import type { User } from "@/types/user";
-import { QUEUE_LENGTH_LABELS, type FuelReport } from "@/types/report";
+import { QUEUE_LENGTH_LABELS, REPORT_STATUS_LABELS, type FuelReportAdmin } from "@/types/report";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
+  under_review: "bg-blue-100 text-blue-700",
   verified: "bg-emerald-100 text-emerald-700",
   rejected: "bg-red-100 text-red-700",
 };
@@ -133,7 +135,9 @@ export default function AdminPage() {
         <ReportsSection
           reports={reports.data?.items ?? []}
           loading={reports.isLoading}
-          onStatus={(id, status) => statusMutation.mutate({ id, status })}
+          onStatus={(id, status, options) =>
+            statusMutation.mutate({ id, status, ...options })
+          }
           busy={statusMutation.isPending || verifyMutation.isPending}
           onVerify={verifyMutation.mutate}
           verifyResult={verifyMutation.data}
@@ -290,9 +294,13 @@ function ReportsSection({
   verifyPending,
   busy,
 }: {
-  reports: FuelReport[];
+  reports: FuelReportAdmin[];
   loading: boolean;
-  onStatus: (id: string, status: string) => void;
+  onStatus: (
+    id: string,
+    status: string,
+    options?: { rejectionReason?: string; reviewerNotes?: string },
+  ) => void;
   onVerify: (reportId: string) => void;
   verifyResult: VerificationResult | null | undefined;
   verifyError: unknown;
@@ -302,10 +310,20 @@ function ReportsSection({
   // Which report the current AI result/error belongs to (the mutation is
   // shared across reports, so we track the id it was started for).
   const [verifiedReportId, setVerifiedReportId] = useState<string | null>(null);
+  // Rejection requires a reason (enforced by the backend too) — track which
+  // report is being rejected and the draft reason.
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   function runVerify(reportId: string) {
     setVerifiedReportId(reportId);
     onVerify(reportId);
+  }
+
+  function confirmReject(reportId: string) {
+    onStatus(reportId, "rejected", { rejectionReason: rejectReason.trim() });
+    setRejectingId(null);
+    setRejectReason("");
   }
 
   return (
@@ -318,9 +336,8 @@ function ReportsSection({
       ) : (
         <div className="space-y-2">
           {reports.map((report) => (
-            <>
+            <div key={report.id}>
             <div
-              key={report.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3"
             >
               <div className="min-w-0">
@@ -331,11 +348,22 @@ function ReportsSection({
                 <p className="text-xs text-gray-500">
                   {report.queue_length ? QUEUE_LENGTH_LABELS[report.queue_length] : ""}
                   {report.price_per_litre != null ? ` · ₦${report.price_per_litre}/L` : ""}
+                  {report.notes ? ` · ${report.notes}` : ""}
                 </p>
+                {report.rejection_reason && (
+                  <p className="mt-1 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+                    Rejection reason: {report.rejection_reason}
+                  </p>
+                )}
+                {report.reviewer_notes && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Reviewer notes: {report.reviewer_notes}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${STATUS_STYLES[report.status] ?? "bg-gray-100 text-gray-600"}`}>
-                  {report.status}
+                  {REPORT_STATUS_LABELS[report.status] ?? report.status}
                 </span>
                 {report.ai_confidence_score != null && (
                   <span
@@ -344,6 +372,20 @@ function ReportsSection({
                   >
                     AI {formatConfidencePercent(report.ai_confidence_score)}
                   </span>
+                )}
+                {report.photo_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveMediaUrl(report.photo_url) ?? undefined}
+                    alt="Reported evidence"
+                    loading="lazy"
+                    className="h-12 w-12 rounded-lg border border-gray-200 object-cover"
+                    title="Open the reported photo (evidence)"
+                    onClick={() => {
+                      const url = resolveMediaUrl(report.photo_url);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                  />
                 )}
                 {report.photo_url && report.status === "pending" && (
                   <button
@@ -360,25 +402,70 @@ function ReportsSection({
                     Verify with AI
                   </button>
                 )}
-                <button
-                  disabled={busy}
-                  onClick={() => onStatus(report.id, "verified")}
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Verify
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => onStatus(report.id, "rejected")}
-                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  <XCircle className="h-3.5 w-3.5" /> Reject
-                </button>
+                {report.status !== "verified" && (
+                  <button
+                    disabled={busy}
+                    onClick={() => onStatus(report.id, "verified")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                  </button>
+                )}
+                {report.status !== "under_review" && report.status !== "rejected" && (
+                  <button
+                    disabled={busy}
+                    onClick={() => onStatus(report.id, "under_review")}
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-700 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                    title="Mark as being reviewed"
+                  >
+                    <Clock3 className="h-3.5 w-3.5" /> Under review
+                  </button>
+                )}
+                {rejectingId === report.id ? (
+                  <div className="flex w-full flex-col gap-1.5 sm:w-72">
+                    <textarea
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      rows={2}
+                      placeholder="Rejection reason (shown to the submitter) — required"
+                      className="w-full rounded-lg border border-red-300 p-2 text-xs focus:border-red-500 focus:outline-none"
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        disabled={busy}
+                        onClick={() => confirmReject(report.id)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        <XCircle className="h-3.5 w-3.5" /> Confirm rejection
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRejectingId(null);
+                          setRejectReason("");
+                        }}
+                        className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    disabled={busy || report.status === "rejected"}
+                    onClick={() => {
+                      setRejectingId(report.id);
+                      setRejectReason(report.rejection_reason ?? "");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Inline AI verification result */}
-            {verifyResult && report.id === verifiedReportId && (
+            {verifyResult && report.id === verifiedReportId ? (
               <div className="mt-2 rounded-lg border border-violet-200 bg-violet-50 p-2.5 text-xs">
                 <p className="flex flex-wrap items-center gap-2 font-semibold text-violet-900">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -393,10 +480,10 @@ function ReportsSection({
                     {verifyResult.is_plausible ? "Plausible" : "Not plausible"}
                   </span>
                 </p>
-                {verifyResult.summary && (
+                {verifyResult.summary ? (
                   <p className="mt-1 text-violet-800">{verifyResult.summary}</p>
-                )}
-                {verifyResult.detected_attributes.length > 0 && (
+                ) : null}
+                {verifyResult.detected_attributes.length > 0 ? (
                   <p className="mt-1 flex flex-wrap gap-1">
                     {verifyResult.detected_attributes.map((attr) => (
                       <span
@@ -407,20 +494,20 @@ function ReportsSection({
                       </span>
                     ))}
                   </p>
-                )}
+                ) : null}
                 <p className="mt-1 text-[11px] text-violet-600">
                   Result status: <strong>{verifyResult.report_status}</strong> —
                   scores ≥90% auto-promote to verified.
                 </p>
               </div>
-            )}
-            {verifyError && report.id === verifiedReportId && (
+            ) : null}
+            {verifyError && report.id === verifiedReportId ? (
               <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700">
                 AI verification failed:{" "}
                 {verifyError instanceof Error ? verifyError.message : "unknown error"}
               </p>
-            )}
-            </>
+            ) : null}
+            </div>
           ))}
       </div>
       )}

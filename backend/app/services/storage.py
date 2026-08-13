@@ -1,12 +1,20 @@
 """
-Local image storage for report photo uploads (Phase 6).
+Local image storage for report photo uploads (Phase 6 + verification audit).
 
 A small, swappable service: ``ImageStorage.save`` validates an uploaded image
-(allowed type + size cap), writes it under a base directory with a unique name
-and returns the public URL it will be served from. The implementation is local
-disk today; it can be replaced with Supabase Storage (or any object store) in a
-later deployment phase without touching the reports API — only this module and
-``get_image_storage`` need to change.
+and writes it under a base directory with a unique name, returning the public
+URL it will be served from.
+
+Validation (Phase 9, never trust the filename):
+* allowed declared MIME type (JPEG/PNG/WebP) and size cap (default 5 MiB);
+* **magic-byte sniffing** of the actual file content — a file whose bytes do
+  not match its declared type is rejected, so renamed executables/scripts can
+  never be stored as "images";
+* empty/corrupt uploads are rejected.
+
+The implementation is local disk today; it can be replaced with Supabase
+Storage (or any object store) in a later deployment phase without touching the
+reports API — only this module and ``get_image_storage`` need to change.
 """
 
 from __future__ import annotations
@@ -26,6 +34,34 @@ _ALLOWED_CONTENT_TYPES: dict[str, str] = {
 }
 _READ_CHUNK = 64 * 1024  # 64 KiB
 
+# Magic-byte signatures for the allowed formats (content sniffing).
+_MAGIC_BYTES: dict[str, bytes] = {
+    # JPEG: FF D8 FF
+    "image/jpeg": b"\xff\xd8\xff",
+    # PNG: 89 50 4E 47 0D 0A 1A 0A
+    "image/png": b"\x89PNG\r\n\x1a\n",
+}
+# WebP: "RIFF" .... "WEBP" (bytes 0-3 and 8-11).
+_WEBP_RIFF = b"RIFF"
+_WEBP_MARK = b"WEBP"
+
+
+def sniff_image_type(data: bytes) -> str | None:
+    """Determine the real image type of ``data`` from its content.
+
+    Returns a MIME type from ``_ALLOWED_CONTENT_TYPES`` or ``None`` when the
+    bytes are not a JPEG/PNG/WebP image. Pure function — unit-testable.
+    """
+    if len(data) < 12:
+        return None
+    if data.startswith(_MAGIC_BYTES["image/jpeg"]):
+        return "image/jpeg"
+    if data.startswith(_MAGIC_BYTES["image/png"]):
+        return "image/png"
+    if data[:4] == _WEBP_RIFF and data[8:12] == _WEBP_MARK:
+        return "image/webp"
+    return None
+
 
 class ImageStorage:
     """Persists uploaded images to a local directory and exposes their URL."""
@@ -38,7 +74,10 @@ class ImageStorage:
     def save(self, upload: UploadFile) -> str:
         """Validate and persist ``upload``, returning its public URL.
 
-        Raises ``HTTPException`` (400 unsupported type / 413 too large).
+        Validation pipeline: declared MIME type must be allowed → stream is
+        read under the size cap → the *content* must match the declared type
+        (magic bytes) and must not be empty. Raises ``HTTPException``
+        (400 unsupported / corrupt / empty, 413 too large).
         """
         content_type = (upload.content_type or "").lower()
         if content_type not in _ALLOWED_CONTENT_TYPES:
@@ -49,6 +88,27 @@ class ImageStorage:
             )
 
         data = self._read_with_size_limit(upload)
+
+        if not data:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "The uploaded file is empty. Choose a valid image.",
+            )
+
+        # Never trust the declared type or the filename — verify the bytes.
+        sniffed = sniff_image_type(data)
+        if sniffed is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "The file does not appear to be a valid JPEG, PNG or WebP image.",
+            )
+        if sniffed != content_type:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"File content does not match its declared type "
+                f"'{content_type}' (detected '{sniffed}').",
+            )
+
         extension = _ALLOWED_CONTENT_TYPES[content_type]
         filename = f"{uuid4().hex}{extension}"
 

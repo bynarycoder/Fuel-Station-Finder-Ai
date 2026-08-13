@@ -39,6 +39,7 @@ import {
   userLocationIcon,
 } from "./icons";
 import { useMapStore } from "@/store/useMapStore";
+import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import type { StationItem } from "@/hooks/useStations";
 import type { LatLng } from "@/types/station";
 import { directionsUrl, formatDistance } from "@/lib/format";
@@ -234,6 +235,13 @@ export default function MapView({
                       ))}
                     </div>
                   )}
+                  <div className="pt-1">
+                    <StationProvenanceBadge
+                      verificationStatus={station.verification_status}
+                      dataSource={station.data_source}
+                      compact
+                    />
+                  </div>
                   {typeof station.distance_meters === "number" && (
                     <p className="pt-1 text-xs font-semibold text-amber-600">
                       {formatDistance(station.distance_meters)} away
@@ -250,17 +258,22 @@ export default function MapView({
                     >
                       ℹ️ View details
                     </button>
-                    <a
-                      href={directionsUrl(
+                    {(() => {
+                      const url = directionsUrl(
                         { latitude: station.latitude, longitude: station.longitude },
                         userLocation,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs font-semibold text-white no-underline hover:bg-emerald-800"
-                    >
-                      🧭 Get directions
-                    </a>
+                      );
+                      return url ? (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs font-semibold text-white no-underline hover:bg-emerald-800"
+                        >
+                          🧭 Get directions
+                        </a>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </Popup>

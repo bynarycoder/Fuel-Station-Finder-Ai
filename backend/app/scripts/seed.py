@@ -41,7 +41,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.models import FuelStation, FuelStationFuelType, FuelType
+from app.models import (
+    FuelStation,
+    FuelStationFuelType,
+    FuelType,
+    StationDataSource,
+    StationVerificationStatus,
+)
 
 # Re-export public seed-data symbols so callers (CLI, tests) keep importing
 # them from this module: `from app.scripts.seed import FUEL_TYPES, STATIONS`.
@@ -104,6 +110,10 @@ def seed_stations(session: Session) -> int:
                 state=spec["state"],
                 location=location,
                 is_active=True,
+                # The whole built-in catalogue is demo/seed data: it is never
+                # presented as an independently verified live registry.
+                data_source=StationDataSource.SEED,
+                verification_status=StationVerificationStatus.UNVERIFIED,
             )
             session.add(station)
         else:
@@ -112,6 +122,10 @@ def seed_stations(session: Session) -> int:
             station.state = spec["state"]
             station.location = location
             station.is_active = True
+            # Idempotent re-seed keeps provenance honest: re-running the seed
+            # must never silently upgrade rows to verified/official.
+            station.data_source = StationDataSource.SEED
+            station.verification_status = StationVerificationStatus.UNVERIFIED
 
         session.flush()  # ensure station.id is populated
         _sync_fuel_type_links(session, station, spec["fuel_types"])

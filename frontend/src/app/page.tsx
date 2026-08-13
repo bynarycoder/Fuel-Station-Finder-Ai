@@ -284,7 +284,7 @@ export default function FinderPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1 border-t border-gray-200 bg-white">
-              <ReportsFeed />
+              <ReportsFeed isAuthed={auth.isAuthed} />
             </div>
           </div>
         </SlideOver>

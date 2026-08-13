@@ -9,8 +9,11 @@
  * visible.
  */
 
-import { Loader2, MessageSquare, Radio } from "lucide-react";
+import { useState } from "react";
+import { Loader2, MessageSquare, Radio, UserRound } from "lucide-react";
 
+import { MyReports } from "@/components/reports/MyReports";
+import { useMyReports } from "@/hooks/useMyReports";
 import { useReportRealtime } from "@/hooks/useReportRealtime";
 import { useReports } from "@/hooks/useReports";
 import { RelativeTime } from "@/components/ui/RelativeTime";
@@ -18,11 +21,24 @@ import { confidenceColor, formatConfidencePercent } from "@/lib/confidence";
 import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
 
-export function ReportsFeed() {
-  const { data, isLoading, isError } = useReports();
+export function ReportsFeed({ isAuthed }: { isAuthed: boolean }) {
+  const { data, isLoading, isError, refetch } = useReports();
   const realtime = useReportRealtime();
+  const [showMine, setShowMine] = useState(false);
+  const my = useMyReports(isAuthed && showMine);
 
   const items = data?.items ?? [];
+
+  if (showMine) {
+    return (
+      <MyReports
+        reports={my.data?.items ?? []}
+        isLoading={my.isLoading}
+        isError={my.isError}
+        onRetry={() => void my.refetch()}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -30,6 +46,20 @@ export function ReportsFeed() {
         <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900">
           <MessageSquare className="h-4 w-4 text-emerald-700" /> Community reports
         </h2>
+        <div className="flex items-center gap-1.5">
+          {isAuthed && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowMine(true);
+                void refetch();
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+              title="View the status of your own reports"
+            >
+              <UserRound className="h-3 w-3" /> My reports
+            </button>
+          )}
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
             realtime === "live"
@@ -42,6 +72,7 @@ export function ReportsFeed() {
           <Radio className="h-3 w-3" />
           {realtime === "live" ? "Live" : realtime === "connecting" ? "Connecting" : "Polling"}
         </span>
+        </div>
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto p-3">

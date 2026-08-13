@@ -4,8 +4,16 @@
 
 import type { FuelTypeBrief } from "./station";
 
-export type ReportStatus = "pending" | "verified" | "rejected";
+export type ReportStatus = "pending" | "under_review" | "verified" | "rejected";
 export type QueueLength = "none" | "short" | "medium" | "long";
+
+/** User-facing labels for the report verification workflow. */
+export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  pending: "Pending verification",
+  under_review: "Under review",
+  verified: "Verified",
+  rejected: "Rejected",
+};
 
 export interface ReportStationBrief {
   id: string;
@@ -32,10 +40,20 @@ export interface FuelReport {
   updated_at: string;
   /** Gemini verification score (0..1); null until an AI verification ran. */
   ai_confidence_score?: number | null;
+  /** When a reviewer made a decision (null while pending). */
+  reviewed_at?: string | null;
+  /** Shown to the submitter when the report was rejected. */
+  rejection_reason?: string | null;
 }
 
-export interface PaginatedReports {
-  items: FuelReport[];
+/** Admin-only report view (reviewer identity + moderation notes). */
+export interface FuelReportAdmin extends FuelReport {
+  reviewed_by?: { id: string; full_name: string | null } | null;
+  reviewer_notes?: string | null;
+}
+
+export interface PaginatedReports<T = FuelReport> {
+  items: T[];
   total: number;
   page: number;
   page_size: number;

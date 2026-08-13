@@ -102,6 +102,32 @@ async def list_reports(
 
 
 @router.get(
+    "/mine",
+    response_model=PaginatedReports,
+    summary="My reports (every status, incl. rejected + rejection reason)",
+)
+async def list_my_reports(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[
+        int, Query(ge=1, le=report_service.MAX_PAGE_SIZE)
+    ] = report_service.DEFAULT_PAGE_SIZE,
+) -> PaginatedReports:
+    """The authenticated user's own reports.
+
+    Unlike the public feed — which hides rejected reports — this endpoint
+    returns every status so the submitter can track ``pending`` →
+    ``under_review`` → ``verified``/``rejected`` and read the reviewer's
+    ``rejection_reason`` when applicable. Only the caller's own rows are ever
+    returned (filtered server-side by ``user_id``).
+    """
+    return await report_service.list_my_reports(
+        db, current_user.id, page=page, page_size=page_size
+    )
+
+
+@router.get(
     "/{report_id}",
     response_model=FuelReportPublic,
     summary="Get a single report",

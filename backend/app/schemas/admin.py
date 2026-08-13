@@ -13,9 +13,17 @@ from app.schemas.user import UserPublic
 
 
 class ReportStatusUpdate(BaseModel):
-    """Payload to transition a report's status (admin moderation)."""
+    """Payload to transition a report's status (admin moderation).
+
+    ``rejection_reason`` is required when ``status`` is ``rejected`` (enforced
+    in the service layer) so the submitter always learns why their report was
+    not accepted. ``reviewer_notes`` is moderation-only and never exposed
+    through public endpoints.
+    """
 
     status: ReportStatus
+    rejection_reason: str | None = Field(default=None, max_length=2000)
+    reviewer_notes: str | None = Field(default=None, max_length=2000)
 
 
 class UserUpdate(BaseModel):

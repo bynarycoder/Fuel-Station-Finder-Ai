@@ -77,3 +77,58 @@ def test_delete_missing_file_is_noop(tmp_path) -> None:
     storage = ImageStorage(base_dir=tmp_path, url_prefix="/media", max_bytes=1024)
     # Should not raise even though the file was never stored.
     storage.delete("/media/does-not-exist.png")
+
+
+# --------------------------------------------------------------------------- #
+# Content sniffing (Phase 9) — never trust the filename or declared type
+# --------------------------------------------------------------------------- #
+def test_sniff_recognises_jpeg_png_webp() -> None:
+    from app.services.storage import sniff_image_type
+
+    assert sniff_image_type(b"\xff\xd8\xff\xe0" + b"\x00" * 20) == "image/jpeg"
+    assert sniff_image_type(PNG_BYTES) == "image/png"
+    webp = b"RIFF" + b"\x00" * 4 + b"WEBP" + b"\x00" * 20
+    assert sniff_image_type(webp) == "image/webp"
+
+
+def test_sniff_rejects_non_images_and_short_files() -> None:
+    from app.services.storage import sniff_image_type
+
+    assert sniff_image_type(b"") is None
+    assert sniff_image_type(b"short") is None
+    assert sniff_image_type(b"MZ" + b"\x90\x00" * 10) is None  # PE executable
+    assert sniff_image_type(b"#!/bin/sh\nrm -rf /\n" + b"\x00" * 20) is None
+
+
+def test_save_rejects_content_mismatching_declared_type(tmp_path) -> None:
+    """A file claiming to be an image but holding executable bytes must be
+    rejected even though the MIME header and filename look fine."""
+    storage = ImageStorage(base_dir=tmp_path, url_prefix="/media", max_bytes=1024)
+    evil = b"MZ" + b"\x90\x00" * 64  # fake DOS/PE header
+    with pytest.raises(Exception) as exc_info:
+        storage.save(_upload(evil, "image/png"))
+    assert "does not appear to be a valid" in str(exc_info.value)
+
+
+def test_save_rejects_empty_upload(tmp_path) -> None:
+    storage = ImageStorage(base_dir=tmp_path, url_prefix="/media", max_bytes=1024)
+    with pytest.raises(Exception) as exc_info:
+        storage.save(_upload(b"", "image/png"))
+    assert "empty" in str(exc_info.value).lower()
+
+
+def test_save_accepts_real_jpeg_bytes_with_declared_jpeg_type(tmp_path) -> None:
+    """A genuine JPEG byte stream passes even with a generic filename."""
+    storage = ImageStorage(base_dir=tmp_path, url_prefix="/media", max_bytes=1024)
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+    url = storage.save(_upload(jpeg, "image/jpeg"))
+    assert url.endswith(".jpg")
+
+
+def test_save_rejects_real_png_declared_as_jpeg(tmp_path) -> None:
+    """Type confusion: PNG bytes labelled image/jpeg must be rejected rather
+    than stored under a misleading extension."""
+    storage = ImageStorage(base_dir=tmp_path, url_prefix="/media", max_bytes=1024)
+    with pytest.raises(Exception) as exc_info:
+        storage.save(_upload(PNG_BYTES, "image/jpeg"))
+    assert "does not match its declared type" in str(exc_info.value)

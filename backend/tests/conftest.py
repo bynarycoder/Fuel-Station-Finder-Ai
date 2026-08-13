@@ -120,6 +120,88 @@ async def client(session_factory):
     production_app.dependency_overrides.clear()
 
 
+# --------------------------------------------------------------------------- #
+# Portable (geography-free) schema fixtures for station/report service tests.
+#
+# The production ``fuel_stations.location`` column is a PostGIS
+# ``geography(POINT, 4326)`` type, which plain SQLite cannot create or bind.
+# These fixtures build the same tables with a portable ``Text`` schema and
+# swap the ORM column's type + the import service's geometry helper so the
+# real service code (seed, import, review workflow) runs end-to-end on SQLite.
+# The swap is restored automatically after each test.
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def portable_sync_session(monkeypatch):
+    """A synchronous session factory over an in-memory SQLite DB with the
+    portable station/report schema (location as plain text)."""
+    from sqlalchemy import create_engine, Text
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models import FuelStation
+    from tests._portable_db import build_portable_metadata, portable_location_wkt
+
+    engine = create_engine("sqlite:///:memory:", poolclass=StaticPool)
+    build_portable_metadata().create_all(engine)
+
+    loc_col = FuelStation.__table__.c.location
+    monkeypatch.setattr(loc_col, "type", Text())
+
+    from app.services import station_import as si
+    monkeypatch.setattr(si, "geography_point", portable_location_wkt)
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    try:
+        yield factory
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+async def portable_client(monkeypatch):
+    """An async HTTP client over the portable schema (get_db overridden).
+
+    Combine with ``authenticated_as`` (declare it FIRST in the test signature
+    so its ``client`` dependency does not overwrite this fixture's ``get_db``
+    override afterwards).
+    """
+    from sqlalchemy import Text
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.models import FuelStation
+    from tests._portable_db import build_portable_metadata, portable_location_wkt
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: build_portable_metadata().create_all(sync_conn))
+
+    loc_col = FuelStation.__table__.c.location
+    monkeypatch.setattr(loc_col, "type", Text())
+
+    from app.services import station_import as si
+    monkeypatch.setattr(si, "geography_point", portable_location_wkt)
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _override_get_db():
+        async with factory() as session:
+            yield session
+
+    production_app.dependency_overrides[get_db] = _override_get_db
+    transport = httpx.ASGITransport(app=production_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+        # Expose the same session factory so tests can inspect rows written
+        # through the API (same in-memory DB, same engine pool).
+        ac._portable_factory = factory  # type: ignore[attr-defined]
+        try:
+            yield ac
+        finally:
+            production_app.dependency_overrides.pop(get_db, None)
+            await engine.dispose()
+
+
 @pytest.fixture
 async def rbac_client(session_factory):
     """An async HTTP client against a tiny throwaway app exposing role-gated

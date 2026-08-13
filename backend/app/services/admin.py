@@ -28,7 +28,7 @@ from app.models import (
     User,
     UserRole,
 )
-from app.services.reports import report_to_public
+from app.services.reports import report_to_admin
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -93,32 +93,71 @@ async def list_all_reports(
     rows = (
         await db.execute(build_admin_report_list_query(filters, offset, page_size))
     ).scalars().all()
-    items = [report_to_public(report) for report in rows]
+    items = [report_to_admin(report) for report in rows]
     total = (await db.execute(build_admin_report_count_query(filters))).scalar_one()
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 async def set_report_status(
-    db: AsyncSession, report_id: Any, status: ReportStatus
+    db: AsyncSession,
+    report_id: Any,
+    status: ReportStatus,
+    *,
+    reviewer: User,
+    rejection_reason: str | None = None,
+    reviewer_notes: str | None = None,
 ) -> dict[str, Any] | None:
-    """Transition a report's status and stamp the decision time. Returns the
-    updated report (mapped) or None if the report does not exist."""
+    """Transition a report's status and stamp the reviewer + decision time.
+
+    Rules:
+    * ``rejected`` **requires** ``rejection_reason`` so the submitter always
+      learns why the report was not accepted (ValueError otherwise).
+    * Any decision sets ``reviewed_by``/``reviewed_at``; ``verified`` also
+      stamps ``verified_at``; moving back to ``pending``/``under_review``
+      clears the decision stamps.
+    * The report row is never deleted and its submission fields are never
+      modified — reports are immutable evidence; current state is derived.
+
+    Returns the updated report (admin-mapped) or None if it does not exist.
+    """
+    if status == ReportStatus.REJECTED and not (rejection_reason or "").strip():
+        raise ValueError(
+            "A rejection reason is required when rejecting a report."
+        )
+
     report = await db.get(FuelReport, report_id)
     if report is None:
         return None
 
     report.status = status
-    report.verified_at = (
-        datetime.now(timezone.utc)
-        if status in (ReportStatus.VERIFIED, ReportStatus.REJECTED)
-        else None
-    )
+    report.reviewed_by = reviewer.id
+    report.reviewed_at = datetime.now(timezone.utc)
+    if rejection_reason is not None:
+        report.rejection_reason = rejection_reason.strip() or None
+    if reviewer_notes is not None:
+        report.reviewer_notes = reviewer_notes.strip() or None
+
+    if status == ReportStatus.VERIFIED:
+        report.verified_at = datetime.now(timezone.utc)
+    elif status == ReportStatus.REJECTED:
+        report.verified_at = None
+    else:
+        # Back to pending/under_review: the decision is no longer final.
+        report.verified_at = None
+        report.rejection_reason = None
+
     await db.commit()
+
+    # The session identity map may still hold the pre-update instance (the app
+    # session uses expire_on_commit=False), including a stale ``reviewer``
+    # relationship loaded while ``reviewed_by`` was NULL. Refresh so the
+    # response reflects the freshly stamped decision.
+    await db.refresh(report)
 
     refreshed = (
         await db.execute(build_admin_report_get_query(report_id))
     ).scalar_one()
-    return report_to_public(refreshed)
+    return report_to_admin(refreshed)
 
 
 # --------------------------------------------------------------------------- #

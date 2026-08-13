@@ -105,6 +105,12 @@ def station_to_public(
         "latitude": latitude,
         "longitude": longitude,
         "is_active": station.is_active,
+        # Provenance of the catalogue row — never fabricated by the API layer.
+        "data_source": station.data_source,
+        "verification_status": station.verification_status,
+        "verified_at": station.verified_at,
+        "last_verified_at": station.last_verified_at,
+        "source_id": station.source_id,
         "fuel_types": [
             {"code": link.fuel_type.code, "name": link.fuel_type.name}
             for link in station.fuel_type_links
@@ -307,6 +313,9 @@ async def create_station(
         phone=payload.phone,
         location=geography_point(payload.latitude, payload.longitude),
         is_active=payload.is_active,
+        data_source=payload.data_source,
+        verification_status=payload.verification_status,
+        source_id=payload.source_id,
     )
     db.add(station)
     await db.flush()  # populate station.id before linking
