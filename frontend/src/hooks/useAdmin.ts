@@ -62,11 +62,26 @@ export function useAdminUsers(enabled = true) {
 export function useSetReportStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      setReportStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      rejectionReason,
+      reviewerNotes,
+    }: {
+      id: string;
+      status: string;
+      rejectionReason?: string;
+      reviewerNotes?: string;
+    }) =>
+      setReportStatus(id, status, {
+        rejection_reason: rejectionReason,
+        reviewer_notes: reviewerNotes,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ADMIN_KEYS.reports });
       qc.invalidateQueries({ queryKey: ADMIN_KEYS.analytics });
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["reports", "mine"] });
     },
   });
 }

@@ -46,6 +46,7 @@ if TYPE_CHECKING:  # pragma: no cover - type-checker import guard
 
 class ReportStatus(str, enum.Enum):
     PENDING = "pending"
+    UNDER_REVIEW = "under_review"
     VERIFIED = "verified"
     REJECTED = "rejected"
 
@@ -119,8 +120,26 @@ class FuelReport(TimestampMixin, Base):
         Numeric(4, 3), nullable=True
     )
 
+    # Reviewer workflow (added in migration 0010): who decided, when, and why.
+    # ``rejection_reason`` is intentionally public-safe (shown to the submitter
+    # so they understand why the report was not accepted); ``reviewer_notes``
+    # is for the moderation team and is only exposed through admin endpoints.
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     station: Mapped["FuelStation"] = relationship(lazy="selectin")
-    reported_by: Mapped["User"] = relationship(lazy="selectin")
+    reported_by: Mapped["User"] = relationship(
+        lazy="selectin", foreign_keys=[user_id]
+    )
+    reviewer: Mapped["User | None"] = relationship(
+        lazy="selectin", foreign_keys=[reviewed_by]
+    )
     fuel_type: Mapped["FuelType"] = relationship(lazy="selectin")
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

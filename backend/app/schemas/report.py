@@ -52,12 +52,33 @@ class FuelReportPublic(BaseModel):
     updated_at: datetime.datetime
     # Gemini verification score (0..1); null until an AI verification ran.
     ai_confidence_score: float | None = None
+    # Reviewer workflow. ``rejection_reason`` is public-safe (shown to the
+    # submitter); the reviewer's identity is only exposed via admin schemas.
+    reviewed_at: datetime.datetime | None = None
+    rejection_reason: str | None = None
+
+
+class FuelReportAdmin(FuelReportPublic):
+    """A report as seen by moderators — includes reviewer identity and
+    moderation-only notes."""
+
+    reviewed_by: ReporterBrief | None = None
+    reviewer_notes: str | None = None
 
 
 class PaginatedReports(BaseModel):
     """A page of reports plus pagination metadata."""
 
     items: list[FuelReportPublic]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+
+
+class PaginatedAdminReports(BaseModel):
+    """A page of admin-view reports plus pagination metadata."""
+
+    items: list[FuelReportAdmin]
     total: int = Field(ge=0)
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)

@@ -13,6 +13,10 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.fuel_station import (
+    StationDataSource,
+    StationVerificationStatus,
+)
 from app.models.user import UserRole  # noqa: F401  (re-exported for convenience)
 
 
@@ -46,6 +50,14 @@ class FuelStationPublic(BaseModel):
     latitude: float
     longitude: float
     is_active: bool
+    # Provenance / verification state of the catalogue row itself.
+    data_source: StationDataSource = StationDataSource.SEED
+    verification_status: StationVerificationStatus = (
+        StationVerificationStatus.UNVERIFIED
+    )
+    verified_at: datetime.datetime | None = None
+    last_verified_at: datetime.datetime | None = None
+    source_id: str | None = None
     fuel_types: list[FuelTypeBrief] = Field(default_factory=list)
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -72,6 +84,12 @@ class FuelStationCreate(BaseModel):
     state: str | None = Field(default=None, max_length=100)
     phone: str | None = Field(default=None, max_length=40)
     is_active: bool = True
+    # Provenance (staff-managed; defaults to seed/unverified).
+    data_source: StationDataSource = StationDataSource.SEED
+    verification_status: StationVerificationStatus = (
+        StationVerificationStatus.UNVERIFIED
+    )
+    source_id: str | None = Field(default=None, max_length=100)
     fuel_type_codes: list[str] = Field(default_factory=list)
 
 
@@ -87,6 +105,11 @@ class FuelStationUpdate(BaseModel):
     state: str | None = Field(default=None, max_length=100)
     phone: str | None = Field(default=None, max_length=40)
     is_active: bool | None = None
+    data_source: StationDataSource | None = None
+    verification_status: StationVerificationStatus | None = None
+    verified_at: datetime.datetime | None = None
+    last_verified_at: datetime.datetime | None = None
+    source_id: str | None = Field(default=None, max_length=100)
     fuel_type_codes: list[str] | None = None
 
 

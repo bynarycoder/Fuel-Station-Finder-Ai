@@ -13,13 +13,13 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_roles
+from app.api.deps import CurrentUser, require_roles
 from app.core.database import get_db
 from app.models import ReportStatus, UserRole
 from app.schemas import (
     AnalyticsSummary,
-    FuelReportPublic,
-    PaginatedReports,
+    FuelReportAdmin,
+    PaginatedAdminReports,
     PaginatedUsers,
     ReportStatusUpdate,
     UserPublic,
@@ -38,7 +38,9 @@ router = APIRouter(
 # --------------------------------------------------------------------------- #
 # Reports moderation
 # --------------------------------------------------------------------------- #
-@router.get("/reports", response_model=PaginatedReports, summary="List all reports")
+@router.get(
+    "/reports", response_model=PaginatedAdminReports, summary="List all reports"
+)
 async def list_reports(
     db: Annotated[AsyncSession, Depends(get_db)],
     station_id: Annotated[Optional[uuid.UUID], Query()] = None,
@@ -48,7 +50,7 @@ async def list_reports(
     page_size: Annotated[
         int, Query(ge=1, le=admin_service.MAX_PAGE_SIZE)
     ] = admin_service.DEFAULT_PAGE_SIZE,
-) -> PaginatedReports:
+) -> PaginatedAdminReports:
     filters = admin_service.AdminReportFilters(
         station_id=station_id,
         fuel_type_code=fuel_type_code,
@@ -59,15 +61,26 @@ async def list_reports(
 
 @router.patch(
     "/reports/{report_id}/status",
-    response_model=FuelReportPublic,
+    response_model=FuelReportAdmin,
     summary="Set a report's status (verify / reject)",
 )
 async def set_report_status(
     report_id: uuid.UUID,
     payload: ReportStatusUpdate,
+    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> FuelReportPublic:
-    report = await admin_service.set_report_status(db, report_id, payload.status)
+) -> FuelReportAdmin:
+    try:
+        report = await admin_service.set_report_status(
+            db,
+            report_id,
+            payload.status,
+            reviewer=current_user,
+            rejection_reason=payload.rejection_reason,
+            reviewer_notes=payload.reviewer_notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     if report is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Fuel report not found")
     return report

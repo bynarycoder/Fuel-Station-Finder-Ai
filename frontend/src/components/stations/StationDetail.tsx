@@ -34,6 +34,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { useStationReports } from "@/hooks/useStationReports";
+import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import {
   confidenceLabel,
   confidenceColor,
@@ -159,6 +160,10 @@ export function StationDetail({
                 <ShieldCheck className="h-3 w-3" />
                 {station.is_active ? "Active · Listed" : "Inactive"}
               </span>
+              <StationProvenanceBadge
+                verificationStatus={station.verification_status}
+                dataSource={station.data_source}
+              />
               {distanceMeters != null && (
                 <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
                   {formatDistance(distanceMeters)} away
@@ -247,17 +252,22 @@ export function StationDetail({
         )}
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <a
-            href={directionsUrl(
+          {(() => {
+            const url = directionsUrl(
               { latitude: station.latitude, longitude: station.longitude },
               userLocation,
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800"
-          >
-            <Navigation className="h-3.5 w-3.5" /> Navigate to this station
-          </a>
+            );
+            return url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800"
+              >
+                <Navigation className="h-3.5 w-3.5" /> Navigate to this station
+              </a>
+            ) : null;
+          })()}
           {onToggleFavorite && (
             <button
               type="button"

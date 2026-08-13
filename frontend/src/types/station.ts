@@ -3,12 +3,34 @@
  *
  * Coordinates are plain numbers; the backend stores them as a PostGIS
  * `geography` point and returns `latitude`/`longitude`.
+ *
+ * Provenance fields (Phase 2/4): every station exposes where its catalogue
+ * row came from (`data_source`) and whether the row itself is verified
+ * (`verification_status`). The UI renders these as honest, unobtrusive
+ * badges — seed/demo rows are never presented as verified.
  */
 
 export interface FuelTypeBrief {
   code: string;
   name: string;
 }
+
+/** Where a station record came from (mirrors the backend enum). */
+export type StationDataSource =
+  | "seed"
+  | "official"
+  | "government"
+  | "partner"
+  | "community"
+  | "imported"
+  | "other";
+
+/** Verification state of the station record itself (backend enum). */
+export type StationVerificationStatus =
+  | "unverified"
+  | "pending"
+  | "verified"
+  | "rejected";
 
 export interface Station {
   id: string;
@@ -21,10 +43,45 @@ export interface Station {
   latitude: number;
   longitude: number;
   is_active: boolean;
+  /** Provenance / verification state of the catalogue row. */
+  data_source: StationDataSource;
+  verification_status: StationVerificationStatus;
+  verified_at: string | null;
+  last_verified_at: string | null;
+  source_id: string | null;
   fuel_types: FuelTypeBrief[];
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * User-facing labels for a station's verification status, keyed by the actual
+ * database value (never hard-coded per-station). Written for Nigerian users.
+ */
+export const VERIFICATION_STATUS_LABELS: Record<
+  StationVerificationStatus,
+  string
+> = {
+  verified: "Verified",
+  pending: "Awaiting Verification",
+  rejected: "Rejected",
+  unverified: "Unverified",
+};
+
+/**
+ * Labels for data sources. Seed rows are the built-in demo catalogue and are
+ * shown as "Demo Data" so users can distinguish them from independently
+ * verified listings.
+ */
+export const DATA_SOURCE_LABELS: Record<StationDataSource, string> = {
+  seed: "Demo Data",
+  official: "Official",
+  government: "Government Source",
+  partner: "Partner Data",
+  community: "Community Report",
+  imported: "Imported",
+  other: "Other Source",
+};
 
 /** A station returned by the nearby endpoint, augmented with distance. */
 export interface StationWithDistance extends Station {

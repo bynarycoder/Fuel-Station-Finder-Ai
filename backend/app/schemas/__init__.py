@@ -14,7 +14,9 @@ from app.schemas.ai import (
 from app.schemas.auth import RoleInfo, TokenClaims
 from app.schemas.favorites import FavoriteList, FavoritePublic
 from app.schemas.report import (
+    FuelReportAdmin,
     FuelReportPublic,
+    PaginatedAdminReports,
     PaginatedReports,
     ReportStationBrief,
     ReporterBrief,
@@ -34,6 +36,7 @@ __all__ = [
     "AnalyticsSummary",
     "FavoriteList",
     "FavoritePublic",
+    "FuelReportAdmin",
     "NaturalLanguageSearchResult",
     "FuelReportPublic",
     "FuelStationCreate",
@@ -42,6 +45,7 @@ __all__ = [
     "FuelStationWithDistance",
     "FuelTypeBrief",
     "NearbyStations",
+    "PaginatedAdminReports",
     "PaginatedReports",
     "PaginatedStations",
     "PaginatedUsers",

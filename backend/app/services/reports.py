@@ -48,7 +48,7 @@ class ReportFilters:
 # Pure helpers
 # --------------------------------------------------------------------------- #
 def report_to_public(report: FuelReport) -> dict[str, Any]:
-    """Map a report ORM object to a response dict (pure)."""
+    """Map a report ORM object to a response dict (pure, public-safe)."""
     return {
         "id": report.id,
         "station": {
@@ -80,7 +80,26 @@ def report_to_public(report: FuelReport) -> dict[str, Any]:
             if report.ai_confidence_score is not None
             else None
         ),
+        "reviewed_at": report.reviewed_at,
+        "rejection_reason": report.rejection_reason,
     }
+
+
+def report_to_admin(report: FuelReport) -> dict[str, Any]:
+    """Map a report ORM object for the moderation dashboard.
+
+    Extends the public view with the reviewer's identity and moderation-only
+    notes; never used by public endpoints.
+    """
+    data = report_to_public(report)
+    reviewer = report.reviewer
+    data["reviewed_by"] = (
+        {"id": reviewer.id, "full_name": reviewer.full_name}
+        if reviewer is not None
+        else None
+    )
+    data["reviewer_notes"] = report.reviewer_notes
+    return data
 
 
 # --------------------------------------------------------------------------- #
@@ -159,6 +178,32 @@ async def get_report(db: AsyncSession, report_id: Any) -> dict[str, Any] | None:
     if report.status == ReportStatus.REJECTED:
         return None
     return report_to_public(report)
+
+
+async def list_my_reports(
+    db: AsyncSession, user_id: uuid.UUID, page: int = 1, page_size: int = 50
+) -> dict[str, Any]:
+    """The current user's own reports — **every** status, including rejected.
+
+    This is the submitter's window into the verification workflow: pending
+    reports show "awaiting verification", rejected reports include the
+    reviewer's ``rejection_reason``. Never returns another user's reports.
+    """
+    base = select(FuelReport).options(*_REPORT_EAGER).where(
+        FuelReport.user_id == user_id
+    )
+    total = (
+        await db.execute(select(func.count(FuelReport.id)).where(FuelReport.user_id == user_id))
+    ).scalar_one()
+    rows = (
+        await db.execute(
+            base.order_by(desc(FuelReport.created_at), desc(FuelReport.id))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
+    items = [report_to_public(report) for report in rows]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 async def get_report_for_verification(

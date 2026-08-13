@@ -11,8 +11,7 @@ import type {
   NearbyStations,
   PaginatedStations,
 } from "@/types/station";
-import type { PaginatedReports } from "@/types/report";
-import type { FuelReport } from "@/types/report";
+import type { FuelReport, FuelReportAdmin, PaginatedReports } from "@/types/report";
 import type { FavoriteList, Favorite } from "@/types/favorite";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
@@ -257,6 +256,14 @@ export function fetchStationReports(stationId: string) {
   });
 }
 
+/**
+ * The signed-in user's own reports — every status, including rejected (which
+ * the public feed hides) plus the reviewer's rejection reason.
+ */
+export function fetchMyReports(params: ReportListParams = {}) {
+  return request<PaginatedReports>("/reports/mine", { params });
+}
+
 export interface SubmitReportInput {
   station_id: string;
   fuel_type_code: string;
@@ -392,13 +399,17 @@ export function fetchAdminAnalytics() {
 }
 
 export function fetchAdminReports(params: ReportListParams = {}) {
-  return request<PaginatedReports>("/admin/reports", { params });
+  return request<PaginatedReports<FuelReportAdmin>>("/admin/reports", { params });
 }
 
-export function setReportStatus(reportId: string, status: string) {
-  return request<PaginatedReports["items"][number]>(
+export function setReportStatus(
+  reportId: string,
+  status: string,
+  options: { rejection_reason?: string; reviewer_notes?: string } = {},
+) {
+  return request<FuelReportAdmin>(
     `/admin/reports/${reportId}/status`,
-    { method: "PATCH", body: { status } },
+    { method: "PATCH", body: { status, ...options } },
   );
 }
 

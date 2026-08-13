@@ -23,6 +23,7 @@ import type { LatLng } from "@/types/station";
 import { directionsUrl, formatDistance, haversineDistance } from "@/lib/format";
 import { RelativeTime } from "@/components/ui/RelativeTime";
 import { useMapStore } from "@/store/useMapStore";
+import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 
 interface StationListProps {
   items: StationItem[];
@@ -177,6 +178,13 @@ export function StationList({
                       .join(", ")}
                   </p>
                 )}
+                <div className="mt-1">
+                  <StationProvenanceBadge
+                    verificationStatus={station.verification_status}
+                    dataSource={station.data_source}
+                    compact
+                  />
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {typeof station.distance_meters === "number" && (
@@ -227,21 +235,26 @@ export function StationList({
             )}
 
             <div className="mt-2 flex items-center gap-2">
-              <a
-                href={directionsUrl(
+              {(() => {
+                const url = directionsUrl(
                   {
                     latitude: station.latitude,
                     longitude: station.longitude,
                   },
                   userLocation,
-                )}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
-              >
-                <Navigation className="h-3 w-3" /> Directions
-              </a>
+                );
+                return url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
+                  >
+                    <Navigation className="h-3 w-3" /> Directions
+                  </a>
+                ) : null;
+              })()}
               <span className="text-[11px] font-medium text-gray-400">
                 {isSelected ? "Focused on map" : "Click to focus"}
               </span>
@@ -336,6 +349,12 @@ function ClosestCard({
                 .join(" — ")}
             </p>
           )}
+          <div className="mt-1.5">
+            <StationProvenanceBadge
+              verificationStatus={station.verification_status}
+              dataSource={station.data_source}
+            />
+          </div>
         </div>
         {typeof station.distance_meters === "number" && (
           <span className="shrink-0 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-extrabold text-white shadow-sm">
@@ -378,18 +397,23 @@ function ClosestCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <a
-          href={directionsUrl(
+        {(() => {
+          const url = directionsUrl(
             { latitude: station.latitude, longitude: station.longitude },
             userLocation,
-          )}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-800"
-        >
-          <Navigation className="h-3.5 w-3.5" /> Get Directions
-        </a>
+          );
+          return url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-800"
+            >
+              <Navigation className="h-3.5 w-3.5" /> Get Directions
+            </a>
+          ) : null;
+        })()}
         <button
           type="button"
           onClick={() => onSelect(station.id)}

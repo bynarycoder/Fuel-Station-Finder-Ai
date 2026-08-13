@@ -15,14 +15,18 @@ def test_report_registered_on_metadata() -> None:
     assert "fuel_reports" in Base.metadata.tables
 
 
-def test_report_has_three_cascading_foreign_keys() -> None:
+def test_report_has_cascading_foreign_keys() -> None:
     fks = {fk.parent.name: fk for fk in FuelReport.__table__.foreign_keys}
-    assert set(fks) == {"station_id", "user_id", "fuel_type_code"}
+    assert set(fks) == {"station_id", "user_id", "fuel_type_code", "reviewed_by"}
     assert fks["station_id"].column.table.name == "fuel_stations"
     assert fks["user_id"].column.table.name == "users"
     assert fks["fuel_type_code"].column.table.name == "fuel_types"
-    for fk in fks.values():
-        assert fk.ondelete == "CASCADE"
+    for fk in ("station_id", "user_id", "fuel_type_code"):
+        assert fks[fk].ondelete == "CASCADE"
+    # Reviewer FK never cascades — deleting a user keeps the report evidence
+    # intact and merely detaches the reviewer reference.
+    assert fks["reviewed_by"].column.table.name == "users"
+    assert fks["reviewed_by"].ondelete == "SET NULL"
 
 
 def test_report_id_auto_generated() -> None:
@@ -44,7 +48,7 @@ def test_report_indexes_present() -> None:
 def test_status_and_queue_check_constraints() -> None:
     ddl = str(CreateTable(FuelReport.__table__).compile(dialect=postgresql.dialect()))
     assert "ck_fuel_reports_status" in ddl
-    for value in ("pending", "verified", "rejected"):
+    for value in ("pending", "under_review", "verified", "rejected"):
         assert value in ddl
     assert "ck_fuel_reports_queue_length" in ddl
     for value in ("none", "short", "medium", "long"):
@@ -56,7 +60,12 @@ def test_status_defaults_to_pending() -> None:
 
 
 def test_enum_values() -> None:
-    assert {s.value for s in ReportStatus} == {"pending", "verified", "rejected"}
+    assert {s.value for s in ReportStatus} == {
+        "pending",
+        "under_review",
+        "verified",
+        "rejected",
+    }
     assert {q.value for q in QueueLength} == {"none", "short", "medium", "long"}
 
 
