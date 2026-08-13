@@ -48,12 +48,33 @@ def build_async_connect_args(database_url: str) -> dict[str, Any]:
     return connect_args
 
 
+def build_sync_connect_args(database_url: str) -> dict[str, Any]:
+    """Build psycopg2 ``connect_args`` for the sync engine and Alembic.
+
+    Supabase requires TLS. The async engine already forces ``ssl=require``
+    for Supabase URLs; the sync path (migrations, seed) must do the same or
+    ``alembic upgrade head`` on Render silently fails to connect and the
+    container never applies 0009/0010.
+
+    If the URL already specifies ``sslmode=``, we leave it alone so an
+    operator can override. Non-Postgres URLs (SQLite tests) get no extra args.
+    """
+    if not database_url.startswith("postgresql"):
+        return {}
+    if "sslmode=" in database_url:
+        return {}
+    if "supabase" in database_url:
+        return {"sslmode": "require"}
+    return {}
+
+
 # Create database engines
 # sync engine (used for migrations and seeding)
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
     echo=False,
+    connect_args=build_sync_connect_args(settings.DATABASE_URL),
 )
 
 # async engine (used for fast, asynchronous API endpoints)

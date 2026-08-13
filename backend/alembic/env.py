@@ -10,11 +10,11 @@ target metadata is the ORM's own ``Base.metadata`` (built from the models in
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 
 # Importing ``app.models`` registers every model on ``Base.metadata``.
 from app.core.config import settings
-from app.core.database import Base
+from app.core.database import Base, build_sync_connect_args
 import app.models  # noqa: F401
 
 # alembic.ini Configuration object (provides access to the [alembic] section).
@@ -53,11 +53,16 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations against a live database connection."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    """Run migrations against a live database connection.
+
+    The engine is built from ``settings.DATABASE_URL`` (not alembic.ini) so
+    production credentials never live in git, and Supabase TLS is applied
+    the same way as the application sync engine.
+    """
+    connectable = create_engine(
+        settings.DATABASE_URL,
         poolclass=pool.NullPool,
+        connect_args=build_sync_connect_args(settings.DATABASE_URL),
     )
 
     with connectable.connect() as connection:

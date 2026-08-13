@@ -38,6 +38,11 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app
 
-# Command to launch the application. Uses $PORT so the same image runs locally
-# (docker-compose sets PORT=8000) and on Render (which injects its own PORT).
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+# Make the entrypoint executable (git also stores the +x bit; this is a
+# belt-and-suspenders so a checkout without filemode still boots).
+RUN chmod +x /app/start.sh
+
+# Apply pending Alembic revisions, then serve. Uses $PORT so the same image
+# runs locally (docker-compose sets PORT=8000) and on Render (which injects
+# its own PORT). Migrations are additive and never reseed/wipe stations.
+CMD ["/app/start.sh"]

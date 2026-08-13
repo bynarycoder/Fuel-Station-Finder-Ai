@@ -73,7 +73,14 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
    `SUPABASE_JWT_SECRET` is not required for this ES256 deployment. Remove or
    clear the old legacy secret if it is still present; it is never used by the
    ES256 verifier.
-3. Deploy. The service is healthy when `https://<your-render-app>.onrender.com/health` returns `{"status":"ok"}`.
+3. Deploy. The container entrypoint (`backend/start.sh`) runs
+   `alembic upgrade head` **before** `uvicorn`, so additive schema changes
+   (including `0009` station provenance and `0010` report review columns)
+   land with the code that expects them. Existing station rows are
+   preserved — the entrypoint never seeds, resets, or deletes data.
+   The service is healthy when `https://<your-render-app>.onrender.com/health`
+   returns `{"status":"ok"}`. Confirm stations with
+   `GET /api/v1/stations?page=1&page_size=5` (HTTP 200, not 500).
 4. Verify authentication from the production frontend after deployment:
    - Sign in at `https://fuel-station-finder-omega.vercel.app`.
    - In the browser Network panel, find `GET https://fuel-station-finder-ai.onrender.com/api/v1/auth/me`.

@@ -18,6 +18,8 @@ services:
     region: oregon
     healthCheckPath: /health
     autoDeploy: true
+    # The Docker image entrypoint (backend/start.sh) runs
+    # `alembic upgrade head` before uvicorn so schema and code cannot drift.
     envVars:
       - key: ENVIRONMENT
         value: production
