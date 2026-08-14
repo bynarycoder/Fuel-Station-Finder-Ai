@@ -37,6 +37,9 @@ frontend/out/
 backend/.env
 frontend/.env
 
+# Fuel-station extraction artefacts (generated Overpass data + response cache)
+scripts/data/output/
+
 # GitHub Workflow Workarounds
 .github/
 .github-ci-backup/
