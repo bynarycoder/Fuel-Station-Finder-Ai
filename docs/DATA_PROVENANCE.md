@@ -71,11 +71,29 @@ Idempotency: a record whose `source_id` matches an existing row **updates**
 it; otherwise the `(name, city)` business key is used. Re-importing the same
 batch inserts nothing twice (proven by tests).
 
-### 2. Via CLI/script
+### 2. Direct backend CLI (no HTTP/JWT)
 
-`import_stations_sync(session, records)` in
-`backend/app/services/station_import.py` — same validation + upsert, for
-batch jobs (e.g. a nightly provider sync).
+After generating and reviewing
+`scripts/data/output/nigeria_osm_fuel_stations.json`, import it directly into
+the database configured by the backend environment:
+
+```bash
+# Run from the repository root.
+python backend/scripts/import_osm_stations.py
+# Alternative module form:
+cd backend && python -m app.scripts.import_osm_stations
+```
+
+The command reads the extractor's fixed JSON output path, validates each entry
+with the existing `parse_records()`, and sends only valid records through the
+existing async `import_stations()` upsert using `AsyncSessionLocal`. It does
+not accept or use a Supabase JWT and does not print database connection
+settings. Invalid records do not block valid records; the final summary reports
+total, valid, validation-error, imported, updated, and skipped counts.
+
+For custom internal batch jobs, the lower-level
+`import_stations_sync(session, records)` remains available in
+`backend/app/services/station_import.py`.
 
 ### 3. Connecting a real provider (documented path, no fake keys)
 
