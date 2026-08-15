@@ -26,7 +26,7 @@ import "leaflet/dist/leaflet.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Circle,
   MapContainer,
@@ -44,6 +44,11 @@ import { useMapStore } from "@/store/useMapStore";
 import type { StationItem } from "@/hooks/useStations";
 import type { LatLng } from "@/types/station";
 import { formatDistance } from "@/lib/format";
+import {
+  isValidLatLng,
+  safeFitBounds,
+  safeFlyTo,
+} from "@/lib/leafletSafety";
 import { stationNameParts } from "@/lib/stationName";
 
 // Visual-only map start (Lagos mainland). NEVER used as the nearby-search
@@ -104,23 +109,20 @@ function MapController({
     const enteredNearby = !prevNearbyRef.current;
 
     if (enteredNearby && userLocation) {
-      map.flyTo([userLocation.latitude, userLocation.longitude], 13, {
+      // 1) initial nearby centering — guarded, never throws to React.
+      safeFlyTo(map, userLocation.latitude, userLocation.longitude, 13, {
         duration: 0.75,
       });
     }
 
     if (userLocation && items.length > 0 && !hasCenteredNearbyRef.current) {
-      try {
-        const bounds = L.latLngBounds(
-          [userLocation.latitude, userLocation.longitude],
-          [userLocation.latitude, userLocation.longitude],
-        );
-        for (const s of items) bounds.extend([s.latitude, s.longitude]);
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: true });
-        hasCenteredNearbyRef.current = true;
-      } catch {
-        hasCenteredNearbyRef.current = true;
-      }
+      // 2) fitBounds — guarded. Only valid coordinates reach Leaflet.
+      const points: Array<[number, number]> = [
+        [userLocation.latitude, userLocation.longitude],
+        ...items.map((s) => [s.latitude, s.longitude] as [number, number]),
+      ];
+      safeFitBounds(map, points, { padding: [40, 40], maxZoom: 14, animate: true });
+      hasCenteredNearbyRef.current = true;
     }
 
     prevNearbyRef.current = true;
@@ -130,7 +132,8 @@ function MapController({
   useEffect(() => {
     if (recenterKey === 0) return;
     if (!userLocation) return;
-    map.flyTo([userLocation.latitude, userLocation.longitude], 14, {
+    // 3) explicit recenter — guarded.
+    safeFlyTo(map, userLocation.latitude, userLocation.longitude, 14, {
       duration: 0.6,
     });
   }, [recenterKey, userLocation, map]);
@@ -140,7 +143,8 @@ function MapController({
     if (!selectedStationId) return;
     const station = items.find((s) => s.id === selectedStationId);
     if (station) {
-      map.flyTo([station.latitude, station.longitude], 15, { duration: 0.75 });
+      // 4) fly-to-selected-station — guarded.
+      safeFlyTo(map, station.latitude, station.longitude, 15, { duration: 0.75 });
     }
   }, [selectedStationId, items, map]);
 
@@ -172,6 +176,18 @@ export default function MapView({
   const handleReady = useCallback((map: L.Map) => {
     mapRef.current = map;
   }, []);
+
+  // Skip stations with coordinates Leaflet cannot project (NaN/Infinity or
+  // outside the valid geographic range). A single malformed row must never be
+  // handed to Leaflet, which would throw `Invalid LatLng object: (NaN, NaN)`.
+  const validItems = useMemo(
+    () => items.filter((s) => isValidLatLng(s.latitude, s.longitude)),
+    [items],
+  );
+
+  const hasValidUserLocation =
+    userLocation !== null &&
+    isValidLatLng(userLocation.latitude, userLocation.longitude);
 
   // Listen for the store's "recenter-on-me" event.
   useEffect(() => {
@@ -221,7 +237,7 @@ export default function MapView({
           chunkedLoading
           maxClusterRadius={50}
         >
-          {items.map((station) => (
+          {validItems.map((station) => (
             <Marker
               key={station.id}
               position={[station.latitude, station.longitude]}
@@ -285,7 +301,7 @@ export default function MapView({
           ))}
         </MarkerClusterGroup>
 
-        {userLocation && (
+        {hasValidUserLocation && userLocation && (
           <>
             {/* Nearby-search radius visualization (nearby mode only) */}
             {isNearby && radiusMeters > 0 && (

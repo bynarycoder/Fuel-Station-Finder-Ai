@@ -326,68 +326,68 @@ export default function FinderPage() {
           </div>
         </section>
 
-        {/* ------------------------------------------------ mobile stack --- */}
-        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-          <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3">
-            <h1 className="text-h2 text-ink-900">Find fuel near you</h1>
-            <SearchBar
-              value={filters.q}
-              onSearch={handleSearch}
-              onAsk={handleAsk}
-              placeholder="Search stations or ask AI"
-            />
-            <StationFilters compact />
-          </div>
-
-          {/* Map surface with the station sheet layered on top. */}
-          <div className="relative min-h-0 flex-1">
-            {mapSurface}
-
-            <BottomSheet snap={snap} onSnapChange={setSnap} title="Nearby stations">
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-h3 text-ink-900">
-                    {isNearby ? "Nearby stations" : "All stations"}
-                  </h2>
-                  <span className="text-caption text-ink-500" aria-live="polite">
-                    {showLoading ? "Searching…" : `${items.length} found`}
-                  </span>
-                </div>
-
-                {needsLocationPrimer && (
-                  <LocationPrimer
-                    loading={isLocating}
-                    onUseLocation={() => void requestLocation()}
-                    onSearchManually={() => setSnap("half")}
-                  />
-                )}
-
-                <StationList
-                  items={items}
-                  isLoading={showLoading}
-                  isError={isError}
-                  isNearby={isNearby}
-                  selectedId={selectedStationId}
-                  userLocation={userLocation}
-                  onSelect={handleSelect}
-                  onRetry={() => void refetch()}
-                  favoriteIds={favorites.favoriteIds}
-                  onToggleFavorite={handleToggleFavorite}
-                  onExpandRadius={handleExpandRadius}
-                  onClearFilters={handleClearFilters}
-                  hideCount
-                />
-              </div>
-            </BottomSheet>
-          </div>
+        {/* ---------------------------------------------- mobile header --- */}
+        <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3 lg:hidden">
+          <h1 className="text-h2 text-ink-900">Find fuel near you</h1>
+          <SearchBar
+            value={filters.q}
+            onSearch={handleSearch}
+            onAsk={handleAsk}
+            placeholder="Search stations or ask AI"
+          />
+          <StationFilters compact />
         </div>
 
-        {/* ------------------------------------------------- desktop map --- */}
-        <section
-          aria-label="Station map"
-          className="relative hidden min-h-0 flex-1 lg:block"
-        >
+        {/* -------------------------- ONE map surface, at every viewport ---
+             Exactly one <StationMap> is mounted regardless of breakpoint; the
+             mobile/desktop differences are pure CSS/layout around it. Two
+             simultaneously-mounted Leaflet maps (one hidden in a 0×0
+             container) is what crashed `flyTo` with `(NaN, NaN)`. */}
+        <section aria-label="Station map" className="relative min-h-0 flex-1">
           {mapSurface}
+
+          {/* Mobile bottom sheet layered over the same map (CSS-only mobile). */}
+          <BottomSheet
+            snap={snap}
+            onSnapChange={setSnap}
+            title="Nearby stations"
+            className="lg:hidden"
+          >
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-h3 text-ink-900">
+                  {isNearby ? "Nearby stations" : "All stations"}
+                </h2>
+                <span className="text-caption text-ink-500" aria-live="polite">
+                  {showLoading ? "Searching…" : `${items.length} found`}
+                </span>
+              </div>
+
+              {needsLocationPrimer && (
+                <LocationPrimer
+                  loading={isLocating}
+                  onUseLocation={() => void requestLocation()}
+                  onSearchManually={() => setSnap("half")}
+                />
+              )}
+
+              <StationList
+                items={items}
+                isLoading={showLoading}
+                isError={isError}
+                isNearby={isNearby}
+                selectedId={selectedStationId}
+                userLocation={userLocation}
+                onSelect={handleSelect}
+                onRetry={() => void refetch()}
+                favoriteIds={favorites.favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                onExpandRadius={handleExpandRadius}
+                onClearFilters={handleClearFilters}
+                hideCount
+              />
+            </div>
+          </BottomSheet>
         </section>
       </main>
 

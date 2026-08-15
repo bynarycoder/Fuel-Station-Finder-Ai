@@ -21,6 +21,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui/states"
 
 import { RelativeTime } from "@/components/ui/RelativeTime";
 import { stationLabel } from "@/lib/stationName";
+import { isWellFormedReport } from "@/lib/stationSummary";
 import { REPORT_STATUS_LABELS, type FuelReport } from "@/types/report";
 import { FUEL_TYPE_LABELS } from "@/types/station";
 
@@ -45,6 +46,9 @@ export function MyReports({
   isError: boolean;
   onRetry: () => void;
 }) {
+  // Skip malformed rows so one bad report can't crash the panel.
+  const safeReports = reports.filter(isWellFormedReport);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-hairline bg-surface px-4 py-3">
@@ -65,7 +69,7 @@ export function MyReports({
           />
         )}
 
-        {!isLoading && !isError && reports.length === 0 && (
+        {!isLoading && !isError && safeReports.length === 0 && (
           <EmptyState
             icon={MessageSquare}
             title="No reports yet"
@@ -73,7 +77,7 @@ export function MyReports({
           />
         )}
 
-        {reports.map((report) => (
+        {safeReports.map((report) => (
           <div
             key={report.id}
             className="rounded-xl border border-hairline bg-surface p-4 shadow-e1"

@@ -22,6 +22,7 @@ import { useReports } from "@/hooks/useReports";
 import { RelativeTime } from "@/components/ui/RelativeTime";
 import { confidenceColor, formatConfidencePercent } from "@/lib/confidence";
 import { stationNameParts } from "@/lib/stationName";
+import { isWellFormedReport } from "@/lib/stationSummary";
 import { cn } from "@/lib/utils";
 import { resolveMediaUrl } from "@/services/api";
 import { QUEUE_LENGTH_LABELS } from "@/types/report";
@@ -32,7 +33,9 @@ export function ReportsFeed({ isAuthed }: { isAuthed: boolean }) {
   const [showMine, setShowMine] = useState(false);
   const my = useMyReports(isAuthed && showMine);
 
-  const items = data?.items ?? [];
+  // Skip malformed rows (e.g. `station === null`) so one bad report can't
+  // crash the whole feed; the valid reports still render.
+  const items = (data?.items ?? []).filter(isWellFormedReport);
 
   if (showMine) {
     return (

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   freshnessOf,
+  isWellFormedReport,
   summariseFeedByStation,
   summariseReports,
 } from "@/lib/stationSummary";
@@ -128,6 +129,62 @@ describe("summariseFeedByStation", () => {
     expect(map.get("st-1")?.latest?.price).toBe(900);
     expect(map.get("st-2")?.latest?.price).toBe(1000);
     expect(map.get("st-3")).toBeUndefined();
+  });
+});
+
+describe("malformed report rows are skipped, not fatal", () => {
+  it("rejects a report whose station is null", () => {
+    const bad = {
+      ...report({ id: "x", created_at: "2026-08-10T00:00:00Z" }),
+      station: null,
+    } as unknown as FuelReport;
+    expect(isWellFormedReport(bad)).toBe(false);
+  });
+
+  it("rejects a report whose fuel_type is missing", () => {
+    const bad = {
+      ...report({ id: "x", created_at: "2026-08-10T00:00:00Z" }),
+      fuel_type: null,
+    } as unknown as FuelReport;
+    expect(isWellFormedReport(bad)).toBe(false);
+  });
+
+  it("skips a malformed row and still summarises the valid ones", () => {
+    const valid = report({ id: "ok", created_at: "2026-08-10T00:00:00Z", price_per_litre: 950 });
+    const bad = {
+      ...report({ id: "bad", created_at: "2026-08-11T00:00:00Z", price_per_litre: 10 }),
+      station: null,
+    } as unknown as FuelReport;
+
+    // Must not throw, and must not lose the valid report.
+    const s = summariseReports([bad, valid]);
+    expect(s.latest?.price).toBe(950);
+    expect(s.byFuel.get("PMS")?.price).toBe(950);
+  });
+
+  it("summariseFeedByStation skips malformed rows without crashing", () => {
+    const valid = report({
+      id: "ok",
+      created_at: "2026-08-10T00:00:00Z",
+      price_per_litre: 950,
+      station: { id: "st-1", name: "One", brand: null },
+    });
+    const bad = {
+      ...report({ id: "bad", created_at: "2026-08-11T00:00:00Z" }),
+      station: null,
+    } as unknown as FuelReport;
+
+    const map = summariseFeedByStation([bad, valid]);
+    expect(map.get("st-1")?.latest?.price).toBe(950);
+  });
+
+  it("returns a safe empty summary when every row is malformed", () => {
+    const bad = {
+      ...report({ id: "bad", created_at: "2026-08-10T00:00:00Z" }),
+      station: null,
+    } as unknown as FuelReport;
+    expect(summariseReports([bad]).latest).toBeNull();
+    expect(summariseReports([bad]).byFuel.size).toBe(0);
   });
 });
 
