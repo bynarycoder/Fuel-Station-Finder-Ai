@@ -26,16 +26,17 @@ import {
 import { useAdminAnalytics, useAdminReports, useAdminUsers, useSetReportStatus, useUpdateUser, useVerifyReport } from "@/hooks/useAdmin";
 import { fetchCurrentUser, resolveMediaUrl, type VerificationResult } from "@/services/api";
 import { confidenceLabel, formatConfidencePercent } from "@/lib/confidence";
+import { stationLabel } from "@/lib/stationName";
 import { isAuthAvailable, restoreSession, signInWithEmail, signOut } from "@/lib/auth";
 import type { AdminAnalytics } from "@/types/admin";
 import type { User } from "@/types/user";
 import { QUEUE_LENGTH_LABELS, REPORT_STATUS_LABELS, type FuelReportAdmin } from "@/types/report";
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  under_review: "bg-blue-100 text-blue-700",
-  verified: "bg-emerald-100 text-emerald-700",
-  rejected: "bg-red-100 text-red-700",
+  pending: "bg-warning-soft text-warning-strong border border-warning-border",
+  under_review: "bg-info-soft text-info-strong border border-info-border",
+  verified: "bg-success-soft text-success-strong border border-success-border",
+  rejected: "bg-danger-soft text-danger-strong border border-danger-border",
 };
 
 export default function AdminPage() {
@@ -86,7 +87,7 @@ export default function AdminPage() {
   if (me.isError || !isAdmin) {
     return (
       <CenteredNotice
-        icon={<ShieldAlert className="h-8 w-8 text-red-500" />}
+        icon={<ShieldAlert className="h-8 w-8 text-danger" aria-hidden="true" />}
         text="You need an Admin account to view this dashboard."
         action={
           <button
@@ -94,7 +95,7 @@ export default function AdminPage() {
               await signOut();
               setToken(null);
             }}
-            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline"
+            className="mt-2 inline-flex h-11 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-4 text-body-sm font-semibold text-ink-800 shadow-e1 transition-colors hover:bg-ink-50"
           >
             <LogOut className="h-4 w-4" /> Sign out
           </button>
@@ -104,17 +105,17 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="flex items-center justify-between border-b-4 border-amber-500 bg-emerald-900 px-4 py-3 text-white sm:px-6">
+    <main className="min-h-[100dvh] bg-canvas">
+      <header className="flex h-16 items-center justify-between gap-3 border-b border-brand-800/40 bg-brand-900 px-4 text-white sm:px-6">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="h-6 w-6 text-amber-400" />
+          <ShieldCheck className="h-6 w-6 text-accent-300" aria-hidden="true" />
           <div>
-            <h1 className="text-base font-bold sm:text-lg">Admin Dashboard</h1>
-            <p className="text-[11px] text-emerald-200">Signed in as {me.data.email}</p>
+            <h1 className="text-h2 text-white">Admin dashboard</h1>
+            <p className="text-caption text-brand-200">Signed in as {me.data.email}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-200 hover:underline">
+          <Link href="/" className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-semibold text-brand-100 transition-colors hover:bg-surface/10 hover:text-white">
             <ArrowLeft className="h-3.5 w-3.5" /> Map
           </Link>
           <button
@@ -122,7 +123,7 @@ export default function AdminPage() {
               await signOut();
               setToken(null);
             }}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-white/15 bg-surface/10 px-3 text-body-sm font-semibold text-white transition-colors hover:bg-surface/20"
           >
             <LogOut className="h-3.5 w-3.5" /> Sign out
           </button>
@@ -168,7 +169,7 @@ function SignInGate({ onSignedIn }: { onSignedIn: (token: string) => void }) {
   if (!isAuthAvailable()) {
     return (
       <CenteredNotice
-        icon={<ShieldAlert className="h-8 w-8 text-amber-500" />}
+        icon={<ShieldAlert className="h-8 w-8 text-warning" aria-hidden="true" />}
         text="Supabase isn't configured. Set NEXT_PUBLIC_SUPABASE_* to sign in as an admin."
       />
     );
@@ -190,11 +191,11 @@ function SignInGate({ onSignedIn }: { onSignedIn: (token: string) => void }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-canvas p-4">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-hairline bg-surface p-6 shadow-e2">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-emerald-700" />
-          <h1 className="text-lg font-bold text-gray-900">Admin sign in</h1>
+          <ShieldCheck className="h-6 w-6 text-brand-700" aria-hidden="true" />
+          <h1 className="text-h1 text-ink-900">Admin sign in</h1>
         </div>
         <input
           type="email"
@@ -202,7 +203,7 @@ function SignInGate({ onSignedIn }: { onSignedIn: (token: string) => void }) {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none"
+          className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         />
         <input
           type="password"
@@ -210,17 +211,21 @@ function SignInGate({ onSignedIn }: { onSignedIn: (token: string) => void }) {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none"
+          className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-caption font-medium text-danger-strong">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-brand-700 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800 disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <Link href="/" className="block text-center text-xs text-gray-500 hover:underline">
+        <Link href="/" className="block text-center text-caption text-ink-500 hover:underline">
           ← Back to map
         </Link>
       </form>
@@ -238,9 +243,9 @@ function CenteredNotice({
   action?: React.ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-gray-50 p-4 text-center">
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-canvas p-4 text-center">
       {icon}
-      <p className="max-w-sm text-sm font-medium text-gray-700">{text}</p>
+      <p className="max-w-sm text-body text-ink-700">{text}</p>
       {action}
     </main>
   );
@@ -249,9 +254,9 @@ function CenteredNotice({
 // --------------------------------------------------------------------------- #
 function Stat({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${accent ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white"}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+    <div className={`rounded-xl border p-4 ${accent ? "border-brand-200 bg-brand-50" : "border-hairline bg-surface"}`}>
+      <p className="text-label uppercase text-ink-500">{label}</p>
+      <p className="mt-1 text-display tabular-nums text-ink-900">{value}</p>
     </div>
   );
 }
@@ -265,9 +270,9 @@ function AnalyticsSection({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-bold text-gray-900">Platform overview</h2>
+      <h2 className="mb-3 text-sm font-bold text-ink-900">Platform overview</h2>
       {loading || !data ? (
-        <p className="text-sm text-gray-400">Loading analytics…</p>
+        <p className="text-sm text-ink-500">Loading analytics…</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <Stat label="Stations" value={data.stations.total} accent />
@@ -328,46 +333,45 @@ function ReportsSection({
 
   return (
     <section>
-      <h2 className="mb-3 text-sm font-bold text-gray-900">Report moderation</h2>
+      <h2 className="mb-3 text-sm font-bold text-ink-900">Report moderation</h2>
       {loading ? (
-        <p className="text-sm text-gray-400">Loading reports…</p>
+        <p className="text-sm text-ink-500">Loading reports…</p>
       ) : reports.length === 0 ? (
-        <p className="text-sm text-gray-400">No reports.</p>
+        <p className="text-sm text-ink-500">No reports.</p>
       ) : (
         <div className="space-y-2">
           {reports.map((report) => (
             <div key={report.id}>
             <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-hairline bg-surface p-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-900">
-                  {report.station.brand ? `${report.station.brand} · ` : ""}
-                  {report.station.name} · <span className="text-gray-500">{report.fuel_type.code}</span>
+                <p className="truncate text-sm font-semibold text-ink-900">
+                  {stationLabel(report.station.brand, report.station.name)} · <span className="text-ink-500">{report.fuel_type.code}</span>
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-500">
                   {report.queue_length ? QUEUE_LENGTH_LABELS[report.queue_length] : ""}
                   {report.price_per_litre != null ? ` · ₦${report.price_per_litre}/L` : ""}
                   {report.notes ? ` · ${report.notes}` : ""}
                 </p>
                 {report.rejection_reason && (
-                  <p className="mt-1 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+                  <p className="mt-1 rounded bg-danger-soft px-1.5 py-0.5 text-[11px] font-medium text-danger-strong">
                     Rejection reason: {report.rejection_reason}
                   </p>
                 )}
                 {report.reviewer_notes && (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-[11px] text-ink-500">
                     Reviewer notes: {report.reviewer_notes}
                   </p>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${STATUS_STYLES[report.status] ?? "bg-gray-100 text-gray-600"}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${STATUS_STYLES[report.status] ?? "bg-ink-100 text-ink-600"}`}>
                   {REPORT_STATUS_LABELS[report.status] ?? report.status}
                 </span>
                 {report.ai_confidence_score != null && (
                   <span
-                    className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700"
+                    className="rounded-full bg-info-soft px-2 py-0.5 text-[11px] font-bold text-info-strong"
                     title={`AI confidence ${formatConfidencePercent(report.ai_confidence_score) ?? "—"} — ${confidenceLabel(report.ai_confidence_score) ?? "n/a"}`}
                   >
                     AI {formatConfidencePercent(report.ai_confidence_score)}
@@ -379,7 +383,7 @@ function ReportsSection({
                     src={resolveMediaUrl(report.photo_url) ?? undefined}
                     alt="Reported evidence"
                     loading="lazy"
-                    className="h-12 w-12 rounded-lg border border-gray-200 object-cover"
+                    className="h-12 w-12 rounded-lg border border-hairline object-cover"
                     title="Open the reported photo (evidence)"
                     onClick={() => {
                       const url = resolveMediaUrl(report.photo_url);
@@ -391,7 +395,7 @@ function ReportsSection({
                   <button
                     disabled={verifyPending}
                     onClick={() => runVerify(report.id)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-violet-700 px-2 py-1 text-xs font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-info px-2 py-1 text-xs font-semibold text-white hover:bg-info-strong disabled:opacity-50"
                     title="Run Gemini photo verification (score + detected attributes)"
                   >
                     {verifyPending ? (
@@ -406,7 +410,7 @@ function ReportsSection({
                   <button
                     disabled={busy}
                     onClick={() => onStatus(report.id, "verified")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-brand-700 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                   </button>
@@ -434,7 +438,7 @@ function ReportsSection({
                       <button
                         disabled={busy}
                         onClick={() => confirmReject(report.id)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-lg bg-danger px-2 py-1 text-xs font-semibold text-white hover:bg-danger-strong disabled:opacity-50"
                       >
                         <XCircle className="h-3.5 w-3.5" /> Confirm rejection
                       </button>
@@ -443,7 +447,7 @@ function ReportsSection({
                           setRejectingId(null);
                           setRejectReason("");
                         }}
-                        className="rounded-lg bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200"
+                        className="rounded-lg bg-ink-100 px-2 py-1 text-xs font-semibold text-ink-600 hover:bg-ink-200"
                       >
                         Cancel
                       </button>
@@ -456,7 +460,7 @@ function ReportsSection({
                       setRejectingId(report.id);
                       setRejectReason(report.rejection_reason ?? "");
                     }}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-danger px-2 py-1 text-xs font-semibold text-white hover:bg-danger-strong disabled:opacity-50"
                   >
                     <XCircle className="h-3.5 w-3.5" /> Reject
                   </button>
@@ -466,43 +470,43 @@ function ReportsSection({
 
             {/* Inline AI verification result */}
             {verifyResult && report.id === verifiedReportId ? (
-              <div className="mt-2 rounded-lg border border-violet-200 bg-violet-50 p-2.5 text-xs">
-                <p className="flex flex-wrap items-center gap-2 font-semibold text-violet-900">
+              <div className="mt-2 rounded-lg border border-info-border bg-info-soft p-2.5 text-xs">
+                <p className="flex flex-wrap items-center gap-2 font-semibold text-info-strong">
                   <Sparkles className="h-3.5 w-3.5" />
                   AI verification: {formatConfidencePercent(verifyResult.score)} confidence
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                       verifyResult.is_plausible
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-red-100 text-red-700"
+                        ? "bg-success-soft text-success-strong"
+                        : "bg-red-100 text-danger-strong"
                     }`}
                   >
                     {verifyResult.is_plausible ? "Plausible" : "Not plausible"}
                   </span>
                 </p>
                 {verifyResult.summary ? (
-                  <p className="mt-1 text-violet-800">{verifyResult.summary}</p>
+                  <p className="mt-1 text-info-strong">{verifyResult.summary}</p>
                 ) : null}
                 {verifyResult.detected_attributes.length > 0 ? (
                   <p className="mt-1 flex flex-wrap gap-1">
                     {verifyResult.detected_attributes.map((attr) => (
                       <span
                         key={attr}
-                        className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200"
+                        className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-info-strong ring-1 ring-info-border"
                       >
                         {attr}
                       </span>
                     ))}
                   </p>
                 ) : null}
-                <p className="mt-1 text-[11px] text-violet-600">
+                <p className="mt-1 text-[11px] text-info">
                   Result status: <strong>{verifyResult.report_status}</strong> —
                   scores ≥90% auto-promote to verified.
                 </p>
               </div>
             ) : null}
             {verifyError && report.id === verifiedReportId ? (
-              <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700">
+              <p className="mt-2 rounded-lg bg-danger-soft px-2.5 py-2 text-xs font-medium text-danger-strong">
                 AI verification failed:{" "}
                 {verifyError instanceof Error ? verifyError.message : "unknown error"}
               </p>
@@ -528,30 +532,30 @@ function UsersSection({
 }) {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-bold text-gray-900">Users</h2>
+      <h2 className="mb-3 text-sm font-bold text-ink-900">Users</h2>
       {loading ? (
-        <p className="text-sm text-gray-400">Loading users…</p>
+        <p className="text-sm text-ink-500">Loading users…</p>
       ) : users.length === 0 ? (
-        <p className="text-sm text-gray-400">No users.</p>
+        <p className="text-sm text-ink-500">No users.</p>
       ) : (
         <div className="space-y-2">
           {users.map((user) => (
             <div
               key={user.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-hairline bg-surface p-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-900">
-                  {user.email} <span className="font-normal text-gray-500">· {user.role}</span>
+                <p className="truncate text-sm font-semibold text-ink-900">
+                  {user.email} <span className="font-normal text-ink-500">· {user.role}</span>
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-500">
                   {user.is_active ? "Active" : "Disabled"}
                 </p>
               </div>
               <button
                 disabled={busy}
                 onClick={() => onToggleActive(user.id, !user.is_active)}
-                className={`rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${user.is_active ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-emerald-700 text-white hover:bg-emerald-800"}`}
+                className={`rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${user.is_active ? "bg-ink-100 text-ink-700 hover:bg-ink-200" : "bg-brand-700 text-white hover:bg-brand-800"}`}
               >
                 {user.is_active ? "Disable" : "Enable"}
               </button>

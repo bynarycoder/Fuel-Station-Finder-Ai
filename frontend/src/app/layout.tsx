@@ -3,14 +3,25 @@ import "./globals.css";
 import Providers from "./providers";
 import { PwaRegister } from "@/components/PwaRegister";
 
+/**
+ * Typography: a native system stack, declared once as `--font-sans` in
+ * globals.css and consumed by the Tailwind `font-sans` token.
+ *
+ * Deliberate choice over a webfont: it renders as Roboto on Android and SF on
+ * iOS — both excellent at the small sizes this product relies on — with zero
+ * network cost, zero FOUT and no build-time dependency on a font CDN, which
+ * matters for users on metered Nigerian mobile data.
+ */
+
 export const metadata: Metadata = {
-  title: "Fuel Station Finder AI",
-  description: "Locate fuel stations, check prices, queue times, and availability across Nigeria with crowd-sourced real-time updates and AI verification.",
+  title: "FuelFinder AI — Find fuel near you in Nigeria",
+  description:
+    "Find fuel stations near you, compare reported prices, check queues and availability across Nigeria — with community reports and AI-assisted recommendations.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Fuel Finder",
+    title: "FuelFinder",
   },
   icons: {
     icon: "/icons/icon-192.png",
@@ -19,7 +30,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#064e3b",
+  themeColor: "#0a4d3c",
+  width: "device-width",
+  initialScale: 1,
+  // Users must always be able to zoom (WCAG 1.4.4).
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -29,7 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className="h-full antialiased bg-gray-50 text-gray-900 font-sans">
+      <body className="h-full bg-canvas font-sans text-ink-900 antialiased">
         <Providers>
           {children}
           <PwaRegister />

@@ -1,17 +1,26 @@
 "use client";
 
 /**
- * Fuel Station Finder — interactive map home.
+ * Fuel Station Finder — the finder experience.
  *
- * Orchestrates the filter bar, the station list, the Leaflet map, a live
- * "Community reports" feed, and the station-details panel (home of the
- * "Report fuel price" action). Selecting a station from the list or map opens
- * its details; reporting a price requires sign-in (the backend enforces auth).
+ * ONE screen, two compositions:
+ *
+ *   mobile (<lg)  full-bleed map + draggable bottom sheet + bottom nav
+ *   desktop (≥lg) results rail on the left, map filling the rest
+ *
+ * The task the whole screen serves is "where should I buy fuel?", so the
+ * hierarchy is: intent line → one search field → Near me → map + station cards.
+ *
+ * Behaviour preserved from the previous implementation:
+ * - selecting a station (list, map, or AI) opens the detail panel;
+ * - reporting a price requires sign-in and reopens the form afterwards;
+ * - the `nearby-refresh-requested` event refetches the active query;
+ * - placeholder (previous-location) nearby data never presents as current, and
+ *   never crowns a "closest" station.
  */
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Bot, Flame, Info, LogOut, MessageSquare, ShieldCheck, User, UserPlus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MessageSquare, Sparkles } from "lucide-react";
 
 import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
 import { SignInModal } from "@/components/auth/SignInModal";
@@ -19,13 +28,21 @@ import StationMap from "@/components/map/StationMap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ReportPriceForm } from "@/components/reports/ReportPriceForm";
 import { ReportsFeed } from "@/components/reports/ReportsFeed";
+import { SearchBar } from "@/components/search/SearchBar";
+import { AppHeader } from "@/components/shell/AppHeader";
+import { MobileBottomNav, type FinderTab } from "@/components/shell/MobileBottomNav";
+import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
+import { Button } from "@/components/ui/button";
+import { BottomSheet, DialogHeader, Modal, SidePanel, type SheetSnap } from "@/components/ui/Sheet";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useStationsQuery } from "@/hooks/useStations";
-import { useMapStore } from "@/store/useMapStore";
+import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS, useMapStore } from "@/store/useMapStore";
 
 export default function FinderPage() {
   const auth = useAuth();
@@ -43,18 +60,34 @@ export default function FinderPage() {
   // fetch for the CURRENT position is in flight show the loading state
   // instead of potentially another city's stations.
   const showLoading = isLoading || (isNearby && isFetching && isPlaceholderData);
+
   const userLocation = useMapStore((s) => s.userLocation);
   const selectedStationId = useMapStore((s) => s.selectedStationId);
   const setSelectedStationId = useMapStore((s) => s.setSelectedStationId);
+  const filters = useMapStore((s) => s.filters);
+  const setFilters = useMapStore((s) => s.setFilters);
+  const radiusMeters = useMapStore((s) => s.radiusMeters);
+  const setRadiusMeters = useMapStore((s) => s.setRadiusMeters);
+  const setFavoritesOnly = useMapStore((s) => s.setFavoritesOnly);
+  const requestLocation = useMapStore((s) => s.requestLocation);
+  const locationStatus = useMapStore((s) => s.locationStatus);
 
+  const { searches, recordSearch, clearSearches } = useRecentSearches();
+  // The AI surface is an inline panel on desktop and a sheet on mobile — a
+  // behavioural difference, so it is resolved in JS rather than with
+  // `lg:hidden` (which would leave a duplicate dialog mounted).
+  const isDesktop = useIsDesktop();
+
+  const [tab, setTab] = useState<FinderTab>("map");
+  const [snap, setSnap] = useState<SheetSnap>("peek");
   const [showReports, setShowReports] = useState(false);
   const [showFuelAi, setShowFuelAi] = useState(false);
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiSignal, setAiSignal] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
-  // Track which tab the auth modal should open on.
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
-  // When sign-in is triggered from "Report price", reopen the form afterwards.
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
@@ -62,8 +95,7 @@ export default function FinderPage() {
   const closestStationId =
     isNearby && !showLoading && items.length > 0 ? items[0].id : null;
 
-  // "Recenter on Me" (and any explicit user refresh) re-runs the active query
-  // so the nearby list reflects the freshest position immediately.
+  // "Recenter on Me" (and any explicit user refresh) re-runs the active query.
   useEffect(() => {
     const handler = () => void refetch();
     window.addEventListener("nearby-refresh-requested", handler as EventListener);
@@ -71,10 +103,13 @@ export default function FinderPage() {
       window.removeEventListener("nearby-refresh-requested", handler as EventListener);
   }, [refetch]);
 
-  function handleSelect(id: string) {
-    setSelectedStationId(id);
-    setShowDetail(true);
-  }
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedStationId(id);
+      setShowDetail(true);
+    },
+    [setSelectedStationId],
+  );
 
   function handleRequireSignIn() {
     setAuthModalMode("signin");
@@ -85,9 +120,7 @@ export default function FinderPage() {
   async function handleSignIn(email: string, password: string) {
     await auth.signIn(email, password);
     setShowSignIn(false);
-    if (signInIntent === "report") {
-      setShowReportForm(true);
-    }
+    if (signInIntent === "report") setShowReportForm(true);
     setSignInIntent(null);
   }
 
@@ -95,252 +128,385 @@ export default function FinderPage() {
     const result = await auth.signUp(email, password);
     if (result.isSignedIn) {
       setShowSignIn(false);
-      if (signInIntent === "report") {
-        setShowReportForm(true);
-      }
+      if (signInIntent === "report") setShowReportForm(true);
       setSignInIntent(null);
     }
-    // When email confirmation is required the modal stays open and shows the
-    // "check your email" notice (handled inside SignInModal).
     return result;
   }
 
+  function handleToggleFavorite(stationId: string) {
+    if (!auth.isAuthed) {
+      handleRequireSignIn();
+      return;
+    }
+    favorites.toggleFavorite(stationId);
+  }
+
+  /** Unified search: plain terms filter the catalogue. */
+  const handleSearch = useCallback(
+    (term: string) => {
+      setFilters({ q: term });
+      if (term.trim()) recordSearch(term, "name");
+    },
+    [setFilters, recordSearch],
+  );
+
+  /** Unified search: questions go to Fuel Intelligence. */
+  const handleAsk = useCallback((question: string) => {
+    setAiQuery(question);
+    setAiSignal((n) => n + 1);
+    setShowFuelAi(true);
+    setTab("ai");
+  }, []);
+
+  /** Widen the nearby search from an empty state. */
+  const handleExpandRadius = useCallback(() => {
+    const next = RADIUS_OPTIONS.find((r) => r > radiusMeters);
+    setRadiusMeters(next ?? RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1]);
+  }, [radiusMeters, setRadiusMeters]);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters({ q: "", brand: "", city: "", fuelType: "" });
+    setRadiusMeters(DEFAULT_RADIUS_METERS);
+    setFavoritesOnly(false);
+  }, [setFilters, setRadiusMeters, setFavoritesOnly]);
+
+  // Mobile tab → surface mapping. Every tab performs a real action.
+  function handleTabChange(next: FinderTab) {
+    setTab(next);
+    if (next === "map") setSnap("peek");
+    if (next === "list") setSnap("full");
+    if (next === "ai") setShowFuelAi(true);
+    if (next === "reports") setShowReports(true);
+  }
+
+  const recentChips = useMemo(
+    () =>
+      searches.slice(0, 4).map((s) => ({
+        id: s.id,
+        label: s.term,
+        onApply: () => {
+          if (s.kind === "fuel") setFilters({ fuelType: s.term });
+          else if (s.kind === "brand") setFilters({ brand: s.term });
+          else if (s.kind === "city") setFilters({ city: s.term });
+          else setFilters({ q: s.term });
+        },
+      })),
+    [searches, setFilters],
+  );
+
+  const isLocating = locationStatus === "requesting";
+  const needsLocationPrimer =
+    !isNearby && userLocation === null && locationStatus === "idle";
+
+  const stationList = (
+    <StationList
+      items={items}
+      isLoading={showLoading}
+      isError={isError}
+      isNearby={isNearby}
+      selectedId={selectedStationId}
+      userLocation={userLocation}
+      onSelect={handleSelect}
+      onRetry={() => void refetch()}
+      favoriteIds={favorites.favoriteIds}
+      onToggleFavorite={handleToggleFavorite}
+      onExpandRadius={handleExpandRadius}
+      onClearFilters={handleClearFilters}
+    />
+  );
+
+  const mapSurface = (
+    <StationMap
+      items={items}
+      userLocation={userLocation}
+      selectedStationId={selectedStationId}
+      isNearby={isNearby}
+      closestStationId={closestStationId}
+      onSelect={handleSelect}
+      controlsClassName="bottom-[calc(38%+0.75rem)] lg:bottom-4"
+    />
+  );
+
   return (
-    <main className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-canvas">
+      <a href="#stations" className="skip-link">
+        Skip to station results
+      </a>
+
       <OfflineBanner />
-      <header className="z-[1000] flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b-4 border-amber-500 bg-emerald-900 px-4 py-3 text-white shadow-md sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="rounded-xl bg-amber-500 p-2 shadow-inner">
-            <Flame className="h-5 w-5 animate-pulse text-emerald-950" />
+
+      <AppHeader
+        authReady={auth.ready}
+        isAuthed={auth.isAuthed}
+        isAuthAvailable={auth.isAuthAvailable}
+        isAdmin={auth.user?.role === "admin"}
+        email={auth.user?.email}
+        onSignIn={() => {
+          setAuthModalMode("signin");
+          setSignInIntent(null);
+          setShowSignIn(true);
+        }}
+        onSignUp={() => {
+          setAuthModalMode("signup");
+          setSignInIntent(null);
+          setShowSignIn(true);
+        }}
+        onSignOut={() => auth.signOut()}
+        onOpenReports={() => setShowReports(true)}
+      />
+
+      <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* ------------------------------------------------ desktop rail --- */}
+        <section
+          id="stations"
+          aria-label="Find fuel"
+          className="hidden min-h-0 w-full shrink-0 flex-col border-r border-hairline bg-canvas lg:flex lg:w-[420px] xl:w-[460px]"
+        >
+          <div className="shrink-0 space-y-3 border-b border-hairline bg-surface p-4">
+            <div>
+              <h1 className="text-h1 text-ink-900">Find fuel near you</h1>
+              <p className="mt-0.5 text-body-sm text-ink-500">
+                Compare prices, queues and availability from real driver reports.
+              </p>
+            </div>
+            <SearchBar
+              value={filters.q}
+              onSearch={handleSearch}
+              onAsk={handleAsk}
+              recent={recentChips}
+              onClearRecent={clearSearches}
+            />
+            <StationFilters />
           </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
-              Fuel Station Finder AI
-            </h1>
-            <p className="hidden truncate text-[11px] text-emerald-200 sm:block">
-              Find fuel across Nigeria — live map &amp; nearby search
-            </p>
+
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+            {needsLocationPrimer && (
+              <LocationPrimer
+                loading={isLocating}
+                onUseLocation={() => void requestLocation()}
+                onSearchManually={() =>
+                  document
+                    .querySelector<HTMLInputElement>('input[type="search"]')
+                    ?.focus()
+                }
+              />
+            )}
+
+            {showFuelAi && isDesktop && (
+              <FuelIntelligence
+                onViewStation={handleSelect}
+                onClose={() => setShowFuelAi(false)}
+                initialQuery={aiQuery}
+                querySignal={aiSignal}
+              />
+            )}
+
+            {!(showFuelAi && isDesktop) && (
+              <button
+                type="button"
+                onClick={() => setShowFuelAi(true)}
+                className="flex w-full items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/60 px-3.5 py-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-body-sm font-semibold text-ink-900">
+                    Ask Fuel Intelligence
+                  </span>
+                  <span className="block truncate text-caption text-ink-500">
+                    &ldquo;Find the cheapest petrol near me&rdquo;
+                  </span>
+                </span>
+              </button>
+            )}
+
+            {stationList}
+          </div>
+        </section>
+
+        {/* ------------------------------------------------ mobile stack --- */}
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+          <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3">
+            <h1 className="text-h2 text-ink-900">Find fuel near you</h1>
+            <SearchBar
+              value={filters.q}
+              onSearch={handleSearch}
+              onAsk={handleAsk}
+              placeholder="Search stations or ask AI"
+            />
+            <StationFilters compact />
+          </div>
+
+          {/* Map surface with the station sheet layered on top. */}
+          <div className="relative min-h-0 flex-1">
+            {mapSurface}
+
+            <BottomSheet snap={snap} onSnapChange={setSnap} title="Nearby stations">
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-h3 text-ink-900">
+                    {isNearby ? "Nearby stations" : "All stations"}
+                  </h2>
+                  <span className="text-caption text-ink-500" aria-live="polite">
+                    {showLoading ? "Searching…" : `${items.length} found`}
+                  </span>
+                </div>
+
+                {needsLocationPrimer && (
+                  <LocationPrimer
+                    loading={isLocating}
+                    onUseLocation={() => void requestLocation()}
+                    onSearchManually={() => setSnap("half")}
+                  />
+                )}
+
+                <StationList
+                  items={items}
+                  isLoading={showLoading}
+                  isError={isError}
+                  isNearby={isNearby}
+                  selectedId={selectedStationId}
+                  userLocation={userLocation}
+                  onSelect={handleSelect}
+                  onRetry={() => void refetch()}
+                  favoriteIds={favorites.favoriteIds}
+                  onToggleFavorite={handleToggleFavorite}
+                  onExpandRadius={handleExpandRadius}
+                  onClearFilters={handleClearFilters}
+                  hideCount
+                />
+              </div>
+            </BottomSheet>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowFuelAi((v) => !v)}
-            aria-pressed={showFuelAi}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold ${
-              showFuelAi
-                ? "bg-emerald-950 text-amber-300 ring-1 ring-amber-400"
-                : "bg-amber-500 text-emerald-950 hover:bg-amber-400"
-            }`}
-          >
-            <Bot className="h-3.5 w-3.5" /> Fuel AI
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowReports(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-emerald-950 hover:bg-amber-400"
-          >
-            <MessageSquare className="h-3.5 w-3.5" /> Live reports
-          </button>
 
-          {auth.ready && auth.isAuthed ? (
-            <>
-              {auth.user?.role === "admin" && (
-                <Link
-                  href="/admin"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/30"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" /> Admin
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={() => auth.signOut()}
-                className="inline-flex max-w-[140px] items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
-                title={auth.user?.email}
-              >
-                <LogOut className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{auth.user?.email?.split("@")[0]}</span>
-              </button>
-            </>
-          ) : auth.ready && auth.isAuthAvailable ? (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthModalMode("signin");
-                  setSignInIntent(null);
-                  setShowSignIn(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
-              >
-                <User className="h-3.5 w-3.5" /> Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthModalMode("signup");
-                  setSignInIntent(null);
-                  setShowSignIn(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-emerald-950 hover:bg-amber-400"
-              >
-                <UserPlus className="h-3.5 w-3.5" /> Create Account
-              </button>
-            </>
-          ) : null}
+        {/* ------------------------------------------------- desktop map --- */}
+        <section
+          aria-label="Station map"
+          className="relative hidden min-h-0 flex-1 lg:block"
+        >
+          {mapSurface}
+        </section>
+      </main>
 
-          <Link
-            href="/about"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-950"
-          >
-            <Info className="h-3.5 w-3.5" /> About
-          </Link>
-        </div>
-      </header>
+      <MobileBottomNav
+        active={tab}
+        onChange={handleTabChange}
+        stationCount={items.length}
+        className="lg:hidden"
+      />
 
-      <div className="shrink-0 space-y-3 p-4">
-        {showFuelAi && (
+      {/* --------------------------------------------------- overlays ------ */}
+
+      {/* Fuel Intelligence (mobile presents it as a sheet) */}
+      <Modal
+        open={showFuelAi && !isDesktop}
+        onClose={() => {
+          setShowFuelAi(false);
+          if (tab === "ai") setTab("map");
+        }}
+        labelledBy="ai-sheet-title"
+      >
+        <h2 id="ai-sheet-title" className="sr-only">
+          Fuel Intelligence
+        </h2>
+        <div className="min-h-0 overflow-y-auto">
           <FuelIntelligence
-            onViewStation={handleSelect}
-            onClose={() => setShowFuelAi(false)}
-          />
-        )}
-        <StationFilters />
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 px-4 pb-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
-        <section className="order-2 min-h-0 lg:order-1">
-          <StationList
-            items={items}
-            isLoading={showLoading}
-            isError={isError}
-            isNearby={isNearby}
-            selectedId={selectedStationId}
-            userLocation={userLocation}
-            onSelect={handleSelect}
-            onRetry={() => void refetch()}
-            favoriteIds={favorites.favoriteIds}
-            onToggleFavorite={(stationId) => {
-              if (!auth.isAuthed) {
-                handleRequireSignIn();
-                return;
-              }
-              favorites.toggleFavorite(stationId);
+            onViewStation={(id) => {
+              setShowFuelAi(false);
+              if (tab === "ai") setTab("map");
+              handleSelect(id);
             }}
+            onClose={() => {
+              setShowFuelAi(false);
+              if (tab === "ai") setTab("map");
+            }}
+            initialQuery={aiQuery}
+            querySignal={aiSignal}
           />
-        </section>
-
-        <section className="order-1 isolate h-[55vh] min-h-0 overflow-hidden rounded-2xl border border-gray-200 shadow-sm lg:order-2 lg:h-full">
-          <StationMap
-            items={items}
-            userLocation={userLocation}
-            selectedStationId={selectedStationId}
-            isNearby={isNearby}
-            closestStationId={closestStationId}
-            onSelect={handleSelect}
-          />
-        </section>
-      </div>
+        </div>
+      </Modal>
 
       {/* Station details (home of "Report fuel price") */}
-      {showDetail && selectedStation && (
-        <SlideOver onClose={() => setShowDetail(false)}>
+      <SidePanel
+        open={showDetail && !!selectedStation}
+        onClose={() => setShowDetail(false)}
+        labelledBy="station-detail-title"
+      >
+        {selectedStation && (
           <StationDetail
             station={selectedStation}
             userLocation={userLocation}
             isAuthed={auth.isAuthed}
             isFavorite={favorites.favoriteIds.has(selectedStation.id)}
-            onToggleFavorite={(stationId) => {
-              if (!auth.isAuthed) {
-                handleRequireSignIn();
-                return;
-              }
-              favorites.toggleFavorite(stationId);
-            }}
+            onToggleFavorite={handleToggleFavorite}
             onReportPrice={() => setShowReportForm(true)}
             onRequireSignIn={handleRequireSignIn}
             onClose={() => setShowDetail(false)}
           />
-        </SlideOver>
-      )}
+        )}
+      </SidePanel>
 
       {/* Report price form */}
-      {showReportForm && selectedStation && (
-        <CenteredModal onClose={() => setShowReportForm(false)}>
+      <Modal
+        open={showReportForm && !!selectedStation}
+        onClose={() => setShowReportForm(false)}
+        labelledBy="report-form-title"
+      >
+        {selectedStation && (
           <ReportPriceForm
             station={selectedStation}
             onClose={() => setShowReportForm(false)}
             onSuccess={() => setShowReportForm(false)}
           />
-        </CenteredModal>
-      )}
+        )}
+      </Modal>
 
       {/* Sign-in / Sign-up */}
-      {showSignIn && (
-        <CenteredModal onClose={() => { setShowSignIn(false); setSignInIntent(null); }}>
-          <SignInModal
-            key={authModalMode}
-            initialMode={authModalMode}
-            onSignIn={handleSignIn}
-            onSignUp={handleSignUp}
-            onClose={() => { setShowSignIn(false); setSignInIntent(null); }}
-          />
-        </CenteredModal>
-      )}
+      <Modal
+        open={showSignIn}
+        onClose={() => {
+          setShowSignIn(false);
+          setSignInIntent(null);
+        }}
+        labelledBy="auth-modal-title"
+      >
+        <SignInModal
+          key={authModalMode}
+          initialMode={authModalMode}
+          onSignIn={handleSignIn}
+          onSignUp={handleSignUp}
+          onClose={() => {
+            setShowSignIn(false);
+            setSignInIntent(null);
+          }}
+        />
+      </Modal>
 
       {/* Live community reports feed */}
-      {showReports && (
-        <SlideOver onClose={() => setShowReports(false)}>
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-end p-2">
-              <button
-                type="button"
-                onClick={() => setShowReports(false)}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-200"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 border-t border-gray-200 bg-white">
-              <ReportsFeed isAuthed={auth.isAuthed} />
-            </div>
-          </div>
-        </SlideOver>
-      )}
-    </main>
-  );
-}
-
-function SlideOver({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-[2000] flex justify-end">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="flex-1 cursor-default bg-black/40"
-      />
-      <aside className="flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl">
-        {children}
-      </aside>
-    </div>
-  );
-}
-
-function CenteredModal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/50"
-      />
-      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        {children}
-      </div>
+      <SidePanel
+        open={showReports}
+        onClose={() => {
+          setShowReports(false);
+          if (tab === "reports") setTab("map");
+        }}
+        labelledBy="reports-panel-title"
+      >
+        <DialogHeader
+          title="Community reports"
+          titleId="reports-panel-title"
+          subtitle="Live prices and queues from other drivers"
+          onClose={() => {
+            setShowReports(false);
+            if (tab === "reports") setTab("map");
+          }}
+        />
+        <div className="min-h-0 flex-1 bg-surface">
+          <ReportsFeed isAuthed={auth.isAuthed} />
+        </div>
+      </SidePanel>
     </div>
   );
 }

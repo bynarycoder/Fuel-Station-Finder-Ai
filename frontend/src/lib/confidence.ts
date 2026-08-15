@@ -21,12 +21,17 @@ export function confidenceLabel(score: number | null | undefined): ConfidenceLab
   return "Low";
 }
 
-/** Map a 0..1 score to a Tailwind badge colour class. */
+/**
+ * Map a 0..1 score to design-system badge classes.
+ *
+ * Tokens only — the same success/warning/danger tones the rest of the product
+ * uses for status, so an AI confidence pill reads consistently everywhere.
+ */
 export function confidenceColor(score: number | null | undefined): string {
   const label = confidenceLabel(score);
-  if (label === "High") return "bg-emerald-100 text-emerald-700";
-  if (label === "Medium") return "bg-amber-100 text-amber-700";
-  return "bg-red-100 text-red-700";
+  if (label === "High") return "bg-success-soft text-success-strong";
+  if (label === "Medium") return "bg-warning-soft text-warning-strong";
+  return "bg-danger-soft text-danger-strong";
 }
 
 /** Format a 0..1 score as a percentage for display, e.g. 0.87 → "87%". */

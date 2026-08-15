@@ -14,6 +14,12 @@
  *
  * The labels come from the shared maps in `types/station.ts`; no station name,
  * source id, or demo-only assumption controls the result.
+ *
+ * Design note: trust is a product feature, so these read as calm metadata
+ * rather than alarms — verified is the only one that earns brand colour. Each
+ * pill carries an icon AND text, so status is never colour-only, and the
+ * explanatory copy is exposed to assistive tech via `aria-description` in
+ * addition to the hover `title`.
  */
 
 import {
@@ -24,6 +30,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import {
   DATA_SOURCE_LABELS,
   VERIFICATION_STATUS_LABELS,
@@ -49,38 +56,38 @@ type BadgePresentation = {
 
 const DATA_SOURCE_PRESENTATION: Record<StationDataSource, BadgePresentation> = {
   seed: {
-    className: "border-gray-200 bg-gray-50 text-gray-600",
+    className: "border-hairline bg-ink-50 text-ink-500",
     description: "Demo data bundled with the app, not a live station directory.",
     Icon: Database,
   },
   imported: {
-    className: "border-sky-200 bg-sky-50 text-sky-700",
+    className: "border-info-border bg-info-soft text-info-strong",
     description:
       "Imported from an external station dataset, such as OpenStreetMap. Importing a station does not independently verify it.",
     Icon: Database,
   },
   official: {
-    className: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    className: "border-info-border bg-info-soft text-info-strong",
     description: "Listed from an official source. Source and app verification are separate.",
     Icon: Database,
   },
   government: {
-    className: "border-blue-200 bg-blue-50 text-blue-700",
+    className: "border-info-border bg-info-soft text-info-strong",
     description: "Listed from a government source. Source and app verification are separate.",
     Icon: Database,
   },
   partner: {
-    className: "border-violet-200 bg-violet-50 text-violet-700",
+    className: "border-brand-200 bg-brand-50 text-brand-800",
     description: "Listed from a partner data source. Source and app verification are separate.",
     Icon: Database,
   },
   community: {
-    className: "border-orange-200 bg-orange-50 text-orange-700",
+    className: "border-accent-200 bg-accent-50 text-accent-700",
     description: "Submitted by the community. Source and app verification are separate.",
     Icon: Database,
   },
   other: {
-    className: "border-slate-200 bg-slate-50 text-slate-700",
+    className: "border-hairline bg-ink-50 text-ink-600",
     description: "Listed from another documented source. Source and app verification are separate.",
     Icon: Database,
   },
@@ -91,22 +98,22 @@ const VERIFICATION_PRESENTATION: Record<
   BadgePresentation
 > = {
   verified: {
-    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    className: "border-success-border bg-success-soft text-success-strong",
     description: "This station has been independently verified by the app.",
     Icon: BadgeCheck,
   },
   pending: {
-    className: "border-amber-200 bg-amber-50 text-amber-700",
+    className: "border-warning-border bg-warning-soft text-warning-strong",
     description: "This station is awaiting independent verification by the app.",
     Icon: Clock3,
   },
   rejected: {
-    className: "border-red-200 bg-red-50 text-red-700",
+    className: "border-danger-border bg-danger-soft text-danger-strong",
     description: "This station could not be independently verified by the app.",
     Icon: XCircle,
   },
   unverified: {
-    className: "border-gray-200 bg-gray-50 text-gray-500",
+    className: "border-hairline bg-ink-50 text-ink-500",
     description: "This station has not yet been independently verified by the app.",
     Icon: ShieldAlert,
   },
@@ -124,30 +131,36 @@ export function StationProvenanceBadge({
   const verificationLabel = VERIFICATION_STATUS_LABELS[verificationStatus];
   const SourceIcon = source.Icon;
   const VerificationIcon = verification.Icon;
-  const size = compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]";
+  const size = compact
+    ? "px-1.5 py-[2px] text-[10px]"
+    : "px-2 py-[3px] text-[11px]";
   const iconSize = compact ? "h-2.5 w-2.5" : "h-3 w-3";
+  const pill =
+    "inline-flex items-center gap-1 rounded-pill border font-semibold leading-none";
 
   return (
     <span
-      className={`inline-flex flex-wrap items-center gap-1 ${className}`}
+      className={cn("inline-flex flex-wrap items-center gap-1", className)}
       data-testid="station-provenance-badge"
     >
       <span
         aria-label={`Data source: ${sourceLabel}`}
-        className={`inline-flex items-center gap-1 rounded-full border font-semibold ${size} ${source.className}`}
+        aria-description={source.description}
+        className={cn(pill, size, source.className)}
         data-testid="station-data-source"
         title={`Data source: ${sourceLabel}. ${source.description}`}
       >
-        <SourceIcon className={iconSize} />
+        <SourceIcon className={iconSize} aria-hidden="true" />
         {sourceLabel}
       </span>
       <span
         aria-label={`Verification status: ${verificationLabel}`}
-        className={`inline-flex items-center gap-1 rounded-full border font-semibold ${size} ${verification.className}`}
+        aria-description={verification.description}
+        className={cn(pill, size, verification.className)}
         data-testid="station-verification-status"
         title={`Verification status: ${verificationLabel}. ${verification.description}`}
       >
-        <VerificationIcon className={iconSize} />
+        <VerificationIcon className={iconSize} aria-hidden="true" />
         {verificationLabel}
       </span>
     </span>

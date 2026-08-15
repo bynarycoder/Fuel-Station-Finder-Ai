@@ -2,25 +2,25 @@ import Link from "next/link";
 import { WifiOff } from "lucide-react";
 
 /**
- * Offline fallback page (Phase 11 — PWA).
+ * Offline fallback page (PWA).
  *
  * Served by the service worker when navigation fails while offline. The
  * cached station catalogue remains reachable from the home page.
  */
 export default function OfflinePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-6 text-center">
-      <div className="rounded-full bg-amber-100 p-4">
-        <WifiOff className="h-10 w-10 text-amber-600" />
-      </div>
-      <h1 className="text-xl font-bold text-gray-900">You&apos;re offline</h1>
-      <p className="max-w-sm text-sm text-gray-600">
+    <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-warning-soft text-warning-strong">
+        <WifiOff className="h-8 w-8" aria-hidden="true" />
+      </span>
+      <h1 className="text-h1 text-ink-900">You&apos;re offline</h1>
+      <p className="max-w-sm text-body text-ink-600">
         No internet connection right now. Your cached station list is still
         available — prices and reports may be out of date until you reconnect.
       </p>
       <Link
         href="/"
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+        className="mt-2 inline-flex h-12 items-center rounded-lg bg-brand-700 px-5 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800"
       >
         Browse cached stations
       </Link>

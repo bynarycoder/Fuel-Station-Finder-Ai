@@ -1,56 +1,75 @@
 "use client";
 
 /**
- * Filter + search controls for the station finder — complete Near Me experience.
+ * Finder controls — the complete Near Me experience, redesigned.
  *
- * Delegates the browser geolocation lifecycle to the Zustand map store (the
- * single location owner, backed by the `lib/geolocator.ts` singleton) and
- * exposes:
- * - "Near me" — requests permission once, stores location, starts continuous watchPosition
- * - "Recenter on Me" — flies back to the last known location immediately, then
- *   silently tries to freshen the fix (never makes the user wait for GPS)
- * - Radius selector, fuel filters, debounced text search
- * - "Favorites" toggle (authenticated users) and recent-searches chips
+ * LOCATION BEHAVIOUR IS UNCHANGED. The Zustand map store remains the single
+ * location owner (backed by the `lib/geolocator.ts` singleton); this component
+ * only triggers those shared actions and never touches `navigator.geolocation`
+ * directly. The button labels ("Near me" / "Locating…" / "Tracking you" /
+ * "Start tracking"), the "Browse all", "Recenter on Me", "Try again" and
+ * "Search by city" affordances, and the `station-city-filter` input id are all
+ * load-bearing behaviour covered by `StationFilters.test.tsx`.
  *
- * Error philosophy (see `lib/geo.ts`):
- * - A TIMEOUT / POSITION_UNAVAILABLE while a valid position exists is
- *   `temporarily_unavailable` → non-blocking amber banner, all results and the
- *   user marker stay on screen.
- * - Fatal panels (permission denied / unsupported / no-position errors) only
- *   appear when there is no valid location at all.
+ * WHAT CHANGED IS THE UX:
+ * - the old always-expanded wall of inputs, selects, chips and banners is now
+ *   a compact primary row (Near me / Browse all / Filters) plus quick fuel
+ *   chips;
+ * - brand, city, radius, availability and verification live in a bottom-sheet
+ *   filter panel;
+ * - active filters are always shown as removable chips, so the user can never
+ *   wonder why a result set looks short;
+ * - the geolocation state machine renders through the shared
+ *   `LocationStatusBanner`.
  */
 
 import {
-  AlertCircle,
-  Clock3,
   Heart,
   Loader2,
   LocateFixed,
   Map as MapIcon,
   Navigation,
-  Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { LocationStatusBanner } from "@/components/stations/LocationStatusBanner";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
+import { DialogHeader, Modal } from "@/components/ui/Sheet";
 import { useAuth } from "@/hooks/useAuth";
-import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { applyLocationEvent } from "@/lib/geo";
+import { cn } from "@/lib/utils";
 import {
   DEFAULT_RADIUS_METERS,
   RADIUS_OPTIONS,
   useMapStore,
 } from "@/store/useMapStore";
-import {
-  FUEL_TYPE_CODES,
-  FUEL_TYPE_LABELS,
-} from "@/types/station";
+import { FUEL_TYPE_CODES, FUEL_TYPE_LABELS } from "@/types/station";
 
-/** Debounce for the text-search inputs (avoid an API call per keystroke). */
+/** Debounce for the text inputs (avoid an API call per keystroke). */
 const SEARCH_DEBOUNCE_MS = 400;
 
-export function StationFilters() {
+/** Short chip labels — the full names live in the filter sheet. */
+const FUEL_SHORT: Record<string, string> = {
+  PMS: "Petrol",
+  AGO: "Diesel",
+  DPK: "Kerosene",
+  LPG: "Gas",
+  CNG: "CNG",
+};
+
+/** Fuels promoted to the always-visible quick row. */
+const QUICK_FUELS = ["PMS", "AGO", "CNG"] as const;
+
+interface StationFiltersProps {
+  /** Compact layout for the mobile finder header. */
+  compact?: boolean;
+  className?: string;
+}
+
+export function StationFilters({ compact = false, className }: StationFiltersProps) {
   const {
     filters,
     mode,
@@ -71,7 +90,6 @@ export function StationFilters() {
     stopLocationWatch,
   } = useMapStore();
   const auth = useAuth();
-  const { searches, recordSearch, clearSearches } = useRecentSearches();
 
   const isNearby = mode === "nearby";
   const hasPosition = userLocation !== null;
@@ -79,64 +97,41 @@ export function StationFilters() {
     locationStatus === "tracking" ||
     locationStatus === "updating" ||
     locationStatus === "temporarily_unavailable";
-  // The store owns the location lifecycle; "requesting" is the shared
-  // acquisition-in-flight signal (drives the "Locating…" button state).
   const loading = locationStatus === "requesting";
 
-  // ---- Debounced text search (name / brand / city) -------------------------
-  const cityInputRef = useRef<HTMLInputElement>(null);
-  const [searchInput, setSearchInput] = useState({
-    q: filters.q,
-    brand: filters.brand,
-    city: filters.city,
-  });
-  // Keep the inputs in sync when filters change from elsewhere (recent
-  // searches, resets) — without re-triggering the debounced writes.
-  const lastCommitted = useRef({ q: filters.q, brand: filters.brand, city: filters.city });
-  useEffect(() => {
-    setSearchInput({
-      q: filters.q,
-      brand: filters.brand,
-      city: filters.city,
-    });
-    lastCommitted.current = { q: filters.q, brand: filters.brand, city: filters.city };
-  }, [filters.q, filters.brand, filters.city]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [focusCity, setFocusCity] = useState(false);
+  const [showFavoritesPrompt, setShowFavoritesPrompt] = useState(false);
+
+  // ---- Debounced brand / city inputs (inside the filter sheet) -------------
+  const [draft, setDraft] = useState({ brand: filters.brand, city: filters.city });
+  const lastCommitted = useRef({ brand: filters.brand, city: filters.city });
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      const patch: Partial<{ q: string; brand: string; city: string }> = {};
+    setDraft({ brand: filters.brand, city: filters.city });
+    lastCommitted.current = { brand: filters.brand, city: filters.city };
+  }, [filters.brand, filters.city]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const patch: Partial<{ brand: string; city: string }> = {};
       const prev = lastCommitted.current;
-      if (searchInput.q !== prev.q) {
-        patch.q = searchInput.q;
-        recordSearch(searchInput.q, "name");
-      }
-      if (searchInput.brand !== prev.brand) {
-        patch.brand = searchInput.brand;
-        recordSearch(searchInput.brand, "brand");
-      }
-      if (searchInput.city !== prev.city) {
-        patch.city = searchInput.city;
-        recordSearch(searchInput.city, "city");
-      }
+      if (draft.brand !== prev.brand) patch.brand = draft.brand;
+      if (draft.city !== prev.city) patch.city = draft.city;
       if (Object.keys(patch).length > 0) {
         lastCommitted.current = { ...prev, ...patch };
         setFilters(patch);
       }
     }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(handler);
-  }, [searchInput, setFilters, recordSearch]);
+    return () => clearTimeout(handle);
+  }, [draft, setFilters]);
 
-  // ---- Location lifecycle --------------------------------------------------
-  // The Zustand store is the SINGLE owner of the geolocation lifecycle
-  // (acquisition, refresh, the one watcher). This component only kicks off
-  // those shared actions — it never touches navigator.geolocation directly,
-  // so the Fuel Intelligence panel (or any future component) asking for a
-  // location flows through the exact same state machine and watch slot.
+  // ---- Location lifecycle (delegated to the store) -------------------------
   async function handleNearMe() {
-    // Already actively tracking a known location? Just recenter + freshen —
-    // never stack a second watcher, never re-prompt.
+    // Already actively tracking a known location? Recenter + freshen — never
+    // stack a second watcher, never re-prompt.
     if (isNearby && hasPosition && isTracking) {
-      handleRecenter();
+      recenterLocation();
       return;
     }
     await requestLocation();
@@ -153,75 +148,28 @@ export function StationFilters() {
     setLocationStatus(next.status, next.message);
   }
 
-  /** Failed geolocation → stay in browse and let the user type a city. Never invent coords. */
+  /** Failed geolocation → stay in browse and let the user type a city. */
   function handleSearchByCity() {
     handleBrowseAll();
-    window.setTimeout(() => cityInputRef.current?.focus(), 0);
+    setFocusCity(true);
+    setSheetOpen(true);
   }
 
-  function handleRecenter() {
-    recenterLocation();
-  }
-
-  // When the user leaves nearby mode, stop continuous tracking to save battery.
+  // Leaving nearby mode stops continuous tracking (battery).
   useEffect(() => {
-    if (!isNearby) {
-      stopLocationWatch();
-    }
+    if (!isNearby) stopLocationWatch();
   }, [isNearby, stopLocationWatch]);
 
-  // Cleanup watch on unmount (belt-and-suspenders — the geolocator keeps a
-  // single slot, so this can never clear a watch owned by anyone else).
-  useEffect(() => {
-    return () => stopLocationWatch();
-  }, [stopLocationWatch]);
-
-  // ---- Recent-search helpers ----------------------------------------------
-  function applyRecentSearch(
-    term: string,
-    kind: "name" | "brand" | "city" | "fuel",
-  ) {
-    if (kind === "fuel") {
-      setFilters({ fuelType: term });
-      return;
-    }
-    if (kind === "name") {
-      setFilters({ q: term });
-      setSearchInput((s) => ({ ...s, q: term }));
-    } else if (kind === "brand") {
-      setFilters({ brand: term });
-      setSearchInput((s) => ({ ...s, brand: term }));
-    } else {
-      setFilters({ city: term });
-      setSearchInput((s) => ({ ...s, city: term }));
-    }
-    // Clicking a chip is an explicit search — commit immediately.
-    lastCommitted.current = { ...lastCommitted.current, [kind === "name" ? "q" : kind]: term };
-  }
+  useEffect(() => () => stopLocationWatch(), [stopLocationWatch]);
 
   function handleFavoritesToggle() {
     if (!auth.isAuthed) {
-      // Graceful unauthenticated handling: prompt instead of failing silently.
       setShowFavoritesPrompt(true);
       return;
     }
     setFavoritesOnly(!favoritesOnly);
   }
 
-  const [showFavoritesPrompt, setShowFavoritesPrompt] = useState(false);
-
-  const fatal =
-    locationStatus === "error" ||
-    locationStatus === "unsupported" ||
-    (locationStatus === "permission_denied" && !hasPosition);
-
-  const showNonFatalBanner =
-    (locationStatus === "temporarily_unavailable" && hasPosition) ||
-    (locationStatus === "permission_denied" && hasPosition) ||
-    locationStatus === "updating";
-
-  // Button label per requirement 12: tracking → "Tracking you";
-  // nearby-but-stopped → "Start tracking"; otherwise "Near me".
   const nearMeLabel = loading
     ? "Locating…"
     : isNearby && isWatching
@@ -230,280 +178,378 @@ export function StationFilters() {
         ? "Start tracking"
         : "Near me";
 
-  const bannerMessage =
-    locationStatus === "permission_denied" && hasPosition
-      ? "Location access is blocked. Showing results from your last known location — allow location access in your browser settings to resume live tracking."
-      : locationStatus === "updating"
-        ? "Updating your position…"
-        : (locationMessage ??
-          "Using your last known location. Trying to update...");
+  // ---- Active filter chips -------------------------------------------------
+  const activeChips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+  if (filters.fuelType) {
+    activeChips.push({
+      key: "fuel",
+      label: FUEL_SHORT[filters.fuelType] ?? filters.fuelType,
+      onRemove: () => setFilters({ fuelType: "" }),
+    });
+  }
+  if (filters.brand) {
+    activeChips.push({
+      key: "brand",
+      label: filters.brand,
+      onRemove: () => setFilters({ brand: "" }),
+    });
+  }
+  if (filters.city) {
+    activeChips.push({
+      key: "city",
+      label: filters.city,
+      onRemove: () => setFilters({ city: "" }),
+    });
+  }
+  if (isNearby && radiusMeters !== DEFAULT_RADIUS_METERS) {
+    activeChips.push({
+      key: "radius",
+      label: `Within ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`}`,
+      onRemove: () => setRadiusMeters(DEFAULT_RADIUS_METERS),
+    });
+  }
+  if (favoritesOnly) {
+    activeChips.push({
+      key: "favorites",
+      label: "My favourites",
+      onRemove: () => setFavoritesOnly(false),
+    });
+  }
+
+  const filterCount = activeChips.length;
 
   return (
-    <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("space-y-2.5", className)}>
+      {/* Primary controls — Near me is the visually dominant action. */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Button
-          type="button"
-          variant={isNearby ? "secondary" : "primary"}
-          size="sm"
-          onClick={handleBrowseAll}
-        >
-          <MapIcon className="h-4 w-4" /> Browse all
-        </Button>
-        <Button
-          type="button"
-          variant={isNearby ? "accent" : "secondary"}
-          size="sm"
+          variant={isNearby ? "primary" : "accent"}
+          size={compact ? "sm" : "md"}
           onClick={() => void handleNearMe()}
           disabled={loading}
+          className="shrink-0"
           title={isWatching ? "Live location tracking is active" : undefined}
         >
           {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <LocateFixed className={`h-4 w-4 ${isWatching ? "animate-pulse" : ""}`} />
+            <LocateFixed className="h-4 w-4" aria-hidden="true" />
           )}
           {nearMeLabel}
         </Button>
 
+        <Button
+          variant={isNearby ? "secondary" : "quiet"}
+          size={compact ? "sm" : "md"}
+          onClick={handleBrowseAll}
+          className="shrink-0"
+        >
+          <MapIcon className="h-4 w-4" aria-hidden="true" />
+          Browse all
+        </Button>
+
         {isNearby && hasPosition && (
           <Button
-            type="button"
             variant="secondary"
-            size="sm"
-            onClick={handleRecenter}
+            size={compact ? "sm" : "md"}
+            onClick={() => recenterLocation()}
+            className="shrink-0"
             title="Center the map on your current location"
           >
-            <Navigation className="h-4 w-4" /> Recenter on Me
+            <Navigation className="h-4 w-4" aria-hidden="true" />
+            <span className={compact ? "sr-only" : undefined}>Recenter on Me</span>
           </Button>
         )}
 
         <Button
-          type="button"
-          variant={favoritesOnly ? "secondary" : "ghost"}
-          size="sm"
-          onClick={handleFavoritesToggle}
-          title={auth.isAuthed ? "Show only your favorite stations" : "Sign in to use favorites"}
+          variant="secondary"
+          size={compact ? "sm" : "md"}
+          onClick={() => {
+            setFocusCity(false);
+            setSheetOpen(true);
+          }}
+          className="ml-auto shrink-0"
+          aria-haspopup="dialog"
         >
-          <Heart className={`h-4 w-4 ${favoritesOnly ? "fill-amber-500 text-amber-500" : ""}`} />
-          {favoritesOnly ? "My favorites" : "Favorites"}
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          Filters
+          {filterCount > 0 && (
+            <Badge tone="solid" className="ml-0.5 px-1.5">
+              {filterCount}
+            </Badge>
+          )}
         </Button>
-
-        {isNearby && (
-          <label className="ml-auto flex items-center gap-2 text-xs font-medium text-gray-600">
-            Radius
-            <select
-              className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm"
-              value={radiusMeters}
-              onChange={(e) => setRadiusMeters(Number(e.target.value))}
-            >
-              {RADIUS_OPTIONS.map((value) => (
-                <option key={value} value={value}>
-                  {value >= 1000 ? `${value / 1000} km` : `${value} m`}
-                </option>
-              ))}
-              {![...RADIUS_OPTIONS, DEFAULT_RADIUS_METERS].includes(
-                radiusMeters,
-              ) && <option value={radiusMeters}>{radiusMeters} m</option>}
-            </select>
-          </label>
-        )}
       </div>
 
-      {/* Non-fatal status banner — interface stays fully functional */}
-      {showNonFatalBanner && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900"
-        >
-          {locationStatus === "updating" ? (
-            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-          ) : (
-            <span className="mt-0.5 inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+      {/* Quick fuel chips — the filter people actually use. */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+        <FuelChip
+          label="All fuel"
+          active={filters.fuelType === ""}
+          onClick={() => setFilters({ fuelType: "" })}
+        />
+        {QUICK_FUELS.map((code) => (
+          <FuelChip
+            key={code}
+            label={FUEL_SHORT[code]}
+            active={filters.fuelType === code}
+            onClick={() =>
+              setFilters({ fuelType: filters.fuelType === code ? "" : code })
+            }
+          />
+        ))}
+        <button
+          type="button"
+          onClick={handleFavoritesToggle}
+          aria-pressed={favoritesOnly}
+          title={
+            auth.isAuthed
+              ? "Show only your favorite stations"
+              : "Sign in to use favorites"
+          }
+          className={cn(
+            "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
+            favoritesOnly
+              ? "border-accent-300 bg-accent-50 text-accent-700"
+              : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
           )}
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">
-              {locationStatus === "permission_denied"
-                ? "Live tracking paused"
-                : locationStatus === "updating"
-                  ? "Updating location"
-                  : "Using your last known location"}
-            </p>
-            <p className="mt-0.5 opacity-90">{bannerMessage}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Fatal panel — ONLY when there is no valid location at all */}
-      {fatal && (
-        <div
-          role="alert"
-          className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs leading-relaxed ${
-            locationStatus === "permission_denied"
-              ? "border-amber-200 bg-amber-50 text-amber-900"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
         >
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">
-              {locationStatus === "permission_denied"
-                ? "Location access denied"
-                : locationStatus === "unsupported"
-                  ? "Location not supported"
-                  : "Could not get your location"}
-            </p>
-            <p className="mt-0.5 opacity-90">{locationMessage}</p>
-            {locationStatus === "permission_denied" ? (
-              <>
-                <p className="mt-1.5 text-[11px] opacity-80">
-                  Tip: In your browser address bar, click the lock/location icon → allow location,
-                  then click <strong>Near me</strong> again.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => void handleNearMe()}>
-                    Try again
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={handleSearchByCity}>
-                    Search by city
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => void handleNearMe()}>
-                  Try again
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleSearchByCity}>
-                  Search by city
-                </Button>
-              </div>
-            )}
-          </div>
+          <Heart
+            className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
+            aria-hidden="true"
+          />
+          {favoritesOnly ? "My favorites" : "Favorites"}
+        </button>
+      </div>
+
+      {/* Always show what is actually filtered. */}
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 rounded-pill border border-brand-200 bg-brand-50 py-1 pl-2.5 pr-1 text-caption font-semibold text-brand-800"
+            >
+              {chip.label}
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={`Remove filter ${chip.label}`}
+                className="flex h-6 w-6 items-center justify-center rounded-pill transition-colors hover:bg-brand-100"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setFilters({ fuelType: "", brand: "", city: "" });
+              setRadiusMeters(DEFAULT_RADIUS_METERS);
+              setFavoritesOnly(false);
+            }}
+            className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+          >
+            Clear all
+          </button>
         </div>
       )}
 
-      {/* Sign-in prompt for unauthenticated favorites */}
+      <LocationStatusBanner
+        status={locationStatus}
+        message={locationMessage}
+        userLocation={userLocation}
+        isNearby={isNearby}
+        isWatching={isWatching}
+        onRetry={() => void handleNearMe()}
+        onSearchByCity={handleSearchByCity}
+      />
+
       {showFavoritesPrompt && (
         <div
           role="status"
-          className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-900"
+          className="flex items-start gap-2.5 rounded-xl border border-info-border bg-info-soft px-3 py-2.5 text-caption leading-relaxed text-info-strong"
         >
-          <Heart className="mt-0.5 h-4 w-4 shrink-0" />
+          <Heart className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold">Sign in to use favorites</p>
+            <p className="text-body-sm font-semibold">Sign in to use favourites</p>
             <p className="mt-0.5 opacity-90">
-              Favorites are saved to your account. Sign in with the button in the top-right
-              corner, then tap the heart on any station.
+              Favourites are saved to your account. Sign in from the top-right,
+              then tap the heart on any station.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowFavoritesPrompt(false)}
-            className="shrink-0 rounded p-1 text-blue-400 hover:bg-black/5"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-info transition-colors hover:bg-white/60"
             aria-label="Dismiss"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {isNearby && hasPosition && !fatal && !showNonFatalBanner && (
-        <p className="flex items-center gap-1.5 text-xs text-emerald-700">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          Showing stations near you
-          {isWatching ? " — live tracking on" : ""} · {userLocation.latitude.toFixed(4)},{" "}
-          {userLocation.longitude.toFixed(4)}
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            placeholder="Search station name…"
-            value={searchInput.q}
-            onChange={(e) => setSearchInput((s) => ({ ...s, q: e.target.value }))}
-            className="h-10 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-        </div>
-
-        <input
-          type="text"
-          placeholder="Brand (e.g. NNPC)"
-          value={searchInput.brand}
-          onChange={(e) => setSearchInput((s) => ({ ...s, brand: e.target.value }))}
-          className="h-10 rounded-lg border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+      {/* ---------------------------- filter sheet --------------------------- */}
+      <Modal
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        labelledBy="filters-title"
+      >
+        <DialogHeader
+          title="Filters"
+          titleId="filters-title"
+          subtitle="Narrow the stations shown on the map and list"
+          onClose={() => setSheetOpen(false)}
         />
-        <input
-          ref={cityInputRef}
-          id="station-city-filter"
-          type="text"
-          placeholder="City"
-          value={searchInput.city}
-          onChange={(e) => setSearchInput((s) => ({ ...s, city: e.target.value }))}
-          className="h-10 rounded-lg border border-gray-300 px-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        />
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Fuel
-        </span>
-        <button
-          type="button"
-          onClick={() => setFilters({ fuelType: "" })}
-          className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-            filters.fuelType === ""
-              ? "bg-emerald-700 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          Any
-        </button>
-        {FUEL_TYPE_CODES.map((code) => (
-          <button
-            key={code}
-            type="button"
-            onClick={() => setFilters({ fuelType: code })}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              filters.fuelType === code
-                ? "bg-emerald-700 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {FUEL_TYPE_LABELS[code]}
-          </button>
-        ))}
-      </div>
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+          <Fieldset legend="Fuel">
+            <div className="flex flex-wrap gap-1.5">
+              <FuelChip
+                label="Any fuel"
+                active={filters.fuelType === ""}
+                onClick={() => setFilters({ fuelType: "" })}
+              />
+              {FUEL_TYPE_CODES.map((code) => (
+                <FuelChip
+                  key={code}
+                  label={FUEL_TYPE_LABELS[code]}
+                  active={filters.fuelType === code}
+                  onClick={() => setFilters({ fuelType: code })}
+                />
+              ))}
+            </div>
+          </Fieldset>
 
-      {/* Recent searches */}
-      {searches.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2">
-          <Clock3 className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            Recent
-          </span>
-          {searches.slice(0, 5).map((s) => (
+          {isNearby && (
+            <Fieldset legend="Distance">
+              <div className="flex flex-wrap gap-1.5">
+                {RADIUS_OPTIONS.map((value) => (
+                  <FuelChip
+                    key={value}
+                    label={value >= 1000 ? `${value / 1000} km` : `${value} m`}
+                    active={radiusMeters === value}
+                    onClick={() => setRadiusMeters(value)}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-caption text-ink-500">
+                Stations are searched within this distance of your position.
+              </p>
+            </Fieldset>
+          )}
+
+          <Fieldset legend="Brand">
+            <input
+              type="text"
+              value={draft.brand}
+              onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))}
+              placeholder="e.g. NNPC, Mobil, A.A. Rano"
+              aria-label="Filter by brand"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </Fieldset>
+
+          <Fieldset legend="City">
+            <input
+              ref={(node) => {
+                if (node && focusCity) {
+                  node.focus();
+                  setFocusCity(false);
+                }
+              }}
+              id="station-city-filter"
+              data-autofocus={focusCity ? "" : undefined}
+              type="text"
+              value={draft.city}
+              onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
+              placeholder="e.g. Lagos, Abuja, Kano"
+              aria-label="Filter by city"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+            <p className="mt-2 text-caption text-ink-500">
+              Searching by city works without sharing your location.
+            </p>
+          </Fieldset>
+
+          <Fieldset legend="Saved">
             <button
-              key={s.id}
               type="button"
-              onClick={() => applyRecentSearch(s.term, s.kind)}
-              className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-medium text-gray-600 hover:border-emerald-300 hover:text-emerald-700"
+              onClick={handleFavoritesToggle}
+              aria-pressed={favoritesOnly}
+              className={cn(
+                "flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-body-sm font-semibold transition-colors",
+                favoritesOnly
+                  ? "border-accent-300 bg-accent-50 text-accent-700"
+                  : "border-hairline bg-surface text-ink-700 hover:border-ink-300",
+              )}
             >
-              {s.kind === "fuel" ? FUEL_TYPE_LABELS[s.term as keyof typeof FUEL_TYPE_LABELS] ?? s.term : s.term}
+              <Heart
+                className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
+                aria-hidden="true"
+              />
+              Only my favourite stations
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={clearSearches}
-            className="ml-auto rounded p-1 text-[11px] text-gray-400 hover:text-red-600"
-            title="Clear search history"
-          >
-            Clear
-          </button>
+          </Fieldset>
         </div>
-      )}
+
+        <div className="flex items-center gap-2 border-t border-hairline bg-surface p-4 pb-safe">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setFilters({ fuelType: "", brand: "", city: "" });
+              setRadiusMeters(DEFAULT_RADIUS_METERS);
+              setFavoritesOnly(false);
+            }}
+          >
+            Reset
+          </Button>
+          <Button block className="flex-1" onClick={() => setSheetOpen(false)}>
+            Show results
+          </Button>
+        </div>
+      </Modal>
     </div>
+  );
+}
+
+function FuelChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center rounded-pill border px-3.5 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
+        active
+          ? "border-brand-700 bg-brand-700 text-white"
+          : "border-hairline bg-surface text-ink-600 hover:border-brand-300 hover:text-brand-700",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Fieldset({
+  legend,
+  children,
+}: {
+  legend: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset>
+      <legend className="mb-2 text-label uppercase text-ink-500">{legend}</legend>
+      {children}
+    </fieldset>
   );
 }
