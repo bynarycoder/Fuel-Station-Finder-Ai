@@ -8,7 +8,12 @@
  * - freshness is derived from the report timestamp, never invented.
  */
 
-import type { FuelReport, ReportStatus } from "@/types/report";
+import type {
+  FuelReport,
+  ReportStatus,
+  ReportStationBrief,
+} from "@/types/report";
+import type { FuelTypeBrief } from "@/types/station";
 
 /** Availability we can honestly claim for a fuel at a station. */
 export type FuelAvailability = "available" | "unavailable" | "unknown";
@@ -42,6 +47,30 @@ const EMPTY_SUMMARY: StationSummary = {
 };
 
 /**
+ * Runtime shape guard: a report is only usable when the nested objects it
+ * depends on (`station`, `fuel_type`) actually exist with the fields we read.
+ *
+ * The API contract says these are always present, but a malformed row
+ * (e.g. `station === null`, a missing `fuel_type`) must be SKIPPED, not allowed
+ * to throw `Cannot read properties of null` and blank the whole card. One bad
+ * row must never take down the valid ones.
+ */
+export function isWellFormedReport(report: FuelReport | null | undefined): boolean {
+  if (!report || typeof report !== "object") return false;
+  const station = report.station as Partial<ReportStationBrief> | null | undefined;
+  const fuel = report.fuel_type as Partial<FuelTypeBrief> | null | undefined;
+  return (
+    station != null &&
+    typeof station.id === "string" &&
+    fuel != null &&
+    typeof fuel.code === "string" &&
+    typeof fuel.name === "string" &&
+    typeof report.created_at === "string" &&
+    typeof report.status === "string"
+  );
+}
+
+/**
  * A report implies availability when it carries a price (someone bought or saw
  * fuel being sold). A zero/negative price is treated as "no price", not as
  * evidence of anything.
@@ -72,9 +101,12 @@ function toFact(report: FuelReport): StationPriceFact {
 export function summariseReports(reports: FuelReport[] | undefined): StationSummary {
   if (!reports || reports.length === 0) return EMPTY_SUMMARY;
 
-  const sorted = [...reports].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
+  // Skip malformed rows; summarise the valid ones instead of crashing.
+  const sorted = reports
+    .filter(isWellFormedReport)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  if (sorted.length === 0) return EMPTY_SUMMARY;
 
   const byFuel = new Map<string, StationPriceFact>();
   for (const report of sorted) {
@@ -100,6 +132,7 @@ export function summariseFeedByStation(
 ): Map<string, StationSummary> {
   const grouped = new Map<string, FuelReport[]>();
   for (const report of reports ?? []) {
+    if (!isWellFormedReport(report)) continue;
     const list = grouped.get(report.station.id);
     if (list) list.push(report);
     else grouped.set(report.station.id, [report]);
