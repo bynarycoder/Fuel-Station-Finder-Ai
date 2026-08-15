@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_roles
 from app.core.database import get_db
-from app.models import UserRole
+from app.models import StationVerificationStatus, UserRole
 from app.schemas import (
     FuelStationCreate,
     FuelStationPublic,
@@ -80,11 +80,26 @@ async def find_nearby_stations(
     ] = station_service.DEFAULT_RADIUS_M,
     limit: Annotated[int, Query(ge=1, le=station_service.MAX_LIMIT)] = station_service.DEFAULT_LIMIT,
     fuel_type: Annotated[str | None, Query(max_length=8)] = None,
+    verification_status: Annotated[
+        StationVerificationStatus | None, Query(description="Only stations at this verification state")
+    ] = None,
 ) -> NearbyStations:
     # Location-specific: never let a proxy/CDN/PWA reuse another city's result.
     response.headers["Cache-Control"] = "no-store"
+    kwargs: dict = {}
+    if verification_status is not None:
+        # Optional trust filter (used by the AI assistant's "verified only"
+        # intent); omitted entirely for ordinary nearby searches so existing
+        # callers/contracts are unchanged.
+        kwargs["verification_status"] = verification_status.value
     return await station_service.find_nearby(
-        db, latitude, longitude, radius_meters=radius_meters, limit=limit, fuel_type=fuel_type
+        db,
+        latitude,
+        longitude,
+        radius_meters=radius_meters,
+        limit=limit,
+        fuel_type=fuel_type,
+        **kwargs,
     )
 
 

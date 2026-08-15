@@ -11,8 +11,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Flame, Info, LogOut, MessageSquare, ShieldCheck, User, UserPlus, X } from "lucide-react";
+import { Bot, Flame, Info, LogOut, MessageSquare, ShieldCheck, User, UserPlus, X } from "lucide-react";
 
+import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
 import { SignInModal } from "@/components/auth/SignInModal";
 import StationMap from "@/components/map/StationMap";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -47,6 +48,7 @@ export default function FinderPage() {
   const setSelectedStationId = useMapStore((s) => s.setSelectedStationId);
 
   const [showReports, setShowReports] = useState(false);
+  const [showFuelAi, setShowFuelAi] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
@@ -123,6 +125,18 @@ export default function FinderPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={() => setShowFuelAi((v) => !v)}
+            aria-pressed={showFuelAi}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold ${
+              showFuelAi
+                ? "bg-emerald-950 text-amber-300 ring-1 ring-amber-400"
+                : "bg-amber-500 text-emerald-950 hover:bg-amber-400"
+            }`}
+          >
+            <Bot className="h-3.5 w-3.5" /> Fuel AI
+          </button>
+          <button
+            type="button"
             onClick={() => setShowReports(true)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-emerald-950 hover:bg-amber-400"
           >
@@ -186,6 +200,12 @@ export default function FinderPage() {
       </header>
 
       <div className="shrink-0 space-y-3 p-4">
+        {showFuelAi && (
+          <FuelIntelligence
+            onViewStation={handleSelect}
+            onClose={() => setShowFuelAi(false)}
+          />
+        )}
         <StationFilters />
       </div>
 

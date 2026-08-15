@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
     GROQ_MODEL: str = "llama-3.1-8b-instant"
+    # Per-call timeout for AI HTTP calls (seconds). Failures degrade to the
+    # deterministic intent parser / template answers instead of erroring.
+    AI_TIMEOUT_SECONDS: float = 12.0
+    # In-memory TTL for computed AI recommendations (seconds). Keyed by
+    # (query, rounded lat/lon) so repeated asks don't re-invoke the LLM.
+    AI_RECOMMEND_CACHE_TTL_SECONDS: int = 300
 
     # Report photo uploads (local storage; swappable for object storage later)
     MEDIA_DIR: str = "media"

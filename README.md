@@ -277,6 +277,14 @@ Two AI capabilities, each behind a config gate (graceful 503 when its API key is
 - `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq, then returns the matching stations plus the parsed intent.
 - `build_system_prompt` / `to_parsed_query` are pure & tested (enum normalisation/validation, casual-term mapping).
 
+### 3. Fuel Intelligence — AI station recommendations (`app/services/ai/recommend.py`)
+- `POST /api/v1/ai/recommend` (public) — the AI assistant that answers questions like *"Find the cheapest petrol near me"*, *"closest CNG"*, *"diesel under ₦1000"*, *"which nearby station is most reliable?"*.
+- Pipeline (the AI never touches the database): Groq **intent extraction** → existing **nearby station API** (PostGIS) → crowd-sourced **price facts** from reports → **deterministic ranking** → Groq **explanation** limited to the returned facts.
+- Deterministic ranking is a weighted, normalised score of *distance, price, verification, freshness, availability*; the weights follow the user's intent (`price` → cheap wins, `distance` → close wins, `reliability` → verification/freshness, `best_overall` → balanced). The LLM never picks the winner.
+- Honesty guarantees: no invented prices ("Price information is currently unavailable."), no invented verification (an imported/unverified row stays labeled exactly as the database says), no invented coordinates (no location → "I need your location…"), no stations → "I couldn't find a nearby station…".
+- If `GROQ_API_KEY` is missing or the provider times out, the feature degrades to a deterministic keyword intent parser + template answers and flags it via `intent_source`/`answer_source: "fallback"`. Results are cached in memory for `AI_RECOMMEND_CACHE_TTL_SECONDS` (keyed by query + ~100 m location bucket) so repeat asks don't re-invoke the LLM.
+- Frontend: the **🤖 Fuel AI** panel on the home page (reuses the real geolocation fix, station provenance badges and Directions links).
+
 ### Shared
 `app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`. The Gemini/Groq SDKs are imported lazily inside the call functions, so the app starts even without keys.
 
