@@ -15,6 +15,10 @@ import type { FuelReport, FuelReportAdmin, PaginatedReports } from "@/types/repo
 import type { FavoriteList, Favorite } from "@/types/favorite";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
+import type {
+  AIRecommendRequest,
+  AIRecommendResponse,
+} from "@/types/ai";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "https://fuel-station-finder-ai.onrender.com/api/v1";
@@ -232,6 +236,22 @@ export function fetchNearbyStations(params: NearbyParams) {
       });
     }
     return result;
+  });
+}
+
+// --------------------------------------------------------------------------- #
+// Fuel Intelligence (AI recommendations — backend holds the AI secrets)
+// --------------------------------------------------------------------------- #
+/**
+ * Ask the Fuel Intelligence assistant for a data-driven station
+ * recommendation. The backend runs AI intent extraction + explanation
+ * server-side (never in the browser) against the real station database; the
+ * client only ever sends the query and its own GPS coordinates.
+ */
+export function requestAiRecommendation(input: AIRecommendRequest) {
+  return request<AIRecommendResponse>("/ai/recommend", {
+    method: "POST",
+    body: input,
   });
 }
 

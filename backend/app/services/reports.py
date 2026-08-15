@@ -16,9 +16,9 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import Select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     FuelReport,
@@ -204,6 +204,57 @@ async def list_my_reports(
     ).scalars().all()
     items = [report_to_public(report) for report in rows]
     return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+async def latest_prices_by_station(
+    db: AsyncSession,
+    station_ids: list[str],
+    fuel_type_code: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Latest non-rejected price reports per (station, fuel type).
+
+    Powers the AI recommendation ranking: prices are always *reported* facts,
+    never invented. Returns ``{station_id: [entries newest-first]}`` where each
+    entry carries ``fuel_type_code``, ``price_per_litre``, ``status`` and
+    ``created_at``. Stations without price reports are simply absent.
+    """
+    if not station_ids:
+        return {}
+
+    # Station ids arrive as strings from the service layer; bind as UUIDs so
+    # the comparison works against the real UUID column on Postgres while
+    # the portable test schema (String) still accepts them via str().
+    ids = [uuid.UUID(str(station_id)) for station_id in station_ids]
+
+    stmt = (
+        select(FuelReport)
+        .options(joinedload(FuelReport.fuel_type))
+        .where(FuelReport.station_id.in_(ids))
+        .where(FuelReport.price_per_litre.is_not(None))
+        .order_by(desc(FuelReport.created_at), desc(FuelReport.id))
+    )
+    stmt = _exclude_rejected(stmt)
+    if fuel_type_code:
+        stmt = stmt.where(FuelReport.fuel_type_code == fuel_type_code)
+
+    rows = (await db.execute(stmt)).scalars().all()
+
+    price_map: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    for report in rows:
+        key = (str(report.station_id), report.fuel_type_code)
+        if key in seen:
+            continue  # rows are newest-first: first per (station, fuel) wins
+        seen.add(key)
+        price_map.setdefault(str(report.station_id), []).append(
+            {
+                "fuel_type_code": report.fuel_type_code,
+                "price_per_litre": float(report.price_per_litre),
+                "status": str(report.status.value),
+                "created_at": report.created_at,
+            }
+        )
+    return price_map
 
 
 async def get_report_for_verification(

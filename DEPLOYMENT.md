@@ -110,6 +110,7 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 - [ ] `CORS_ORIGINS` on the backend includes the Vercel origin (no CORS errors).
 - [ ] Sign in at `/admin` with an admin account → analytics/moderation render.
 - [ ] (Optional) Set `GEMINI_API_KEY`/`GROQ_API_KEY` and test AI verification & NL search.
+- [ ] Try **Fuel AI** (`POST /api/v1/ai/recommend`, header "🤖 Fuel AI" on the home page): *"Find the cheapest petrol near me"*. With `GROQ_API_KEY` set the intent/explanation come from Groq; without it the endpoint answers via the deterministic fallback (flagged as `"fallback"`).
 - [ ] (Optional) Configure durable media storage (Render Disk or Supabase Storage).
 
 ---
@@ -130,8 +131,10 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 | `SUPABASE_JWKS_CACHE_TTL_SECONDS` | – | `300` |
 | `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-omega.vercel.app` |
 | `GEMINI_API_KEY` | – | (Google AI Studio) |
-| `GROQ_API_KEY` | – | (Groq console) |
+| `GROQ_API_KEY` | – | (Groq console) — powers NL search & Fuel AI recommendations |
 | `GEMINI_MODEL` / `GROQ_MODEL` | – | defaults: `gemini-1.5-flash` / `llama-3.1-8b-instant` |
+| `AI_TIMEOUT_SECONDS` | – | default `12` — per-call timeout for AI HTTP calls |
+| `AI_RECOMMEND_CACHE_TTL_SECONDS` | – | default `300` — in-memory TTL for AI recommendation results |
 | `MEDIA_DIR` / `MEDIA_URL` | – | defaults: `media` / `/media` |
 
 **Frontend (Vercel)**

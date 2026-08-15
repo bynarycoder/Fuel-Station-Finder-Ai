@@ -20,9 +20,9 @@ from typing import Any
 
 from geoalchemy2 import Geography, Geometry, WKTElement
 from sqlalchemy import asc, cast, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import FuelStation, FuelStationFuelType, FuelType
 
@@ -179,6 +179,7 @@ def build_nearby_query(
     radius_meters: float,
     limit: int,
     fuel_type: str | None = None,
+    verification_status: str | None = None,
 ) -> Select:
     """Stations within ``radius_meters`` of the user, ordered nearest-first.
 
@@ -210,6 +211,10 @@ def build_nearby_query(
                 FuelStationFuelType.fuel_type_code == fuel_type
             )
         )
+    if verification_status:
+        # Optional trust filter: only rows at the requested verification state
+        # (e.g. the AI assistant's "only verified stations" intent).
+        stmt = stmt.where(FuelStation.verification_status == verification_status)
     return stmt
 
 
@@ -245,18 +250,27 @@ async def find_nearby(
     radius_meters: float,
     limit: int,
     fuel_type: str | None = None,
+    verification_status: str | None = None,
 ) -> dict[str, Any]:
     logger.info(
-        "[NEARBY REQUEST] latitude=%s longitude=%s radius_meters=%s limit=%s fuel_type=%s",
+        "[NEARBY REQUEST] latitude=%s longitude=%s radius_meters=%s limit=%s fuel_type=%s verification_status=%s",
         latitude,
         longitude,
         radius_meters,
         limit,
         fuel_type,
+        verification_status,
     )
     rows = (
         await db.execute(
-            build_nearby_query(latitude, longitude, radius_meters, limit, fuel_type)
+            build_nearby_query(
+                latitude,
+                longitude,
+                radius_meters,
+                limit,
+                fuel_type,
+                verification_status,
+            )
         )
     ).all()
     items: list[dict[str, Any]] = []

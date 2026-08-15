@@ -1,4 +1,4 @@
-"""AI integrations (Phase 8): Gemini image verification & Groq NL search."""
+"""AI integrations: Gemini image verification, Groq NL search & recommendations."""
 
 from app.services.ai.base import AINotConfiguredError, extract_json_object
 

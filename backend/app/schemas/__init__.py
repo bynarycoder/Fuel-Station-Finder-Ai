@@ -7,8 +7,13 @@ from app.schemas.admin import (
     UserUpdate,
 )
 from app.schemas.ai import (
+    AIRecommendation,
+    AIRecommendRequest,
+    AIRecommendResponse,
+    FuelSearchIntentPublic,
     NaturalLanguageSearchResult,
     ParsedQueryPublic,
+    ScoreBreakdown,
     VerificationResultPublic,
 )
 from app.schemas.auth import RoleInfo, TokenClaims
@@ -33,10 +38,14 @@ from app.schemas.fuel_station import (
 from app.schemas.user import UserPublic
 
 __all__ = [
+    "AIRecommendation",
+    "AIRecommendRequest",
+    "AIRecommendResponse",
     "AnalyticsSummary",
     "FavoriteList",
     "FavoritePublic",
     "FuelReportAdmin",
+    "FuelSearchIntentPublic",
     "NaturalLanguageSearchResult",
     "FuelReportPublic",
     "FuelStationCreate",
@@ -54,6 +63,7 @@ __all__ = [
     "ReportStationBrief",
     "ReporterBrief",
     "RoleInfo",
+    "ScoreBreakdown",
     "TokenClaims",
     "UserPublic",
     "UserUpdate",
