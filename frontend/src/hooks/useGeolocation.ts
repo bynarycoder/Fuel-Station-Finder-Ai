@@ -26,12 +26,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   GEO_CODE_PERMISSION_DENIED,
+  GEO_CODE_POSITION_UNAVAILABLE,
   GEO_OPTIONS_DEFAULT,
   GEO_OPTIONS_FALLBACK,
   GEO_OPTIONS_WATCH,
+  MAX_ACCEPTABLE_ACCURACY_METERS,
   geoCodeName,
   geoLog,
   getSimulatedPosition,
+  hasAcceptableAccuracy,
   isTransientCode,
   mapGeolocationError,
   type GeoFailure,
@@ -137,6 +140,19 @@ export function useGeolocation(): UseGeolocation {
         reject(failure);
       };
 
+      // A fix the browser DID return, but with hopelessly coarse (city-level)
+      // accuracy. It is NOT a usable "Near Me" location — and it must never be
+      // replaced with invented coordinates: it maps to the transient
+      // POSITION_UNAVAILABLE vocabulary, exactly like a browser timeout.
+      const rejectCoarseFix = (attempt: number, position: GeolocationPosition) => {
+        setLoading(false);
+        geoLog(`[GEO] attempt ${attempt}: fix rejected — accuracy too coarse`, {
+          accuracy_m: Math.round(position.coords.accuracy),
+          max_acceptable_m: MAX_ACCEPTABLE_ACCURACY_METERS,
+        });
+        reject(mapGeolocationError({ code: GEO_CODE_POSITION_UNAVAILABLE }));
+      };
+
       // Structured attempt diagnostics: attempt number + raw browser code +
       // effective options, so a TIMEOUT (3) is never confused with
       // POSITION_UNAVAILABLE (2) or PERMISSION_DENIED (1).
@@ -154,27 +170,50 @@ export function useGeolocation(): UseGeolocation {
           message: err?.message ?? null,
         });
 
+      // Attempt 2 (timeout / unavailable / too-coarse fix only): looser
+      // network/cached fix. Never invent coordinates — a failed pair of
+      // attempts (or a pair of coarse fixes) rejects.
+      const attempt2 = () => {
+        started(2, GEO_OPTIONS_FALLBACK);
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            if (!hasAcceptableAccuracy(position.coords.accuracy)) {
+              rejectCoarseFix(2, position);
+              return;
+            }
+            succeed(position, "2-fallback");
+          },
+          (err2: GeolocationPositionError) => {
+            attemptError(2, err2);
+            fail(err2);
+          },
+          GEO_OPTIONS_FALLBACK,
+        );
+      };
+
       // Attempt 1: reasonable (recent cache allowed so phones don't stall on GPS).
-      // Attempt 2 (timeout / unavailable only): looser network/cached fix.
-      // Never invent coordinates — a failed pair of attempts rejects.
       started(1, GEO_OPTIONS_DEFAULT);
       navigator.geolocation.getCurrentPosition(
-        (position) => succeed(position, "1"),
+        (position) => {
+          if (!hasAcceptableAccuracy(position.coords.accuracy)) {
+            geoLog("[GEO] attempt 1: fix rejected — accuracy too coarse", {
+              accuracy_m: Math.round(position.coords.accuracy),
+              max_acceptable_m: MAX_ACCEPTABLE_ACCURACY_METERS,
+            });
+            // Treat as transient/unavailable: retry at lower requirements
+            // instead of resolving a city-level centroid as "Near Me".
+            attempt2();
+            return;
+          }
+          succeed(position, "1");
+        },
         (err: GeolocationPositionError) => {
           attemptError(1, err);
           if (err.code === GEO_CODE_PERMISSION_DENIED || !isTransientCode(err.code)) {
             fail(err);
             return;
           }
-          started(2, GEO_OPTIONS_FALLBACK);
-          navigator.geolocation.getCurrentPosition(
-            (position) => succeed(position, "2-fallback"),
-            (err2: GeolocationPositionError) => {
-              attemptError(2, err2);
-              fail(err2);
-            },
-            GEO_OPTIONS_FALLBACK,
-          );
+          attempt2();
         },
         GEO_OPTIONS_DEFAULT,
       );
@@ -202,6 +241,17 @@ export function useGeolocation(): UseGeolocation {
       geoLog("refresh: getCurrentPosition (silent)");
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          // A coarse fix must never overwrite the last known position — the
+          // recenter already happened with it, so resolve null like any
+          // other silent failure (never throw, never invent coordinates).
+          if (!hasAcceptableAccuracy(position.coords.accuracy)) {
+            geoLog("refresh: fix rejected — accuracy too coarse", {
+              accuracy_m: Math.round(position.coords.accuracy),
+              max_acceptable_m: MAX_ACCEPTABLE_ACCURACY_METERS,
+            });
+            resolve(null);
+            return;
+          }
           const loc = toLatLng(position);
           geoLog("refresh: success", {
             lat: loc.latitude.toFixed(4),
@@ -249,6 +299,16 @@ export function useGeolocation(): UseGeolocation {
 
       const id = navigator.geolocation.watchPosition(
         (position) => {
+          // A coarse fix (e.g. a 50 km network fallback) must NEVER overwrite
+          // a good stored location: skip the update and keep the watcher
+          // alive so the browser can deliver a better fix next time.
+          if (!hasAcceptableAccuracy(position.coords.accuracy)) {
+            geoLog("watch: fix rejected — accuracy too coarse (keeping last position)", {
+              accuracy_m: Math.round(position.coords.accuracy),
+              max_acceptable_m: MAX_ACCEPTABLE_ACCURACY_METERS,
+            });
+            return;
+          }
           const loc = toLatLng(position);
           geoLog("watch: success", {
             lat: loc.latitude.toFixed(4),

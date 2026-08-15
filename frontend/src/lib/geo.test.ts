@@ -19,10 +19,12 @@ import {
   GEO_MESSAGES,
   GEO_OPTIONS_DEFAULT,
   GEO_OPTIONS_FALLBACK,
+  MAX_ACCEPTABLE_ACCURACY_METERS,
   applyLocationEvent,
   failureState,
   geoCodeName,
   getSimulatedPosition,
+  hasAcceptableAccuracy,
   hasMovedEnough,
   mapGeolocationError,
 } from "@/lib/geo";
@@ -147,6 +149,31 @@ describe("geolocation option presets", () => {
     for (const message of Object.values(GEO_MESSAGES)) {
       expect(message).not.toMatch(/PERMISSION_DENIED|POSITION_UNAVAILABLE|\bTIMEOUT\b|code \d/i);
     }
+  });
+});
+
+describe("hasAcceptableAccuracy (coarse-fix guard)", () => {
+  it("defines the threshold as 5,000 metres", () => {
+    expect(MAX_ACCEPTABLE_ACCURACY_METERS).toBe(5_000);
+  });
+
+  it("rejects a 50 km city-level fix", () => {
+    expect(hasAcceptableAccuracy(50_000)).toBe(false);
+    expect(hasAcceptableAccuracy(5_001)).toBe(false);
+  });
+
+  it("accepts accuracy exactly at the 5,000 m boundary", () => {
+    expect(hasAcceptableAccuracy(5_000)).toBe(true);
+  });
+
+  it("accepts normal GPS fixes and 0 (accuracy not reported)", () => {
+    expect(hasAcceptableAccuracy(20)).toBe(true);
+    expect(hasAcceptableAccuracy(0)).toBe(true);
+  });
+
+  it("rejects non-finite accuracy values", () => {
+    expect(hasAcceptableAccuracy(Number.NaN)).toBe(false);
+    expect(hasAcceptableAccuracy(Number.POSITIVE_INFINITY)).toBe(false);
   });
 });
 

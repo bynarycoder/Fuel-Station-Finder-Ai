@@ -7,6 +7,8 @@
  *  - watcher cleared on stopWatch and on unmount (tests H)
  *  - watch success → onUpdate; watch error → onError with typed failure (C/E/F)
  *  - silent refresh never throws (test I)
+ *  - fix-accuracy validation: extremely coarse fixes (> 5 km) are never
+ *    accepted as a valid location, in request / refresh / watch paths
  */
 
 import { act, renderHook } from "@testing-library/react";
@@ -287,5 +289,137 @@ describe("refresh()", () => {
     });
     await vi.waitFor(() => expect(resolved).toBeDefined());
     expect(resolved).toEqual({ latitude: 6.5244, longitude: 3.3792 });
+  });
+});
+
+describe("fix accuracy validation (coarse-fix rejection)", () => {
+  it("request(): a 50 km fix is rejected as an invalid location, never resolved", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: unknown = "pending";
+    let failure: { code: number; message: string } | undefined;
+    act(() => {
+      result.current
+        .request()
+        .then((loc) => {
+          resolved = loc;
+        })
+        .catch((err: { code: number; message: string }) => {
+          failure = err;
+          resolved = null;
+        });
+      // Reproduces the reported bug: the browser returns a city-centroid fix
+      // with ~50 km accuracy. Both attempts deliver the same coarse fix.
+      geo.getCurrentSuccess(9.03, 7.47, 50_000);
+      geo.getCurrentSuccess(9.03, 7.47, 50_000);
+    });
+    await vi.waitFor(() => expect(resolved).not.toBe("pending"));
+    expect(resolved).toBeNull(); // no coordinates were invented or accepted
+    expect(failure?.code).toBe(2); // transient POSITION_UNAVAILABLE
+    expect(failure?.message).toContain("couldn't determine your location");
+    expect(geo.calls.getCurrentPosition).toBe(2);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("request(): a coarse first fix is treated as transient and the fallback attempt is used", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    act(() => {
+      result.current.request().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(9.03, 7.47, 50_000); // coarse → fallback
+      geo.getCurrentSuccess(10.5207, 7.4386, 30); // accurate browser fix
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 10.5207, longitude: 7.4386 });
+    expect(geo.calls.getCurrentPosition).toBe(2);
+  });
+
+  it("request(): accuracy of exactly 5,000 m (boundary) is accepted", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    act(() => {
+      result.current.request().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(9.0567, 7.49698, 5_000);
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 9.0567, longitude: 7.49698 });
+    expect(geo.calls.getCurrentPosition).toBe(1);
+  });
+
+  it("request(): a valid accurate GPS fix (25 m) is accepted normally", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: { latitude: number; longitude: number } | undefined;
+    act(() => {
+      result.current.request().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(6.5244, 3.3792, 25);
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 6.5244, longitude: 3.3792 });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("refresh(): a 50 km fix resolves null instead of overwriting the last known position", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: unknown = "pending";
+    act(() => {
+      result.current.refresh().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(9.03, 7.47, 50_000);
+    });
+    await vi.waitFor(() => expect(resolved).not.toBe("pending"));
+    expect(resolved).toBeNull();
+    expect(geo.calls.getCurrentPosition).toBe(1);
+  });
+
+  it("refresh(): accepts accuracy of exactly 5,000 m (boundary)", async () => {
+    const { result } = renderHook(() => useGeolocation());
+    let resolved: unknown;
+    act(() => {
+      result.current.refresh().then((loc) => {
+        resolved = loc;
+      });
+      geo.getCurrentSuccess(9.0567, 7.49698, 5_000);
+    });
+    await vi.waitFor(() => expect(resolved).toBeDefined());
+    expect(resolved).toEqual({ latitude: 9.0567, longitude: 7.49698 });
+  });
+
+  it("watch(): an inaccurate update does not overwrite the current location", () => {
+    const { result } = renderHook(() => useGeolocation());
+    const updates = vi.fn();
+    act(() => {
+      result.current.startWatch(updates);
+    });
+    // A good fix first — this is the stored "current location".
+    act(() => geo.watchSuccess(9.0567, 7.49698, 20));
+    expect(updates).toHaveBeenCalledTimes(1);
+    expect(updates).toHaveBeenCalledWith({ latitude: 9.0567, longitude: 7.49698 });
+
+    // A 50 km coarse fix must NOT overwrite it…
+    act(() => geo.watchSuccess(9.03, 7.47, 50_000));
+    expect(updates).toHaveBeenCalledTimes(1);
+
+    // …and the watcher stays alive, still delivering good fixes afterwards.
+    expect(result.current.isWatching).toBe(true);
+    expect(geo.activeWatchId).not.toBeNull();
+    act(() => geo.watchSuccess(9.1, 7.5, 15));
+    expect(updates).toHaveBeenCalledTimes(2);
+    expect(updates).toHaveBeenLastCalledWith({ latitude: 9.1, longitude: 7.5 });
+  });
+
+  it("watch(): accepts a fix at the 5,000 m accuracy boundary", () => {
+    const { result } = renderHook(() => useGeolocation());
+    const updates = vi.fn();
+    act(() => {
+      result.current.startWatch(updates);
+    });
+    act(() => geo.watchSuccess(9.0567, 7.49698, 5_000));
+    expect(updates).toHaveBeenCalledWith({ latitude: 9.0567, longitude: 7.49698 });
   });
 });
