@@ -67,6 +67,12 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
    - `SUPABASE_JWKS_URL` — `https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json`.
    - `SUPABASE_JWKS_CACHE_TTL_SECONDS` — `300` (optional; the default is five minutes).
    - `GEMINI_API_KEY`, `GROQ_API_KEY` — optional; enable AI features.
+   - `GROQ_MODEL` — `openai/gpt-oss-20b` (the current default; set it explicitly to
+     be unambiguous). Groq GPT-OSS 20B powers Fuel Intelligence **intent extraction**
+     and the optional **factual explanation** only — the LLM never picks the final
+     station. Deterministic, database-driven ranking remains authoritative, so
+     station names/prices/distances/verification all come from the station API and
+     fuel reports.
    - `CORS_ORIGINS` — comma-separated, **must include your Vercel frontend URL**, e.g.
      `https://fuel-station-finder-omega.vercel.app`.
 
@@ -110,7 +116,7 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 - [ ] `CORS_ORIGINS` on the backend includes the Vercel origin (no CORS errors).
 - [ ] Sign in at `/admin` with an admin account → analytics/moderation render.
 - [ ] (Optional) Set `GEMINI_API_KEY`/`GROQ_API_KEY` and test AI verification & NL search.
-- [ ] Try **Fuel AI** (`POST /api/v1/ai/recommend`, header "🤖 Fuel AI" on the home page): *"Find the cheapest petrol near me"*. With `GROQ_API_KEY` set the intent/explanation come from Groq; without it the endpoint answers via the deterministic fallback (flagged as `"fallback"`).
+- [ ] Try **Fuel AI** (`POST /api/v1/ai/recommend`, header "🤖 Fuel AI" on the home page): *"Find the cheapest petrol near me"*. With `GROQ_API_KEY` set, Groq **GPT-OSS 20B** performs intent extraction + the explanation; without it the endpoint answers via the deterministic fallback (flagged as `"fallback"` via `intent_source`/`answer_source`). Confirm the model is `openai/gpt-oss-20b` (see Render env `GROQ_MODEL`).
 - [ ] (Optional) Configure durable media storage (Render Disk or Supabase Storage).
 
 ---
@@ -132,7 +138,7 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 | `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-omega.vercel.app` |
 | `GEMINI_API_KEY` | – | (Google AI Studio) |
 | `GROQ_API_KEY` | – | (Groq console) — powers NL search & Fuel AI recommendations |
-| `GEMINI_MODEL` / `GROQ_MODEL` | – | defaults: `gemini-1.5-flash` / `llama-3.1-8b-instant` |
+| `GEMINI_MODEL` / `GROQ_MODEL` | – | defaults: `gemini-1.5-flash` / `openai/gpt-oss-20b`. GPT-OSS 20B performs Groq intent extraction + optional factual explanation only; final station selection stays deterministic |
 | `AI_TIMEOUT_SECONDS` | – | default `12` — per-call timeout for AI HTTP calls |
 | `AI_RECOMMEND_CACHE_TTL_SECONDS` | – | default `300` — in-memory TTL for AI recommendation results |
 | `MEDIA_DIR` / `MEDIA_URL` | – | defaults: `media` / `/media` |
@@ -154,6 +160,6 @@ A ~3-minute walk-through:
 2. **Near me**: click *Near me* (geolocation) → map recentres, nearest stations listed with distances.
 3. **Filters**: filter by fuel type / brand; open the **Live reports** panel → shows the community feed with a *Live*/*Polling* badge (Supabase Realtime).
 4. **Submit a report** (signed in): post a price + photo → it appears instantly in the feed (realtime).
-5. **AI**: as admin, run *Verify* on a report photo (Gemini validation score) and try a **natural-language search** ("short petrol near Ikeja") via Groq.
+5. **AI**: as admin, run *Verify* on a report photo (Gemini validation score) and try a **natural-language search** ("short petrol near Ikeja") or **Fuel AI** ("Find the cheapest petrol near me") via Groq GPT-OSS 20B.
 6. **Admin dashboard** (`/admin`): analytics cards, moderate the report (Verify/Reject), manage a user.
 7. **Stack recap**: mention Supabase (DB/Auth/Realtime), Render (API), Vercel (UI), PostGIS spatial search, and the AI layer.

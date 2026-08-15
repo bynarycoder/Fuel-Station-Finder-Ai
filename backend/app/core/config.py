@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
-    GROQ_MODEL: str = "llama-3.1-8b-instant"
+    # Groq model powering Fuel Intelligence intent extraction and (optional)
+    # factual explanation generation, plus natural-language station search.
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     # Per-call timeout for AI HTTP calls (seconds). Failures degrade to the
     # deterministic intent parser / template answers instead of erroring.
     AI_TIMEOUT_SECONDS: float = 12.0
