@@ -156,6 +156,35 @@ export function isTransientCode(code: number): boolean {
   return code === GEO_CODE_TIMEOUT || code === GEO_CODE_POSITION_UNAVAILABLE;
 }
 
+/**
+ * Maximum horizontal accuracy (metres) we accept from the browser before a
+ * fix is treated as unreliable.
+ *
+ * A coarse "city-level" fix (e.g. a network/IP fallback reporting ~50 km
+ * accuracy) is useless for a "Near Me" station search: results would be
+ * ranked against a centroid tens of kilometres from the user. Anything
+ * above this threshold is treated exactly like POSITION_UNAVAILABLE —
+ * transient, never stored, never used as a substitute coordinate.
+ */
+export const MAX_ACCEPTABLE_ACCURACY_METERS = 5_000;
+
+/**
+ * True when the reported horizontal accuracy is good enough to trust for a
+ * "Near Me" query.
+ *
+ * - `accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS` → acceptable (including the
+ *   exact boundary and `0`, which some browsers report when accuracy is
+ *   unknown — rejecting `0` would block those browsers entirely).
+ * - `NaN` / `Infinity` → NOT acceptable: they can never be meaningfully
+ *   compared, so a fix reporting them is not trusted.
+ */
+export function hasAcceptableAccuracy(accuracyMeters: number): boolean {
+  return (
+    Number.isFinite(accuracyMeters) &&
+    accuracyMeters <= MAX_ACCEPTABLE_ACCURACY_METERS
+  );
+}
+
 export interface LocationContext {
   status: LocationStatus;
   /** The last valid position (may be null before the first success). */

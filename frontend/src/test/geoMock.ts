@@ -13,11 +13,11 @@ export interface GeoMock {
   /** The installed navigator.geolocation object. */
   geolocation: Geolocation;
   /** Simulate a one-shot `getCurrentPosition` success (first registered callback). */
-  getCurrentSuccess: (lat?: number, lng?: number) => void;
+  getCurrentSuccess: (lat?: number, lng?: number, accuracy?: number) => void;
   /** Simulate a one-shot `getCurrentPosition` error (first registered callback). */
   getCurrentError: (code: number) => void;
   /** Simulate a `watchPosition` success. */
-  watchSuccess: (lat?: number, lng?: number) => void;
+  watchSuccess: (lat?: number, lng?: number, accuracy?: number) => void;
   /** Simulate a `watchPosition` error. */
   watchError: (code: number) => void;
   /** Call counts for instrumentation. */
@@ -35,12 +35,12 @@ interface GeoCallback {
   error: PositionErrorCallback | null;
 }
 
-function makePosition(lat: number, lng: number): GeolocationPosition {
+function makePosition(lat: number, lng: number, accuracy = 20): GeolocationPosition {
   return {
     coords: {
       latitude: lat,
       longitude: lng,
-      accuracy: 20,
+      accuracy,
       altitude: null,
       altitudeAccuracy: null,
       heading: null,
@@ -91,11 +91,11 @@ export function installGeoMock(): GeoMock {
 
   return {
     geolocation,
-    getCurrentSuccess: (lat = 9.0567, lng = 7.49698) =>
-      oneShot.success?.(makePosition(lat, lng)),
+    getCurrentSuccess: (lat = 9.0567, lng = 7.49698, accuracy = 20) =>
+      oneShot.success?.(makePosition(lat, lng, accuracy)),
     getCurrentError: (code: number) => oneShot.error?.(makeError(code)),
-    watchSuccess: (lat = 9.0567, lng = 7.49698) =>
-      watch.success?.(makePosition(lat, lng)),
+    watchSuccess: (lat = 9.0567, lng = 7.49698, accuracy = 20) =>
+      watch.success?.(makePosition(lat, lng, accuracy)),
     watchError: (code: number) => watch.error?.(makeError(code)),
     calls,
     get activeWatchId() {
