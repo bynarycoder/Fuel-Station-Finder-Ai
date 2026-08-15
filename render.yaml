@@ -51,6 +51,11 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      # --- Groq model for Fuel Intelligence & NL search (GPT-OSS 20B) ---
+      # The LLM performs intent extraction + optional factual explanation only;
+      # final station selection remains deterministic and database-driven.
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
       # --- CORS: comma-separated list of allowed frontend origins ---
       - key: CORS_ORIGINS
         sync: false

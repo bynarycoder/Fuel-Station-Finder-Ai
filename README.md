@@ -54,7 +54,7 @@ Our stack combines performance, modern developer tooling, and robust curriculum 
 
 ### Artificial Intelligence (AI)
 - **Verification Engine:** Google Gemini (visual analysis of fuel queue images and automated report verification)
-- **Natural Language Parsing:** Groq (for semantic, free-form queries, e.g., *"Which station has short queues near Ikeja?"*)
+- **Natural Language Parsing:** Groq **GPT-OSS 20B** (`openai/gpt-oss-20b`) — intent extraction for Fuel Intelligence + natural-language search (e.g., *"Which station has short queues near Ikeja?"*) and the optional factual explanation. The LLM never selects the final station — that stays deterministic and database-driven.
 
 ### Deployment & CI/CD
 - **Dev Containerization:** Docker & Docker Compose
@@ -274,11 +274,12 @@ Two AI capabilities, each behind a config gate (graceful 503 when its API key is
 - `build_verification_prompt` / `parse_verification_response` are pure & tested (JSON extraction, score clamping, safe defaults on malformed output).
 
 ### 2. Groq natural-language search (`app/services/ai/nl_search.py`)
-- `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq, then returns the matching stations plus the parsed intent.
+- `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq **GPT-OSS 20B** (`openai/gpt-oss-20b`), then returns the matching stations plus the parsed intent.
 - `build_system_prompt` / `to_parsed_query` are pure & tested (enum normalisation/validation, casual-term mapping).
 
 ### 3. Fuel Intelligence — AI station recommendations (`app/services/ai/recommend.py`)
 - `POST /api/v1/ai/recommend` (public) — the AI assistant that answers questions like *"Find the cheapest petrol near me"*, *"closest CNG"*, *"diesel under ₦1000"*, *"which nearby station is most reliable?"*.
+- The Groq provider is configured via `GROQ_MODEL` (default **`openai/gpt-oss-20b`**). Groq performs **two** operations — **intent extraction** (natural-language query → structured `FuelSearchIntent`) and the optional **factual explanation** (ranked DB facts → natural-language answer). Both use the existing timeout (`AI_TIMEOUT_SECONDS`) and graceful-degradation behaviour.
 - Pipeline (the AI never touches the database): Groq **intent extraction** → existing **nearby station API** (PostGIS) → crowd-sourced **price facts** from reports → **deterministic ranking** → Groq **explanation** limited to the returned facts.
 - Deterministic ranking is a weighted, normalised score of *distance, price, verification, freshness, availability*; the weights follow the user's intent (`price` → cheap wins, `distance` → close wins, `reliability` → verification/freshness, `best_overall` → balanced). The LLM never picks the winner.
 - Honesty guarantees: no invented prices ("Price information is currently unavailable."), no invented verification (an imported/unverified row stays labeled exactly as the database says), no invented coordinates (no location → "I need your location…"), no stations → "I couldn't find a nearby station…".
