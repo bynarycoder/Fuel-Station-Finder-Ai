@@ -157,3 +157,24 @@ def test_unverified_seed_is_never_reported_as_verified() -> None:
     payload = station_to_public(station, 6.6018, 3.3515)
     assert payload["verification_status"] == StationVerificationStatus.UNVERIFIED
     assert payload["data_source"] == StationDataSource.SEED
+
+
+def test_imported_unverified_station_is_serialised_without_a_verification_upgrade() -> None:
+    """An OSM/external import is real source data, not evidence of app review.
+
+    The public API contract must preserve both values exactly so a frontend can
+    render ``Imported`` + ``Unverified`` rather than fabricating either a demo
+    label or a verified status.
+    """
+    station = _fake_station()
+    station.data_source = StationDataSource.IMPORTED
+    station.verification_status = StationVerificationStatus.UNVERIFIED
+    station.source_id = "node/7232656385"
+
+    public = FuelStationPublic.model_validate(
+        station_to_public(station, latitude=10.5207, longitude=7.4386)
+    )
+
+    assert public.data_source == StationDataSource.IMPORTED
+    assert public.verification_status == StationVerificationStatus.UNVERIFIED
+    assert public.source_id == "node/7232656385"

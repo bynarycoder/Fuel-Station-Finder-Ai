@@ -5,9 +5,10 @@
  * `geography` point and returns `latitude`/`longitude`.
  *
  * Provenance fields (Phase 2/4): every station exposes where its catalogue
- * row came from (`data_source`) and whether the row itself is verified
- * (`verification_status`). The UI renders these as honest, unobtrusive
- * badges — seed/demo rows are never presented as verified.
+ * row came from (`data_source`) and whether the row itself is independently
+ * verified by this app (`verification_status`). These are intentionally
+ * separate: an OpenStreetMap/external import can be a real station while
+ * remaining `unverified`; seed/demo rows are never presented as verified.
  */
 
 export interface FuelTypeBrief {
