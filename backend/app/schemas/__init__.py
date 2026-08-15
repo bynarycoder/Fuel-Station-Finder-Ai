@@ -35,6 +35,7 @@ from app.schemas.fuel_station import (
     NearbyStations,
     PaginatedStations,
 )
+from app.schemas.geocode import GeocodePlace, GeocodeSearchResponse
 from app.schemas.user import UserPublic
 
 __all__ = [
@@ -53,6 +54,8 @@ __all__ = [
     "FuelStationUpdate",
     "FuelStationWithDistance",
     "FuelTypeBrief",
+    "GeocodePlace",
+    "GeocodeSearchResponse",
     "NearbyStations",
     "PaginatedAdminReports",
     "PaginatedReports",

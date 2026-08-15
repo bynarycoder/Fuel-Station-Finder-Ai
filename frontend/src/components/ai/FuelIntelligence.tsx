@@ -41,7 +41,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -78,6 +78,8 @@ interface FuelIntelligenceProps {
   initialQuery?: string;
   /** Bump to re-ask `initialQuery` (same text asked twice). */
   querySignal?: number;
+  /** Opens the shared LocationPicker (manual city/point selection). */
+  onChooseLocation?: () => void;
 }
 
 export function FuelIntelligence({
@@ -85,6 +87,7 @@ export function FuelIntelligence({
   onClose,
   initialQuery,
   querySignal = 0,
+  onChooseLocation,
 }: FuelIntelligenceProps) {
   const [query, setQuery] = useState(initialQuery ?? "");
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -100,6 +103,25 @@ export function FuelIntelligence({
   // delegates to it. "requesting" drives the button's "locating" spinner.
   const requestLocation = useMapStore((s) => s.requestLocation);
   const locating = useMapStore((s) => s.locationStatus === "requesting");
+  // Source + label come from the SAME store — the panel never owns a second
+  // location lifecycle, it just labels what the shared owner decided.
+  const locationSource = useMapStore((s) => s.locationSource);
+  const manualLocationLabel = useMapStore((s) => s.manualLocationLabel);
+
+  // When a location arrives AFTER a question was parked (first GPS fix, or a
+  // manual selection from the picker), ask the parked question with it.
+  // Live watch updates are ignored: `prev` is already non-null then.
+  const prevUserLocationRef = useRef(userLocation);
+  useEffect(() => {
+    const prev = prevUserLocationRef.current;
+    prevUserLocationRef.current = userLocation;
+    if (!userLocation || prev) return;
+    const pending = pendingQuery.trim();
+    if (pending) {
+      void ask(pending, userLocation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation]);
 
   async function ask(overrideQuery?: string, location = userLocation) {
     const text = (overrideQuery ?? query).trim();
@@ -261,13 +283,13 @@ export function FuelIntelligence({
                 I need your location to find stations near you.
               </p>
               <p className="mt-0.5 opacity-90">
-                Share your exact GPS position (city-level guesses are not accepted) and
-                I&apos;ll search the real station database.
+                Share your exact GPS position (city-level guesses are not accepted) or
+                choose a city, and I&apos;ll search the real station database.
               </p>
               {locationError && (
                 <p className="mt-1 font-semibold text-danger-strong">{locationError}</p>
               )}
-              <div className="mt-2.5">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 <Button
                   variant="accent"
                   size="sm"
@@ -281,9 +303,33 @@ export function FuelIntelligence({
                   )}
                   Share my location
                 </Button>
+                {onChooseLocation && (
+                  <Button variant="secondary" size="sm" onClick={onChooseLocation}>
+                    <MapPin className="h-4 w-4" aria-hidden="true" />
+                    Choose a location
+                  </Button>
+                )}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Location source indicator — manual selections are labelled honestly,
+            never as GPS / live tracking. */}
+        {userLocation && locationSource === "manual" && manualLocationLabel && (
+          <p className="mt-2 flex items-center gap-1.5 text-caption text-brand-700">
+            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Using selected location — {manualLocationLabel}
+            {onChooseLocation && (
+              <button
+                type="button"
+                onClick={onChooseLocation}
+                className="font-semibold text-brand-800 underline-offset-2 hover:underline"
+              >
+                Change
+              </button>
+            )}
+          </p>
         )}
 
         {/* Loading — an intentional processing state, not a bare spinner. */}

@@ -116,6 +116,9 @@ function acquirePositionOnce(): Promise<LatLng> {
     // accuracy. It is NOT a usable "Near Me" location — and it must never be
     // replaced with invented coordinates: it maps to the transient
     // POSITION_UNAVAILABLE vocabulary, exactly like a browser timeout.
+    // `coarseAccuracy: true` lets the UI explain "approximate location"
+    // honestly (never exposing the raw accuracy value) instead of claiming
+    // the device failed entirely.
     const rejectCoarseFix = (attempt: number, position: GeolocationPosition) => {
       geoLog(`[GEO] attempt ${attempt}: fix rejected — accuracy too coarse`, {
         latitude: position.coords.latitude.toFixed(4),
@@ -123,7 +126,10 @@ function acquirePositionOnce(): Promise<LatLng> {
         accuracy_m: Math.round(position.coords.accuracy),
         max_acceptable_m: MAX_ACCEPTABLE_ACCURACY_METERS,
       });
-      reject(mapGeolocationError({ code: GEO_CODE_POSITION_UNAVAILABLE }));
+      reject({
+        ...mapGeolocationError({ code: GEO_CODE_POSITION_UNAVAILABLE }),
+        coarseAccuracy: true,
+      });
     };
 
     // Structured attempt diagnostics: attempt number + raw browser code +

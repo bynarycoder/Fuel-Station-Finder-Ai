@@ -24,6 +24,7 @@ import { MessageSquare, Sparkles } from "lucide-react";
 
 import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
 import { SignInModal } from "@/components/auth/SignInModal";
+import { LocationPicker, type PickedLocation } from "@/components/location/LocationPicker";
 import StationMap from "@/components/map/StationMap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ReportPriceForm } from "@/components/reports/ReportPriceForm";
@@ -70,6 +71,7 @@ export default function FinderPage() {
   const setRadiusMeters = useMapStore((s) => s.setRadiusMeters);
   const setFavoritesOnly = useMapStore((s) => s.setFavoritesOnly);
   const requestLocation = useMapStore((s) => s.requestLocation);
+  const setManualLocation = useMapStore((s) => s.setManualLocation);
   const locationStatus = useMapStore((s) => s.locationStatus);
 
   const { searches, recordSearch, clearSearches } = useRecentSearches();
@@ -85,6 +87,7 @@ export default function FinderPage() {
   const [aiQuery, setAiQuery] = useState("");
   const [aiSignal, setAiSignal] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
@@ -158,6 +161,27 @@ export default function FinderPage() {
     setShowFuelAi(true);
     setTab("ai");
   }, []);
+
+  /** Open the shared location picker (manual city/point selection). */
+  const handleChooseLocation = useCallback(() => {
+    setShowLocationPicker(true);
+  }, []);
+
+  /**
+   * Manual location confirmation — flows through the store's single owner
+   * (`setManualLocation`): stored with `locationSource: "manual"`, nearby
+   * mode entered, NO watcher started. Never invents or defaults coordinates.
+   */
+  const handleConfirmLocation = useCallback(
+    (location: PickedLocation) => {
+      setManualLocation(
+        { latitude: location.latitude, longitude: location.longitude },
+        location.label,
+      );
+      setShowLocationPicker(false);
+    },
+    [setManualLocation],
+  );
 
   /** Widen the nearby search from an empty state. */
   const handleExpandRadius = useCallback(() => {
@@ -277,7 +301,7 @@ export default function FinderPage() {
               recent={recentChips}
               onClearRecent={clearSearches}
             />
-            <StationFilters />
+            <StationFilters onChooseLocation={handleChooseLocation} />
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -285,11 +309,7 @@ export default function FinderPage() {
               <LocationPrimer
                 loading={isLocating}
                 onUseLocation={() => void requestLocation()}
-                onSearchManually={() =>
-                  document
-                    .querySelector<HTMLInputElement>('input[type="search"]')
-                    ?.focus()
-                }
+                onSearchManually={handleChooseLocation}
               />
             )}
 
@@ -299,6 +319,7 @@ export default function FinderPage() {
                 onClose={() => setShowFuelAi(false)}
                 initialQuery={aiQuery}
                 querySignal={aiSignal}
+                onChooseLocation={handleChooseLocation}
               />
             )}
 
@@ -335,7 +356,7 @@ export default function FinderPage() {
             onAsk={handleAsk}
             placeholder="Search stations or ask AI"
           />
-          <StationFilters compact />
+          <StationFilters compact onChooseLocation={handleChooseLocation} />
         </div>
 
         {/* -------------------------- ONE map surface, at every viewport ---
@@ -367,7 +388,7 @@ export default function FinderPage() {
                 <LocationPrimer
                   loading={isLocating}
                   onUseLocation={() => void requestLocation()}
-                  onSearchManually={() => setSnap("half")}
+                  onSearchManually={handleChooseLocation}
                 />
               )}
 
@@ -425,9 +446,18 @@ export default function FinderPage() {
             }}
             initialQuery={aiQuery}
             querySignal={aiSignal}
+            onChooseLocation={handleChooseLocation}
           />
         </div>
       </Modal>
+
+      {/* Location picker — manual fallback (page-level, never nested in a
+          modal so its own focus trap stays clean). */}
+      <LocationPicker
+        open={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={handleConfirmLocation}
+      />
 
       {/* Station details (home of "Report fuel price") */}
       <SidePanel
