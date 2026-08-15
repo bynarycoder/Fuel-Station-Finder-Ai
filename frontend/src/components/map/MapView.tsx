@@ -6,13 +6,20 @@
  * Rendered through `StationMap`, which lazy-imports this module with
  * `ssr: false`, so it is never executed during server-side prerendering.
  *
- * Near Me experience:
- * - Shows the user's location with a distinct "You are here" marker
- * - Centers on the user when they first enter nearby mode, but does NOT fight
- *   manual pans on every watchPosition update (recenter is explicit)
- * - Provides a "Recenter on Me" control that flies back to the user without
- *   re-requesting permission
- * - Keeps station markers visible, fits bounds responsibly
+ * Behaviour preserved from the previous implementation (all of it deliberate):
+ * - centers on the user when first entering nearby mode, then NEVER fights a
+ *   manual pan on subsequent watchPosition ticks;
+ * - fits user + stations once per nearby session;
+ * - "recenter-on-me" window event flies back to the user;
+ * - flies to a station when it is selected from the list.
+ *
+ * Redesigned here:
+ * - map is a full-bleed product surface, not a boxed widget;
+ * - markers differentiate available / unavailable / verified / closest /
+ *   selected / user (see ./icons);
+ * - a compact floating control stack replaces the wide text button;
+ * - popups are a short teaser that hands off to the real detail panel instead
+ *   of duplicating an entire station card inside Leaflet.
  */
 
 import "leaflet/dist/leaflet.css";
@@ -31,18 +38,13 @@ import {
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 
-import {
-  closestStationIcon,
-  clusterIcon,
-  selectedStationIcon,
-  stationIcon,
-  userLocationIcon,
-} from "./icons";
+import { clusterIcon, iconForStation, userLocationIcon } from "./icons";
+import { MapControls } from "@/components/map/MapControls";
 import { useMapStore } from "@/store/useMapStore";
-import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import type { StationItem } from "@/hooks/useStations";
 import type { LatLng } from "@/types/station";
-import { directionsUrl, formatDistance } from "@/lib/format";
+import { formatDistance } from "@/lib/format";
+import { stationNameParts } from "@/lib/stationName";
 
 // Visual-only map start (Lagos mainland). NEVER used as the nearby-search
 // origin — userSearchLocation lives in the Zustand store and starts as null.
@@ -54,14 +56,16 @@ interface MapViewProps {
   userLocation: LatLng | null;
   selectedStationId: string | null;
   isNearby: boolean;
-  /** Id of the nearest station (highlighted with a crown pin). */
+  /** Id of the nearest station (highlighted with the accent pin). */
   closestStationId?: string | null;
   onSelect: (id: string) => void;
+  /** Extra bottom padding for the controls, so they clear the bottom sheet. */
+  controlsClassName?: string;
 }
 
 /**
- * Imperatively handle map movements: initial nearby centering + station focus + recenter.
- * Must be rendered inside <MapContainer> to access the map instance.
+ * Imperatively handle map movements: initial nearby centering + station focus +
+ * recenter. Must be rendered inside <MapContainer> to access the map instance.
  */
 function MapController({
   items,
@@ -69,16 +73,22 @@ function MapController({
   selectedStationId,
   isNearby,
   recenterKey,
+  onReady,
 }: {
   items: StationItem[];
   userLocation: LatLng | null;
   selectedStationId: string | null;
   isNearby: boolean;
   recenterKey: number;
+  onReady: (map: L.Map) => void;
 }) {
   const map = useMap();
   const hasCenteredNearbyRef = useRef(false);
   const prevNearbyRef = useRef(false);
+
+  useEffect(() => {
+    onReady(map);
+  }, [map, onReady]);
 
   // When entering nearby mode for the first time, center on the user.
   // We do NOT auto-center on every watchPosition tick — that would fight
@@ -86,7 +96,6 @@ function MapController({
   // marker moving; the user can recenter explicitly.
   useEffect(() => {
     if (!isNearby) {
-      // Reset the "has centered" flag when leaving nearby mode.
       hasCenteredNearbyRef.current = false;
       prevNearbyRef.current = false;
       return;
@@ -95,16 +104,11 @@ function MapController({
     const enteredNearby = !prevNearbyRef.current;
 
     if (enteredNearby && userLocation) {
-      // Entering nearby mode: center on the user right away (don't wait for
-      // the nearby query), at a sensible zoom.
       map.flyTo([userLocation.latitude, userLocation.longitude], 13, {
         duration: 0.75,
       });
     }
 
-    // Fit user + stations once results are available (either immediately on
-    // entry, or when they arrive a moment later). Never re-fits afterwards,
-    // so manual pans are respected.
     if (userLocation && items.length > 0 && !hasCenteredNearbyRef.current) {
       try {
         const bounds = L.latLngBounds(
@@ -112,11 +116,9 @@ function MapController({
           [userLocation.latitude, userLocation.longitude],
         );
         for (const s of items) bounds.extend([s.latitude, s.longitude]);
-        // Don't zoom out too far if stations are spread; maxZoom 14 keeps detail.
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14, animate: true });
         hasCenteredNearbyRef.current = true;
       } catch {
-        // Malformed coordinates — keep the flyTo center from above.
         hasCenteredNearbyRef.current = true;
       }
     }
@@ -133,14 +135,12 @@ function MapController({
     });
   }, [recenterKey, userLocation, map]);
 
-  // Fly to a station when it is selected from the list (same as before).
+  // Fly to a station when it is selected from the list.
   useEffect(() => {
     if (!selectedStationId) return;
     const station = items.find((s) => s.id === selectedStationId);
     if (station) {
-      map.flyTo([station.latitude, station.longitude], 15, {
-        duration: 0.75,
-      });
+      map.flyTo([station.latitude, station.longitude], 15, { duration: 0.75 });
     }
   }, [selectedStationId, items, map]);
 
@@ -154,20 +154,43 @@ export default function MapView({
   isNearby,
   closestStationId,
   onSelect,
+  controlsClassName,
 }: MapViewProps) {
   const [recenterKey, setRecenterKey] = useState(0);
+  const mapRef = useRef<L.Map | null>(null);
   const radiusMeters = useMapStore((s) => s.radiusMeters);
+  // The store owns the location lifecycle; the control only reflects/triggers.
+  const requestLocation = useMapStore((s) => s.requestLocation);
+  const recenterLocation = useMapStore((s) => s.recenterLocation);
+  const locating = useMapStore((s) => s.locationStatus === "requesting");
+  const isWatching = useMapStore((s) => s.isWatching);
 
   const triggerRecenter = useCallback(() => {
     setRecenterKey((k) => k + 1);
   }, []);
 
-  // Listen for the filter bar's "recenter-on-me" custom event.
+  const handleReady = useCallback((map: L.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  // Listen for the store's "recenter-on-me" event.
   useEffect(() => {
     const handler = () => triggerRecenter();
     window.addEventListener("recenter-on-me", handler as EventListener);
     return () => window.removeEventListener("recenter-on-me", handler as EventListener);
   }, [triggerRecenter]);
+
+  /**
+   * Locate control: if we already have a position, recenter (never re-prompt);
+   * otherwise start the shared acquisition lifecycle.
+   */
+  const handleLocate = useCallback(() => {
+    if (userLocation) {
+      recenterLocation();
+      return;
+    }
+    void requestLocation();
+  }, [userLocation, recenterLocation, requestLocation]);
 
   return (
     <div className="relative h-full w-full">
@@ -175,6 +198,7 @@ export default function MapView({
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         scrollWheelZoom
+        zoomControl={false}
         className="h-full w-full"
       >
         <TileLayer
@@ -188,6 +212,7 @@ export default function MapView({
           selectedStationId={selectedStationId}
           isNearby={isNearby}
           recenterKey={recenterKey}
+          onReady={handleReady}
         />
 
         <MarkerClusterGroup
@@ -200,81 +225,60 @@ export default function MapView({
             <Marker
               key={station.id}
               position={[station.latitude, station.longitude]}
-              icon={
-                station.id === selectedStationId
-                  ? selectedStationIcon
-                  : closestStationId === station.id
-                    ? closestStationIcon
-                    : stationIcon
-              }
+              icon={iconForStation({
+                isSelected: station.id === selectedStationId,
+                isClosest: closestStationId === station.id,
+                isVerified: station.verification_status === "verified",
+                isActive: station.is_active,
+              })}
               eventHandlers={{ click: () => onSelect(station.id) }}
+              alt={stationNameParts(station.brand, station.name).label}
             >
-              <Popup>
-                <div className="min-w-[200px] space-y-1">
-                  <p className="text-sm font-bold text-gray-900">
-                    {station.brand ? `${station.brand} · ` : ""}
-                    {station.name}
+              {/* A teaser, not a duplicate card — details open in the panel. */}
+              <Popup closeButton={false}>
+                <div className="min-w-[200px] p-3">
+                  <p className="text-h3 leading-tight text-ink-900">
+                    {(() => {
+                      const parts = stationNameParts(station.brand, station.name);
+                      return (
+                        <>
+                          {parts.brandPrefix && (
+                            <span className="font-medium text-ink-500">
+                              {parts.brandPrefix}{" "}
+                            </span>
+                          )}
+                          {parts.name}
+                        </>
+                      );
+                    })()}
                   </p>
-                  {station.address && (
-                    <p className="text-xs text-gray-600">{station.address}</p>
-                  )}
                   {(station.city || station.state) && (
-                    <p className="text-xs text-gray-500">
+                    <p className="mt-0.5 text-caption text-ink-500">
                       {[station.city, station.state].filter(Boolean).join(", ")}
                     </p>
                   )}
-                  {station.fuel_types.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {station.fuel_types.map((fuel) => (
-                        <span
-                          key={fuel.code}
-                          className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
-                        >
-                          {fuel.code}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="pt-1">
-                    <StationProvenanceBadge
-                      verificationStatus={station.verification_status}
-                      dataSource={station.data_source}
-                      compact
-                    />
+                  <div className="mt-2 flex items-center gap-2">
+                    {typeof station.distance_meters === "number" && (
+                      <span className="rounded-pill bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-700">
+                        {formatDistance(station.distance_meters)}
+                      </span>
+                    )}
+                    {station.verification_status === "verified" && (
+                      <span className="rounded-pill bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success-strong">
+                        Verified
+                      </span>
+                    )}
                   </div>
-                  {typeof station.distance_meters === "number" && (
-                    <p className="pt-1 text-xs font-semibold text-amber-600">
-                      {formatDistance(station.distance_meters)} away
-                    </p>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(station.id);
-                      }}
-                      className="inline-flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-xs font-bold text-emerald-950 hover:bg-amber-400"
-                    >
-                      ℹ️ View details
-                    </button>
-                    {(() => {
-                      const url = directionsUrl(
-                        { latitude: station.latitude, longitude: station.longitude },
-                        userLocation,
-                      );
-                      return url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2 py-1 text-xs font-semibold text-white no-underline hover:bg-emerald-800"
-                        >
-                          🧭 Get directions
-                        </a>
-                      ) : null;
-                    })()}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect(station.id);
+                    }}
+                    className="mt-2.5 inline-flex h-9 w-full items-center justify-center rounded-md bg-brand-700 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-brand-800"
+                  >
+                    View station
+                  </button>
                 </div>
               </Popup>
             </Marker>
@@ -289,44 +293,47 @@ export default function MapView({
                 center={[userLocation.latitude, userLocation.longitude]}
                 radius={radiusMeters}
                 pathOptions={{
-                  color: "#10b981",
-                  weight: 1,
-                  dashArray: "4 4",
-                  fillColor: "#10b981",
-                  fillOpacity: 0.04,
+                  color: "#059669",
+                  weight: 1.5,
+                  dashArray: "5 6",
+                  fillColor: "#12b886",
+                  fillOpacity: 0.05,
                 }}
               />
             )}
             <Marker
               position={[userLocation.latitude, userLocation.longitude]}
               icon={userLocationIcon}
+              alt="Your location"
             >
-              <Popup>
-                <p className="text-xs font-bold text-gray-900">You are here</p>
-                {isNearby && (
-                  <p className="text-[11px] text-gray-500">
-                    Searching within {radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`}
+              <Popup closeButton={false}>
+                <div className="p-3">
+                  <p className="text-body-sm font-semibold text-ink-900">
+                    You are here
                   </p>
-                )}
+                  {isNearby && (
+                    <p className="mt-0.5 text-caption text-ink-500">
+                      Searching within{" "}
+                      {radiusMeters >= 1000
+                        ? `${radiusMeters / 1000} km`
+                        : `${radiusMeters} m`}
+                    </p>
+                  )}
+                </div>
               </Popup>
             </Marker>
           </>
         )}
       </MapContainer>
 
-      {/* Recenter control — visible only when we know the user's location */}
-      {userLocation && (
-        <button
-          type="button"
-          onClick={triggerRecenter}
-          className="absolute bottom-4 right-4 z-[400] inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-lg hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-          title="Center the map on your current location"
-          aria-label="Recenter on me"
-        >
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-          Recenter on Me
-        </button>
-      )}
+      <MapControls
+        onZoomIn={() => mapRef.current?.zoomIn()}
+        onZoomOut={() => mapRef.current?.zoomOut()}
+        onLocate={handleLocate}
+        locating={locating}
+        tracking={isWatching}
+        className={controlsClassName ?? "bottom-4"}
+      />
     </div>
   );
 }

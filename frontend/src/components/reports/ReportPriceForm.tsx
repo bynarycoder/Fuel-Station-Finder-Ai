@@ -1,21 +1,38 @@
 "use client";
 
 /**
- * "Report Fuel Price" form (wired to the existing backend `POST /reports`).
+ * "Report fuel price" — a three-step flow instead of one long form.
  *
- * Requires a fuel type and a valid Naira price (> 0). Optionally captures a
- * queue length, notes and a photo. Submission is multipart/form-data, matching
- * the backend's `Form`/`UploadFile` contract. Surfaces loading, success,
- * validation-error and API/network-error states clearly.
+ * Steps: 1 Fuel & price · 2 Conditions · 3 Evidence & submit.
+ * Progress is always visible, each step holds two decisions at most, and the
+ * primary action is the only full-width button on screen.
+ *
+ * The API contract is UNCHANGED: one multipart `POST /reports` with
+ * station_id, fuel_type_code, price_per_litre, optional queue_length, notes
+ * and photo — exactly what the backend's Form/UploadFile handler expects.
+ *
+ * Smart defaults: the fuel selector is seeded from the fuels this station
+ * actually lists (falling back to the canonical codes), so most users only
+ * type a price.
  */
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, Upload, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DialogHeader } from "@/components/ui/Sheet";
 import { ApiError, submitReport, type SubmitReportInput } from "@/services/api";
 import { validatePrice } from "@/lib/pricing";
+import { stationLabel } from "@/lib/stationName";
+import { cn } from "@/lib/utils";
 import {
   FUEL_TYPE_CODES,
   FUEL_TYPE_LABELS,
@@ -30,9 +47,19 @@ interface ReportPriceFormProps {
   onSuccess: () => void;
 }
 
+const STEPS = ["Fuel & price", "Conditions", "Evidence"] as const;
+
 export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceFormProps) {
   const queryClient = useQueryClient();
-  const [fuelType, setFuelType] = useState<string>(FUEL_TYPE_CODES[0]);
+
+  // Smart default: the first fuel this station actually lists.
+  const stationFuels = station.fuel_types
+    .map((f) => f.code)
+    .filter((code) => (FUEL_TYPE_CODES as readonly string[]).includes(code));
+  const fuelOptions = stationFuels.length > 0 ? stationFuels : [...FUEL_TYPE_CODES];
+
+  const [step, setStep] = useState(0);
+  const [fuelType, setFuelType] = useState<string>(fuelOptions[0]);
   const [price, setPrice] = useState("");
   const [queue, setQueue] = useState<QueueLength | "">("");
   const [notes, setNotes] = useState("");
@@ -42,17 +69,29 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
   const mutation = useMutation({
     mutationFn: (vars: SubmitReportInput) => submitReport(vars),
     onSuccess: () => {
-      // Invalidate so the station detail + community feed refetch the new price.
       queryClient.invalidateQueries({ queryKey: ["reports", "station", station.id] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
+
+  function goNext() {
+    if (step === 0) {
+      const result = validatePrice(price);
+      if (!result.ok) {
+        setFieldError(result.error);
+        return;
+      }
+      setFieldError(null);
+    }
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const priceResult = validatePrice(price);
     if (!priceResult.ok) {
       setFieldError(priceResult.error);
+      setStep(0);
       return;
     }
     setFieldError(null);
@@ -66,184 +105,309 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
     });
   }
 
+  /* ------------------------------------------------------------- success -- */
   if (mutation.isSuccess) {
     return (
-      <FormShell title="Report fuel price" onClose={onSuccess}>
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <CheckCircle2 className="h-10 w-10 text-emerald-600" />
-          <p className="text-sm font-semibold text-gray-900">Price reported!</p>
-          <p className="max-w-xs text-xs text-gray-500">
-            Thanks for helping other drivers. Your report is pending verification
-            and now appears on this station.
+      <>
+        <DialogHeader
+          title="Report submitted"
+          titleId="report-form-title"
+          onClose={onSuccess}
+        />
+        <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-pill bg-success-soft text-success-strong">
+            <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+          </span>
+          <p className="text-h2 text-ink-900">Thank you for helping other drivers</p>
+          <p className="max-w-xs text-body-sm text-ink-600">
+            Your report is being reviewed and already appears on this station.
           </p>
-          <Button onClick={onSuccess}>Done</Button>
+          <Button className="mt-2" onClick={onSuccess}>
+            Done
+          </Button>
         </div>
-      </FormShell>
+      </>
     );
   }
 
-  const apiError =
-    mutation.error instanceof ApiError ? mutation.error.message : null;
+  const apiError = mutation.error instanceof ApiError ? mutation.error.message : null;
   const isNetworkError =
     mutation.error instanceof ApiError && mutation.error.status === 0;
 
   return (
-    <FormShell title="Report fuel price" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Reporting for
+    <>
+      <DialogHeader
+        title="Report fuel price"
+        titleId="report-form-title"
+        subtitle={stationLabel(station.brand, station.name)}
+        onClose={onClose}
+      />
+
+      {/* Progress */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-hairline bg-surface px-4 py-3">
+        {STEPS.map((name, i) => (
+          <div key={name} className="flex flex-1 flex-col gap-1.5">
+            <span
+              className={cn(
+                "h-1 rounded-pill transition-colors duration-base",
+                i <= step ? "bg-brand-600" : "bg-ink-200",
+              )}
+            />
+            <span
+              className={cn(
+                "text-[11px] font-semibold",
+                i === step ? "text-brand-700" : "text-ink-500",
+              )}
+            >
+              {i < step ? (
+                <span className="inline-flex items-center gap-1">
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                  {name}
+                </span>
+              ) : (
+                name
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+          <p className="sr-only" aria-live="polite">
+            Step {step + 1} of {STEPS.length}: {STEPS[step]}
           </p>
-          <p className="text-sm font-bold text-gray-900">
-            {station.brand ? `${station.brand} · ` : ""}
-            {station.name}
+
+          {/* ------------------------------------------ step 1: fuel+price */}
+          {step === 0 && (
+            <div className="space-y-5 animate-fade-in">
+              <Field label="Which fuel did you buy?" required>
+                <div className="flex flex-wrap gap-1.5">
+                  {fuelOptions.map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setFuelType(code)}
+                      aria-pressed={fuelType === code}
+                      className={cn(
+                        "inline-flex h-11 items-center rounded-lg border px-3.5 text-body-sm font-semibold transition-colors",
+                        fuelType === code
+                          ? "border-brand-700 bg-brand-700 text-white"
+                          : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
+                      )}
+                    >
+                      {FUEL_TYPE_LABELS[code as keyof typeof FUEL_TYPE_LABELS] ?? code}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="Price per litre" required hint="What you actually paid today.">
+                <div className="relative">
+                  <span
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-h2 text-ink-500"
+                    aria-hidden="true"
+                  >
+                    ₦
+                  </span>
+                  <input
+                    inputMode="decimal"
+                    value={price}
+                    autoFocus
+                    data-autofocus=""
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="850"
+                    aria-label="Price in naira per litre"
+                    className="h-14 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-h1 tabular-nums text-ink-900 placeholder:font-normal placeholder:text-ink-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  />
+                </div>
+              </Field>
+            </div>
+          )}
+
+          {/* ------------------------------------------- step 2: conditions */}
+          {step === 1 && (
+            <div className="space-y-5 animate-fade-in">
+              <Field label="How long was the queue?" hint="Optional — skip if unsure.">
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(QUEUE_LENGTH_LABELS) as QueueLength[]).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setQueue(queue === q ? "" : q)}
+                      aria-pressed={queue === q}
+                      className={cn(
+                        "flex h-12 items-center justify-center rounded-lg border px-3 text-body-sm font-semibold transition-colors",
+                        queue === q
+                          ? "border-brand-700 bg-brand-700 text-white"
+                          : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
+                      )}
+                    >
+                      {QUEUE_LENGTH_LABELS[q]}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="Anything else drivers should know?" hint="Optional.">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  maxLength={1000}
+                  rows={3}
+                  placeholder="e.g. PMS available, card payment working"
+                  className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </Field>
+            </div>
+          )}
+
+          {/* --------------------------------------------- step 3: evidence */}
+          {step === 2 && (
+            <div className="space-y-5 animate-fade-in">
+              <Field
+                label="Add a photo"
+                hint="Optional, but photos get verified faster."
+              >
+                <label
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
+                    photo
+                      ? "border-brand-400 bg-brand-50"
+                      : "border-ink-200 bg-ink-50 hover:border-brand-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-pill",
+                      photo ? "bg-brand-600 text-white" : "bg-surface text-ink-500",
+                    )}
+                  >
+                    {photo ? (
+                      <Check className="h-5 w-5" aria-hidden="true" />
+                    ) : (
+                      <Camera className="h-5 w-5" aria-hidden="true" />
+                    )}
+                  </span>
+                  <span className="text-body-sm font-semibold text-ink-800">
+                    {photo ? photo.name : "Take or choose a photo"}
+                  </span>
+                  <span className="text-caption text-ink-500">
+                    JPEG, PNG or WebP
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </Field>
+
+              {/* Review summary */}
+              <div className="rounded-xl border border-hairline bg-ink-50 p-3.5">
+                <p className="text-label uppercase text-ink-500">You&apos;re reporting</p>
+                <p className="mt-1.5 text-h2 text-ink-900">
+                  ₦{price || "—"}
+                  <span className="ml-1 text-body-sm font-semibold text-ink-500">
+                    /L · {fuelType}
+                  </span>
+                </p>
+                <p className="mt-1 text-caption text-ink-600">
+                  {stationLabel(station.brand, station.name)}
+                  {queue ? ` · ${QUEUE_LENGTH_LABELS[queue]}` : ""}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Errors */}
+          {fieldError && (
+            <p
+              role="alert"
+              className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-body-sm font-medium text-danger-strong"
+            >
+              {fieldError}
+            </p>
+          )}
+          {apiError && (
+            <p
+              role="alert"
+              className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-body-sm font-medium text-danger-strong"
+            >
+              {isNetworkError
+                ? "We couldn't reach the server. Check your connection and try again."
+                : apiError}
+            </p>
+          )}
+
+          <p className="flex items-start gap-1.5 text-caption text-ink-500">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden="true" />
+            Your report helps other drivers find fuel faster. Reports are reviewed
+            before they are marked verified.
           </p>
-          {station.city && <p className="text-xs text-gray-500">{station.city}</p>}
         </div>
 
-        <Field label="Fuel type" required>
-          <select
-            value={fuelType}
-            onChange={(e) => setFuelType(e.target.value)}
-            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm focus:border-emerald-500 focus:outline-none"
-          >
-            {FUEL_TYPE_CODES.map((code) => (
-              <option key={code} value={code}>
-                {FUEL_TYPE_LABELS[code]}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {/* Footer actions */}
+        <div className="flex shrink-0 items-center gap-2 border-t border-hairline bg-surface p-4 pb-safe">
+          {step > 0 ? (
+            <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back
+            </Button>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
 
-        <Field label="Price (₦ per litre)" required>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
-              ₦
-            </span>
-            <input
-              inputMode="decimal"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g. 650"
-              className="h-10 w-full rounded-lg border border-gray-300 pl-7 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
-        </Field>
-
-        <Field label="Queue length (optional)">
-          <select
-            value={queue}
-            onChange={(e) => setQueue(e.target.value as QueueLength | "")}
-            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm focus:border-emerald-500 focus:outline-none"
-          >
-            <option value="">— Not sure —</option>
-            {(Object.keys(QUEUE_LENGTH_LABELS) as QueueLength[]).map((q) => (
-              <option key={q} value={q}>
-                {QUEUE_LENGTH_LABELS[q]}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Notes (optional)">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            maxLength={1000}
-            rows={2}
-            placeholder="e.g. PMS available, paying by card…"
-            className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-          />
-        </Field>
-
-        <Field label="Photo (optional)">
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 hover:border-emerald-400">
-            <Upload className="h-4 w-4" />
-            {photo ? photo.name : "Choose an image (JPEG/PNG/WebP)"}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-            />
-          </label>
-        </Field>
-
-        {fieldError && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-            {fieldError}
-          </p>
-        )}
-        {apiError && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-            {isNetworkError
-              ? "Network error — could not reach the server. Please try again."
-              : apiError}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 pt-1">
-          <Button type="submit" disabled={mutation.isPending} className="flex-1">
-            {mutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Submitting…
-              </>
-            ) : (
-              "Submit price report"
-            )}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button className="flex-1" onClick={goNext} disabled={step === 0 && !price.trim()}>
+              Continue
+            </Button>
+          ) : (
+            <Button type="submit" className="flex-1" disabled={mutation.isPending}>
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Submitting…
+                </>
+              ) : (
+                "Submit price report"
+              )}
+            </Button>
+          )}
         </div>
       </form>
-    </FormShell>
+    </>
   );
 }
 
 function Field({
   label,
   required,
+  hint,
   children,
 }: {
   label: string;
   required?: boolean;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-gray-700">
+    <div>
+      <p className="mb-2 text-body-sm font-semibold text-ink-800">
         {label}
-        {required && <span className="text-red-500"> *</span>}
-      </span>
+        {required && (
+          <span className="text-danger" aria-hidden="true">
+            {" "}
+            *
+          </span>
+        )}
+      </p>
       {children}
-    </label>
-  );
-}
-
-function FormShell({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h2 className="text-sm font-bold text-gray-900">{title}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4">{children}</div>
+      {hint && <p className="mt-1.5 text-caption text-ink-500">{hint}</p>}
     </div>
   );
 }

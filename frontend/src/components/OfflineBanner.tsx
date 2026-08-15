@@ -34,9 +34,9 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="flex items-center justify-center gap-2 border-b border-amber-300 bg-amber-100 px-4 py-1.5 text-xs font-semibold text-amber-900"
+      className="z-header flex shrink-0 items-center justify-center gap-2 border-b border-warning-border bg-warning-soft px-4 py-2 text-caption font-semibold text-warning-strong"
     >
-      <WifiOff className="h-3.5 w-3.5 shrink-0" />
+      <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span>
         Offline mode — showing cached stations. Live prices and reports may be
         out of date until you reconnect.

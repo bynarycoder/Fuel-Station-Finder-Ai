@@ -48,9 +48,22 @@ describe("formatConfidencePercent", () => {
 });
 
 describe("confidenceColor", () => {
-  it("returns emerald/amber/red for High/Medium/Low", () => {
-    expect(confidenceColor(0.95)).toContain("emerald");
-    expect(confidenceColor(0.8)).toContain("amber");
-    expect(confidenceColor(0.5)).toContain("red");
+  /**
+   * Asserts the SEMANTIC contract rather than a specific hue: High/Medium/Low
+   * map to the design system's success/warning/danger tones. This survives a
+   * palette change (the design-token migration renamed emerald/amber/red to
+   * success/warning/danger) while still catching a genuine mis-mapping.
+   */
+  it("returns success/warning/danger tones for High/Medium/Low", () => {
+    expect(confidenceColor(0.95)).toContain("success");
+    expect(confidenceColor(0.8)).toContain("warning");
+    expect(confidenceColor(0.5)).toContain("danger");
+  });
+
+  it("gives each confidence level a visually distinct treatment", () => {
+    const high = confidenceColor(0.95);
+    const medium = confidenceColor(0.8);
+    const low = confidenceColor(0.5);
+    expect(new Set([high, medium, low]).size).toBe(3);
   });
 });
