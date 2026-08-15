@@ -1,9 +1,9 @@
 /**
- * Tests for the station provenance badge (Phase 4/19).
+ * Regression tests for station provenance and verification display.
  *
- * The badge must reflect the ACTUAL database status — seed data is shown as
- * "Unverified Demo Data", never as verified. Labels come from the backend
- * values via the shared label maps, not hard-coded per station.
+ * `data_source` and `verification_status` are separate backend fields. The
+ * shared badge must render both values faithfully in the list, detail, map
+ * popup, and nearby-card call sites that use it.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -13,72 +13,113 @@ import { StationProvenanceBadge } from "@/components/stations/StationProvenanceB
 import {
   DATA_SOURCE_LABELS,
   VERIFICATION_STATUS_LABELS,
+  type StationDataSource,
 } from "@/types/station";
 
+function renderBadge(
+  dataSource: StationDataSource,
+  verificationStatus: "unverified" | "pending" | "verified" | "rejected",
+) {
+  return render(
+    <StationProvenanceBadge
+      dataSource={dataSource}
+      verificationStatus={verificationStatus}
+    />,
+  );
+}
+
+function sourcePill() {
+  return screen.getByTestId("station-data-source");
+}
+
+function verificationPill() {
+  return screen.getByTestId("station-verification-status");
+}
+
 describe("StationProvenanceBadge", () => {
-  it("shows Verified for verified stations", () => {
-    render(
-      <StationProvenanceBadge
-        verificationStatus="verified"
-        dataSource="official"
-      />,
+  it("shows Demo Data for seed rows", () => {
+    renderBadge("seed", "unverified");
+
+    expect(sourcePill()).toHaveTextContent("Demo Data");
+    expect(verificationPill()).toHaveTextContent("Unverified");
+    expect(sourcePill()).toHaveAttribute(
+      "title",
+      expect.stringContaining("Demo data bundled with the app"),
     );
-    expect(screen.getByText("Verified")).toBeTruthy();
   });
 
-  it("shows Awaiting Verification for pending stations", () => {
-    render(
-      <StationProvenanceBadge
-        verificationStatus="pending"
-        dataSource="community"
-      />,
+  it("shows Imported for imported rows and never labels them Demo Data", () => {
+    renderBadge("imported", "pending");
+
+    expect(sourcePill()).toHaveTextContent("Imported");
+    expect(screen.queryByText("Demo Data")).toBeNull();
+    expect(sourcePill()).toHaveAttribute(
+      "title",
+      expect.stringContaining("external station dataset, such as OpenStreetMap"),
     );
-    expect(screen.getByText("Awaiting Verification")).toBeTruthy();
   });
 
-  it("shows Unverified Demo Data for seed rows — never verified", () => {
-    render(
-      <StationProvenanceBadge
-        verificationStatus="unverified"
-        dataSource="seed"
-      />,
+  it("renders imported + unverified as two honest, independent badges", () => {
+    renderBadge("imported", "unverified");
+
+    expect(sourcePill()).toHaveTextContent(/^Imported$/);
+    expect(verificationPill()).toHaveTextContent(/^Unverified$/);
+    expect(verificationPill()).toHaveAttribute(
+      "title",
+      expect.stringContaining("not yet been independently verified by the app"),
     );
-    expect(screen.getByText("Unverified Demo Data")).toBeTruthy();
-    expect(screen.queryByText("Verified")).toBeNull();
   });
 
-  it("shows plain Unverified for non-seed unverified rows", () => {
+  it("renders official + verified as Official and Verified", () => {
+    renderBadge("official", "verified");
+
+    expect(sourcePill()).toHaveTextContent("Official");
+    expect(verificationPill()).toHaveTextContent("Verified");
+  });
+
+  it.each([
+    ["government", "Government Source"],
+    ["community", "Community Report"],
+    ["partner", "Partner Data"],
+    ["other", "Other Source"],
+  ] as const)("renders %s data source as %s", (dataSource, label) => {
+    renderBadge(dataSource, "unverified");
+
+    expect(sourcePill()).toHaveTextContent(label);
+    expect(verificationPill()).toHaveTextContent("Unverified");
+  });
+
+  it.each([
+    ["pending", "Awaiting Verification"],
+    ["rejected", "Rejected"],
+  ] as const)("renders %s verification as %s", (status, label) => {
+    renderBadge("community", status);
+
+    expect(sourcePill()).toHaveTextContent("Community Report");
+    expect(verificationPill()).toHaveTextContent(label);
+  });
+
+  it("renders the compact variant with both source and verification", () => {
     render(
       <StationProvenanceBadge
-        verificationStatus="unverified"
         dataSource="imported"
-      />,
-    );
-    expect(screen.getByText("Unverified")).toBeTruthy();
-  });
-
-  it("shows Rejected for rejected rows", () => {
-    render(
-      <StationProvenanceBadge
-        verificationStatus="rejected"
-        dataSource="community"
-      />,
-    );
-    expect(screen.getByText("Rejected")).toBeTruthy();
-  });
-
-  it("renders the compact variant without crashing", () => {
-    render(
-      <StationProvenanceBadge
         verificationStatus="unverified"
-        dataSource="seed"
         compact
       />,
     );
-    expect(screen.getByText("Unverified Demo Data")).toBeTruthy();
+
+    expect(sourcePill()).toHaveTextContent("Imported");
+    expect(verificationPill()).toHaveTextContent("Unverified");
   });
 
-  it("label maps cover every backend enum value", () => {
+  it("keeps label maps aligned with every backend enum value", () => {
+    expect(DATA_SOURCE_LABELS).toMatchObject({
+      seed: "Demo Data",
+      imported: "Imported",
+      official: "Official",
+      government: "Government Source",
+      community: "Community Report",
+    });
     expect(Object.keys(VERIFICATION_STATUS_LABELS).sort()).toEqual([
       "pending",
       "rejected",
