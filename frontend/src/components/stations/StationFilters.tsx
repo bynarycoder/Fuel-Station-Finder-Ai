@@ -3,7 +3,9 @@
 /**
  * Filter + search controls for the station finder — complete Near Me experience.
  *
- * Wires the browser geolocation hook to the Zustand map store and exposes:
+ * Delegates the browser geolocation lifecycle to the Zustand map store (the
+ * single location owner, backed by the `lib/geolocator.ts` singleton) and
+ * exposes:
  * - "Near me" — requests permission once, stores location, starts continuous watchPosition
  * - "Recenter on Me" — flies back to the last known location immediately, then
  *   silently tries to freshen the fix (never makes the user wait for GPS)
@@ -29,19 +31,12 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useGeolocation } from "@/hooks/useGeolocation";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
-import {
-  applyLocationEvent,
-  geoLog,
-  hasMovedEnough,
-  isPermissionDeniedCode,
-  type GeoFailure,
-} from "@/lib/geo";
+import { applyLocationEvent } from "@/lib/geo";
 import {
   DEFAULT_RADIUS_METERS,
   RADIUS_OPTIONS,
@@ -63,17 +58,18 @@ export function StationFilters() {
     userLocation,
     locationStatus,
     locationMessage,
+    isWatching,
     favoritesOnly,
     setFilters,
     setMode,
-    setUserLocation,
     setLocationStatus,
     setRadiusMeters,
     setSelectedStationId,
     setFavoritesOnly,
+    requestLocation,
+    recenterLocation,
+    stopLocationWatch,
   } = useMapStore();
-  const { request, refresh, startWatch, stopWatch, loading, isWatching } =
-    useGeolocation();
   const auth = useAuth();
   const { searches, recordSearch, clearSearches } = useRecentSearches();
 
@@ -83,11 +79,9 @@ export function StationFilters() {
     locationStatus === "tracking" ||
     locationStatus === "updating" ||
     locationStatus === "temporarily_unavailable";
-
-  // Keep a ref of the last stored position so the watch callback can apply
-  // the movement threshold without stale closures.
-  const lastKnownRef = useRef(userLocation);
-  lastKnownRef.current = userLocation;
+  // The store owns the location lifecycle; "requesting" is the shared
+  // acquisition-in-flight signal (drives the "Locating…" button state).
+  const loading = locationStatus === "requesting";
 
   // ---- Debounced text search (name / brand / city) -------------------------
   const cityInputRef = useRef<HTMLInputElement>(null);
@@ -133,72 +127,11 @@ export function StationFilters() {
   }, [searchInput, setFilters, recordSearch]);
 
   // ---- Location lifecycle --------------------------------------------------
-  const handleStatus = useCallback(
-    (state: { status: typeof locationStatus; message: string | null }) => {
-      setLocationStatus(state.status, state.message);
-    },
-    [setLocationStatus],
-  );
-
-  const handleWatchUpdate = useCallback(
-    (loc: { latitude: number; longitude: number }) => {
-      const prev = lastKnownRef.current;
-      const moved = hasMovedEnough(prev, loc);
-      if (!moved) {
-        // GPS jitter / no meaningful movement — keep the stored position and
-        // the nearby results as-is; just restore a healthy tracking status.
-        geoLog("watch: update within threshold — keeping position");
-        handleStatus(applyLocationEvent({ status: locationStatus, position: prev }, { type: "success" }));
-        return;
-      }
-      geoLog("watch: meaningful movement", {
-        from: prev && { lat: prev.latitude.toFixed(4), lng: prev.longitude.toFixed(4) },
-        to: { lat: loc.latitude.toFixed(4), lng: loc.longitude.toFixed(4) },
-      });
-      // Updating userLocation (the last known position) changes the nearby
-      // query key → distances & closest station recalculate, nearby API refetches.
-      setUserLocation(loc);
-      handleStatus(applyLocationEvent({ status: locationStatus, position: loc }, { type: "success" }));
-    },
-    [handleStatus, locationStatus, setUserLocation],
-  );
-
-  const handleWatchError = useCallback(
-    (failure: GeoFailure) => {
-      const position = lastKnownRef.current;
-      geoLog("watch: error event", { code: failure.code, hasPosition: position !== null });
-      // Permission denied while watching: stop tracking so we never spam the
-      // permission prompt; keep any last known position & results visible.
-      if (isPermissionDeniedCode(failure.code)) {
-        stopWatch();
-      }
-      handleStatus(applyLocationEvent({ status: locationStatus, position }, { type: "failure", code: failure.code }));
-    },
-    [handleStatus, locationStatus, stopWatch],
-  );
-
-  const beginTracking = useCallback(() => {
-    handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "request_start" }));
-    request()
-      .then((loc) => {
-        geoLog("near me: initial fix", {
-          lat: loc.latitude.toFixed(4),
-          lng: loc.longitude.toFixed(4),
-        });
-        setUserLocation(loc);
-        setMode("nearby");
-        setSelectedStationId(null);
-        handleStatus(applyLocationEvent({ status: locationStatus, position: loc }, { type: "success" }));
-        startWatch(handleWatchUpdate, handleWatchError);
-      })
-      .catch((failure: GeoFailure) => {
-        geoLog("near me: initial acquisition failed", { code: failure.code });
-        // If a valid position is already known (e.g. re-requesting after a
-        // transient glitch) a failed fresh acquisition is NOT fatal.
-        handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "failure", code: failure.code }));
-      });
-  }, [handleStatus, handleWatchError, handleWatchUpdate, locationStatus, request, setMode, setSelectedStationId, setUserLocation, startWatch]);
-
+  // The Zustand store is the SINGLE owner of the geolocation lifecycle
+  // (acquisition, refresh, the one watcher). This component only kicks off
+  // those shared actions — it never touches navigator.geolocation directly,
+  // so the Fuel Intelligence panel (or any future component) asking for a
+  // location flows through the exact same state machine and watch slot.
   async function handleNearMe() {
     // Already actively tracking a known location? Just recenter + freshen —
     // never stack a second watcher, never re-prompt.
@@ -206,14 +139,18 @@ export function StationFilters() {
       handleRecenter();
       return;
     }
-    beginTracking();
+    await requestLocation();
   }
 
   function handleBrowseAll() {
-    stopWatch();
+    stopLocationWatch();
     setMode("browse");
     setSelectedStationId(null);
-    handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "watch_stop" }));
+    const next = applyLocationEvent(
+      { status: locationStatus, position: userLocation },
+      { type: "watch_stop" },
+    );
+    setLocationStatus(next.status, next.message);
   }
 
   /** Failed geolocation → stay in browse and let the user type a city. Never invent coords. */
@@ -223,47 +160,21 @@ export function StationFilters() {
   }
 
   function handleRecenter() {
-    // 1) Center on the last known position IMMEDIATELY — no waiting for GPS.
-    if (hasPosition) {
-      window.dispatchEvent(new CustomEvent("recenter-on-me"));
-      if (!isNearby) {
-        setMode("nearby");
-        setSelectedStationId(null);
-      }
-    }
-    // 2) Freshen the fix in the background; update only on meaningful movement.
-    handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "refresh_start" }));
-    void refresh().then((loc) => {
-      if (!loc) {
-        // Optional refresh failed — the recenter already happened with the
-        // last known position; stay in the previous state.
-        geoLog("recenter: refresh failed, keeping last known position");
-        if (lastKnownRef.current) {
-          handleStatus(applyLocationEvent({ status: locationStatus, position: lastKnownRef.current }, { type: "success" }));
-        }
-        return;
-      }
-      if (hasMovedEnough(lastKnownRef.current, loc)) {
-        setUserLocation(loc);
-      }
-      handleStatus(applyLocationEvent({ status: locationStatus, position: loc }, { type: "success" }));
-      // Explicit refresh trigger for the nearby list (requirement: refresh
-      // on explicit user recenter).
-      window.dispatchEvent(new CustomEvent("nearby-refresh-requested"));
-    });
+    recenterLocation();
   }
 
   // When the user leaves nearby mode, stop continuous tracking to save battery.
   useEffect(() => {
     if (!isNearby) {
-      stopWatch();
+      stopLocationWatch();
     }
-  }, [isNearby, stopWatch]);
+  }, [isNearby, stopLocationWatch]);
 
-  // Cleanup watch on unmount (hook also does this, but belt-and-suspenders).
+  // Cleanup watch on unmount (belt-and-suspenders — the geolocator keeps a
+  // single slot, so this can never clear a watch owned by anyone else).
   useEffect(() => {
-    return () => stopWatch();
-  }, [stopWatch]);
+    return () => stopLocationWatch();
+  }, [stopLocationWatch]);
 
   // ---- Recent-search helpers ----------------------------------------------
   function applyRecentSearch(

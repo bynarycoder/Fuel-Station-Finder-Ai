@@ -11,12 +11,19 @@
  *
  * Honesty rules enforced here:
  * - Never asks the backend without a valid user location (the store's
- *   `userLocation` only ever holds accepted GPS fixes — see useGeolocation).
+ *   `userLocation` only ever holds accepted GPS fixes — see lib/geolocator).
  * - Never invents a price: `latest_price === null` renders "Price information
  *   is currently unavailable."
  * - Provenance is rendered with the shared `StationProvenanceBadge`, so an
  *   imported/unverified station stays labeled exactly as the API says.
  * - Provider state is transparent: fallback answers are labeled as such.
+ *
+ * Location discipline (regression guard): this panel READS `userLocation`
+ * from the store and NEVER acquires, writes, resets, or watches location by
+ * itself. "Share my location" delegates to the store's single location
+ * lifecycle (`requestLocation`) — the same code path as the finder's
+ * "Near me" button — so mounting/opening/closing the panel has ZERO side
+ * effects on the geolocation state machine.
  */
 
 import {
@@ -35,7 +42,6 @@ import { useState } from "react";
 
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import { Button } from "@/components/ui/button";
-import { useGeolocation } from "@/hooks/useGeolocation";
 import { directionsUrl, formatDistance } from "@/lib/format";
 import { requestAiRecommendation } from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
@@ -74,8 +80,10 @@ export function FuelIntelligence({ onViewStation, onClose }: FuelIntelligencePro
   const [pendingQuery, setPendingQuery] = useState("");
 
   const userLocation = useMapStore((s) => s.userLocation);
-  const setUserLocation = useMapStore((s) => s.setUserLocation);
-  const { request: requestGeolocation, loading: locating } = useGeolocation();
+  // The app's single location lifecycle lives in the store; this panel only
+  // delegates to it. "requesting" drives the button's "locating" spinner.
+  const requestLocation = useMapStore((s) => s.requestLocation);
+  const locating = useMapStore((s) => s.locationStatus === "requesting");
 
   async function ask(overrideQuery?: string, location = userLocation) {
     const text = (overrideQuery ?? query).trim();
@@ -112,22 +120,22 @@ export function FuelIntelligence({ onViewStation, onClose }: FuelIntelligencePro
 
   async function shareLocation() {
     setLocationError(null);
-    try {
-      const loc = await requestGeolocation();
-      setUserLocation(loc);
-      // If the user had already typed a question, answer it with the fresh fix.
-      const pending = pendingQuery || query;
-      if (pending.trim()) {
-        await ask(pending, loc);
-      }
-    } catch (failure) {
-      // Typed GeoFailure from the existing hook (coarse fixes are already
-      // rejected there — we never accept a city-level centroid).
-      const message =
-        failure && typeof failure === "object" && "message" in failure
-          ? String(failure.message)
-          : "Could not get your location.";
-      setLocationError(message);
+    // Delegate to the store's single location lifecycle: the shared 5 km
+    // accuracy protection applies, the state machine decides fatal vs.
+    // temporarily_unavailable, and exactly one watcher can ever run.
+    const loc = await requestLocation();
+    if (!loc) {
+      // The state machine already produced the user-facing message for this
+      // failure (and preserved any existing valid position).
+      setLocationError(
+        useMapStore.getState().locationMessage ?? "Could not get your location.",
+      );
+      return;
+    }
+    // If the user had already typed a question, answer it with the fresh fix.
+    const pending = pendingQuery || query;
+    if (pending.trim()) {
+      await ask(pending, loc);
     }
   }
 
