@@ -13,6 +13,7 @@ import type {
 } from "@/types/station";
 import type { FuelReport, FuelReportAdmin, PaginatedReports } from "@/types/report";
 import type { FavoriteList, Favorite } from "@/types/favorite";
+import type { GeocodePlace, GeocodeSearchResponse } from "@/types/geocode";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
 import type {
@@ -237,6 +238,69 @@ export function fetchNearbyStations(params: NearbyParams) {
     }
     return result;
   });
+}
+
+// --------------------------------------------------------------------------- #
+// Geocoding (location picker — proxied by the backend, no provider keys here)
+// --------------------------------------------------------------------------- #
+/**
+ * Search places by name (city / town / area) through the backend's
+ * Nominatim proxy. The backend sets the identification headers and shields
+ * the browser from the provider; the picker debounces calls and always
+ * lets the USER choose a result — the first match is never auto-selected.
+ */
+export async function searchLocations(
+  q: string,
+): Promise<GeocodeSearchResponse> {
+  try {
+    return await request<GeocodeSearchResponse>("/geocode/search", {
+      params: { q },
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 429) {
+      throw new ApiError(
+        429,
+        "Location search is busy right now. Try again in a moment.",
+      );
+    }
+    if (err instanceof ApiError && err.status >= 500) {
+      throw new ApiError(
+        err.status,
+        "Location search is temporarily unavailable. Try again later.",
+      );
+    }
+    throw err;
+  }
+}
+
+/**
+ * Resolve the place at a coordinate pair (used when the user drags the
+ * marker on the picker's map so the label stays truthful). Returns `null`
+ * when the provider has no record there (e.g. open water).
+ */
+export async function reverseGeocode(
+  latitude: number,
+  longitude: number,
+): Promise<GeocodePlace | null> {
+  try {
+    return await request<GeocodePlace>("/geocode/reverse", {
+      params: { latitude, longitude },
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+    // Rate limit / provider outage — the picker keeps the previous label
+    // and lets the user confirm anyway (coordinates are real, only the
+    // pretty name is missing). Swallow after logging in dev.
+    if (
+      err instanceof ApiError &&
+      (err.status === 429 || err.status >= 500)
+    ) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 // --------------------------------------------------------------------------- #

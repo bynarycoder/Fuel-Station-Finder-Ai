@@ -168,6 +168,9 @@ export default function MapView({
   const recenterLocation = useMapStore((s) => s.recenterLocation);
   const locating = useMapStore((s) => s.locationStatus === "requesting");
   const isWatching = useMapStore((s) => s.isWatching);
+  // Label manual (user-picked) locations honestly — never "live" or "GPS".
+  const locationSource = useMapStore((s) => s.locationSource);
+  const manualLocationLabel = useMapStore((s) => s.manualLocationLabel);
 
   const triggerRecenter = useCallback(() => {
     setRecenterKey((k) => k + 1);
@@ -320,13 +323,18 @@ export default function MapView({
             <Marker
               position={[userLocation.latitude, userLocation.longitude]}
               icon={userLocationIcon}
-              alt="Your location"
+              alt={locationSource === "manual" ? "Selected location" : "Your location"}
             >
               <Popup closeButton={false}>
                 <div className="p-3">
                   <p className="text-body-sm font-semibold text-ink-900">
-                    You are here
+                    {locationSource === "manual" ? "Selected location" : "You are here"}
                   </p>
+                  {locationSource === "manual" && manualLocationLabel && (
+                    <p className="mt-0.5 text-caption text-ink-500">
+                      {manualLocationLabel}
+                    </p>
+                  )}
                   {isNearby && (
                     <p className="mt-0.5 text-caption text-ink-500">
                       Searching within{" "}

@@ -28,6 +28,7 @@ import {
   Loader2,
   LocateFixed,
   Map as MapIcon,
+  MapPin,
   Navigation,
   SlidersHorizontal,
   X,
@@ -66,15 +67,24 @@ const QUICK_FUELS = ["PMS", "AGO", "CNG"] as const;
 interface StationFiltersProps {
   /** Compact layout for the mobile finder header. */
   compact?: boolean;
+  /** Opens the shared LocationPicker (manual city/point selection). */
+  onChooseLocation?: () => void;
   className?: string;
 }
 
-export function StationFilters({ compact = false, className }: StationFiltersProps) {
+export function StationFilters({
+  compact = false,
+  onChooseLocation,
+  className,
+}: StationFiltersProps) {
   const {
     filters,
     mode,
     radiusMeters,
     userLocation,
+    locationSource,
+    manualLocationLabel,
+    locationFailure,
     locationStatus,
     locationMessage,
     isWatching,
@@ -93,6 +103,7 @@ export function StationFilters({ compact = false, className }: StationFiltersPro
 
   const isNearby = mode === "nearby";
   const hasPosition = userLocation !== null;
+  const isManual = locationSource === "manual";
   const isTracking =
     locationStatus === "tracking" ||
     locationStatus === "updating" ||
@@ -174,9 +185,11 @@ export function StationFilters({ compact = false, className }: StationFiltersPro
     ? "Locating…"
     : isNearby && isWatching
       ? "Tracking you"
-      : isNearby && hasPosition
-        ? "Start tracking"
-        : "Near me";
+      : isNearby && isManual
+        ? "Use my current location"
+        : isNearby && hasPosition
+          ? "Start tracking"
+          : "Near me";
 
   // ---- Active filter chips -------------------------------------------------
   const activeChips: Array<{ key: string; label: string; onRemove: () => void }> = [];
@@ -247,6 +260,19 @@ export function StationFilters({ compact = false, className }: StationFiltersPro
           <MapIcon className="h-4 w-4" aria-hidden="true" />
           Browse all
         </Button>
+
+        {onChooseLocation && (
+          <Button
+            variant="quiet"
+            size={compact ? "sm" : "md"}
+            onClick={onChooseLocation}
+            className="shrink-0"
+            title="Search a city or pick a point on the map"
+          >
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            <span className={compact ? "sr-only" : undefined}>Choose location</span>
+          </Button>
+        )}
 
         {isNearby && hasPosition && (
           <Button
@@ -361,8 +387,13 @@ export function StationFilters({ compact = false, className }: StationFiltersPro
         userLocation={userLocation}
         isNearby={isNearby}
         isWatching={isWatching}
+        locationSource={locationSource}
+        manualLocationLabel={manualLocationLabel}
+        failure={locationFailure}
         onRetry={() => void handleNearMe()}
         onSearchByCity={handleSearchByCity}
+        onChooseLocation={onChooseLocation ?? handleSearchByCity}
+        onUseDeviceLocation={() => void handleNearMe()}
       />
 
       {showFavoritesPrompt && (

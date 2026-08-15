@@ -157,13 +157,30 @@ describe("hasAcceptableAccuracy (coarse-fix guard)", () => {
     expect(MAX_ACCEPTABLE_ACCURACY_METERS).toBe(5_000);
   });
 
-  it("rejects a 50 km city-level fix", () => {
-    expect(hasAcceptableAccuracy(50_000)).toBe(false);
-    expect(hasAcceptableAccuracy(5_001)).toBe(false);
+  // The exact GPS acceptance table from the desktop-fallback spec:
+  //   25 m (phone GPS)   → accepted
+  //   5,000 m (boundary) → accepted
+  //   5,001 m            → rejected
+  //   50,000 m           → rejected
+  //   200,000 m (desktop IP/city centroid) → rejected
+  it("accepts a 25 m phone GPS fix", () => {
+    expect(hasAcceptableAccuracy(25)).toBe(true);
   });
 
   it("accepts accuracy exactly at the 5,000 m boundary", () => {
     expect(hasAcceptableAccuracy(5_000)).toBe(true);
+  });
+
+  it("rejects a 5,001 m fix", () => {
+    expect(hasAcceptableAccuracy(5_001)).toBe(false);
+  });
+
+  it("rejects a 50 km city-level fix", () => {
+    expect(hasAcceptableAccuracy(50_000)).toBe(false);
+  });
+
+  it("rejects a 200 km desktop network/IP fix", () => {
+    expect(hasAcceptableAccuracy(200_000)).toBe(false);
   });
 
   it("accepts normal GPS fixes and 0 (accuracy not reported)", () => {
@@ -174,6 +191,39 @@ describe("hasAcceptableAccuracy (coarse-fix guard)", () => {
   it("rejects non-finite accuracy values", () => {
     expect(hasAcceptableAccuracy(Number.NaN)).toBe(false);
     expect(hasAcceptableAccuracy(Number.POSITIVE_INFINITY)).toBe(false);
+  });
+});
+
+describe("manual location state machine (user-picked, not GPS)", () => {
+  it("manual_selected → status 'manual' with no message", () => {
+    const s = applyLocationEvent(
+      { status: "idle", position: null },
+      { type: "manual_selected" },
+    );
+    expect(s.status).toBe("manual");
+    expect(s.message).toBeNull();
+  });
+
+  it("a later device success replaces the manual status with tracking", () => {
+    const s = applyLocationEvent(
+      { status: "manual", position: NINE_JOS },
+      { type: "success" },
+    );
+    expect(s.status).toBe("tracking");
+  });
+
+  it("watch_stop is not reachable from manual (manual never starts a watch)", () => {
+    // The manual state is produced by the store action that stops any watch
+    // BEFORE emitting manual_selected; assert the state machine keeps manual
+    // stable across unrelated events it can receive.
+    const s = applyLocationEvent(
+      { status: "manual", position: NINE_JOS },
+      { type: "failure", code: GEO_CODE_TIMEOUT },
+    );
+    // A failed GPS refresh while a manual position exists degrades to
+    // temporarily_unavailable — but the store intercepts this case to keep
+    // the manual status; see useMapStore.requestLocation.
+    expect(s.status).toBe("temporarily_unavailable");
   });
 });
 

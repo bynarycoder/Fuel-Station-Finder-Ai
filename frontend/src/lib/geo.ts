@@ -26,6 +26,8 @@ import type { LatLng } from "@/types/station";
  *  - idle                    — no request made yet (default)
  *  - requesting              — initial Near Me acquisition in flight
  *  - tracking                — we have a live position (watch active)
+ *  - manual                  — user explicitly selected a location (no GPS,
+ *                              no watcher — a different mode, see below)
  *  - updating                — background refresh in flight while a position exists
  *  - temporarily_unavailable — timeout/unavailable AFTER a position existed
  *  - permission_denied       — browser blocked location access
@@ -36,11 +38,27 @@ export type LocationStatus =
   | "idle"
   | "requesting"
   | "tracking"
+  | "manual"
   | "updating"
   | "temporarily_unavailable"
   | "permission_denied"
   | "unsupported"
   | "error";
+
+/**
+ * Where the active location came from. Keeps "the browser's GPS told us
+ * where you are" (device) distinct from "you picked a city / point" (manual)
+ * so the UI can label results honestly and so a manual location is never
+ * silently upgraded to (or downgraded from) live tracking.
+ *
+ * - `device` — obtained from `navigator.geolocation` and validated by the
+ *   5 km accuracy rule.
+ * - `manual` — explicitly selected/search-confirmed by the user. It is
+ *   intentional user input, not GPS, and MUST NOT start `watchPosition()`.
+ *
+ * `null` while `userLocation` is null (no location at all).
+ */
+export type LocationSource = "device" | "manual";
 
 /** Browser PositionError codes (also used for our synthetic "unsupported"). */
 export const GEO_CODE_PERMISSION_DENIED = 1;
@@ -131,6 +149,14 @@ export const GEO_MESSAGES_WITH_POSITION: Record<number, string> = {
 export interface GeoFailure {
   code: number;
   message: string;
+  /**
+   * True when the browser DID return a fix but it was rejected by the
+   * `MAX_ACCEPTABLE_ACCURACY_METERS` guard (e.g. a ~200 km network/city
+   * centroid). The UI can then explain "your device only provided an
+   * approximate location" instead of a generic failure — without ever
+   * exposing the raw accuracy value.
+   */
+  coarseAccuracy?: boolean;
 }
 
 /** Map a browser PositionError (or our synthetic code) to a failure object. */
@@ -197,6 +223,7 @@ export type LocationEvent =
   | { type: "success" }
   | { type: "watch_start" }
   | { type: "watch_stop" }
+  | { type: "manual_selected" }
   | { type: "failure"; code: number };
 
 export interface LocationState {
@@ -231,6 +258,11 @@ export function applyLocationEvent(
 
     case "watch_start":
       return { status: "tracking", message: null };
+
+    case "manual_selected":
+      // A location the user explicitly picked. Not GPS: no watcher, no
+      // tracking claim. This is a distinct mode, never a "live" fix.
+      return { status: "manual", message: null };
 
     case "watch_stop":
       // User turned tracking off. If we still know a position the app can

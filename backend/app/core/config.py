@@ -42,6 +42,22 @@ class Settings(BaseSettings):
     # (query, rounded lat/lon) so repeated asks don't re-invoke the LLM.
     AI_RECOMMEND_CACHE_TTL_SECONDS: int = 300
 
+    # Geocoding (location search for the manual location picker)
+    #
+    # Nominatim (OpenStreetMap) is the provider. The BACKEND proxies the
+    # browser's search requests so no third-party API key ever reaches the
+    # frontend, and so we can set the identification headers Nominatim's
+    # usage policy requires (a valid User-Agent / Referer identifying the
+    # application). See https://operations.osmfoundation.org/policies/nominatim/
+    NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
+    NOMINATIM_USER_AGENT: str = (
+        "FuelStationFinderAI/1.0 (https://fuel-station-finder-omega.vercel.app)"
+    )
+    NOMINATIM_REFERER: str = "https://fuel-station-finder-omega.vercel.app"
+    NOMINATIM_TIMEOUT_SECONDS: float = 5.0
+    # Max results returned per search (Nominatim allows more; keep it snappy).
+    NOMINATIM_SEARCH_LIMIT: int = 6
+
     # Report photo uploads (local storage; swappable for object storage later)
     MEDIA_DIR: str = "media"
     MEDIA_URL: str = "/media"
