@@ -95,7 +95,14 @@ def parse_natural_query(text: str) -> ParsedQuery:
     # Imported lazily so this module never requires the SDK at startup.
     from groq import Groq
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
+    # max_retries is a client-constructor parameter, not a per-request kwarg,
+    # on chat.completions.create(). Build the client consistently with the
+    # rest of the AI services (no SDK-level retries; timeout enforced).
+    client = Groq(
+        api_key=settings.GROQ_API_KEY,
+        timeout=settings.AI_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
     response = client.chat.completions.create(
         model=settings.GROQ_MODEL,
         response_format={"type": "json_object"},

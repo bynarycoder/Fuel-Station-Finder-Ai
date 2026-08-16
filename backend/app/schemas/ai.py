@@ -21,6 +21,9 @@ class VerificationResultPublic(BaseModel):
     summary: str
     detected_attributes: list[str] = Field(default_factory=list)
     report_status: ReportStatus
+    # Safe (non-secret) error category when Gemini could not be reached or
+    # returned an unusable response; None when the call succeeded.
+    error: str | None = None
 
 
 class ParsedQueryPublic(BaseModel):

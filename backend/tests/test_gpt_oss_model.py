@@ -36,42 +36,40 @@ OLD_MODEL_8B = "llama-3.1-8b-instant"
 
 
 # --------------------------------------------------------------------------- #
-# Fake Groq client (records every chat.completions.create call)
+# Fake Groq client (records every chat.completions.create call and client
+# construction kwargs so tests can assert that max_retries lives on the client,
+# not on the per-request create() call).
 # --------------------------------------------------------------------------- #
-def install_fake_groq(monkeypatch: pytest.MonkeyPatch, content: str) -> list[dict[str, Any]]:
+def install_fake_groq(monkeypatch: pytest.MonkeyPatch, content: str):
     """Replace the lazily-imported ``groq.Groq`` with a recording fake.
 
-    Returns a list in which every ``chat.completions.create`` call's kwargs are
-    appended (model, response_format, timeout, messages, ...).
+    Returns a tuple ``(client_calls, create_calls)`` where ``client_calls``
+    collects constructor kwargs (api_key, timeout, max_retries, ...) and
+    ``create_calls`` collects per-request kwargs (model, messages, ...).
     """
-    calls: list[dict[str, Any]] = []
+    client_calls: list[dict[str, Any]] = []
+    create_calls: list[dict[str, Any]] = []
+
+    class _FakeCompletions:
+        def create(self, **kwargs: Any) -> Any:
+            create_calls.append(kwargs)
+            return _make_response()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
 
     class _FakeGroq:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            self.chat = _make_chat()
-
-    def _make_chat() -> Any:
-        class _Chat:
-            completions = _make_completions()
-        return _Chat()
-
-    def _make_completions() -> Any:
-        class _Completions:
-            def create(self, **kwargs: Any) -> Any:
-                calls.append(kwargs)
-                return _make_response()
-        return _Completions()
+            client_calls.append(kwargs)
+            self.chat = _FakeChat()
 
     def _make_response() -> Any:
-        message = _make_message()
+        message = type("Message", (), {"content": content})()
         choice = type("Choice", (), {"message": message})()
         return type("Response", (), {"choices": [choice]})()
 
-    def _make_message() -> Any:
-        return type("Message", (), {"content": content})()
-
     monkeypatch.setattr("groq.Groq", _FakeGroq)
-    return calls
+    return client_calls, create_calls
 
 
 def _set_key(monkeypatch: pytest.MonkeyPatch, key: str = "test-groq-key") -> None:
@@ -107,18 +105,23 @@ class TestModelConfiguration:
 class TestIntentExtraction:
     def test_intent_uses_configured_model_and_json_mode(self, monkeypatch) -> None:
         _set_key(monkeypatch)
-        calls = install_fake_groq(
+        client_calls, create_calls = install_fake_groq(
             monkeypatch,
             '{"fuel_type":"PMS","sort_preference":"price","require_verified":false}',
         )
         intent = recommend.parse_recommend_intent("Find the cheapest petrol near me")
 
-        assert calls, "expected a Groq chat.completions.create call"
-        call = calls[0]
+        assert client_calls, "expected a Groq() client construction"
+        assert create_calls, "expected a Groq chat.completions.create call"
+        init_kwargs = client_calls[0]
+        call = create_calls[0]
         assert call["model"] == NEW_MODEL
         assert call["response_format"] == {"type": "json_object"}
-        assert call["timeout"] == config.settings.AI_TIMEOUT_SECONDS
-        assert call["max_retries"] == 0
+        # max_retries MUST live on the client, NOT on create() — this is the
+        # production regression (TypeError) we're guarding against.
+        assert init_kwargs["max_retries"] == 0
+        assert init_kwargs["timeout"] == config.settings.AI_TIMEOUT_SECONDS
+        assert "max_retries" not in call, "max_retries is not a valid create() kwarg"
 
         # Output validated/normalised by the pure mapping layer.
         assert intent.fuel_type == "PMS"
@@ -184,15 +187,18 @@ class TestExplanationGeneration:
     def test_explanation_uses_configured_model_and_json_mode(self, monkeypatch) -> None:
         _set_key(monkeypatch)
         intent, ranked = self._ranked(monkeypatch)
-        calls = install_fake_groq(
+        client_calls, create_calls = install_fake_groq(
             monkeypatch, '{"answer":"Cheap Co is the lowest-priced nearby option."}'
         )
         answer = recommend.generate_explanation(intent, ranked)
 
-        call = calls[0]
+        call = create_calls[0]
+        init_kwargs = client_calls[0]
         assert call["model"] == NEW_MODEL
         assert call["response_format"] == {"type": "json_object"}
-        assert call["timeout"] == config.settings.AI_TIMEOUT_SECONDS
+        assert init_kwargs["max_retries"] == 0
+        assert init_kwargs["timeout"] == config.settings.AI_TIMEOUT_SECONDS
+        assert "max_retries" not in call
         assert "Cheap Co" in answer
         # The facts-only prompt forbids inventing prices/verification.
         prompt = call["messages"][0]["content"]
@@ -237,12 +243,14 @@ class TestFallbackAndTimeout:
 
     def test_nl_search_uses_configured_model_and_json_mode(self, monkeypatch) -> None:
         _set_key(monkeypatch)
-        calls = install_fake_groq(
+        client_calls, create_calls = install_fake_groq(
             monkeypatch, '{"fuel_type":"PMS","queue_length":null,"brand":null,"city":"Ikeja","state":null}'
         )
         parsed = nl_search.parse_natural_query("short petrol near Ikeja")
-        assert calls[0]["model"] == NEW_MODEL
-        assert calls[0]["response_format"] == {"type": "json_object"}
+        assert create_calls[0]["model"] == NEW_MODEL
+        assert create_calls[0]["response_format"] == {"type": "json_object"}
+        assert client_calls[0]["max_retries"] == 0
+        assert "max_retries" not in create_calls[0]
         assert parsed.fuel_type == "PMS"
         assert parsed.city == "Ikeja"
 
