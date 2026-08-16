@@ -7,6 +7,8 @@ from app.schemas.admin import (
     UserUpdate,
 )
 from app.schemas.ai import (
+    AIChatRequest,
+    AIChatResponse,
     AIRecommendation,
     AIRecommendRequest,
     AIRecommendResponse,
@@ -39,6 +41,8 @@ from app.schemas.geocode import GeocodePlace, GeocodeSearchResponse
 from app.schemas.user import UserPublic
 
 __all__ = [
+    "AIChatRequest",
+    "AIChatResponse",
     "AIRecommendation",
     "AIRecommendRequest",
     "AIRecommendResponse",

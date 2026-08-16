@@ -46,16 +46,22 @@ services:
         value: https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json
       - key: SUPABASE_JWKS_CACHE_TTL_SECONDS
         value: "300"
-      # --- AI keys (optional; enable Gemini verification & Groq NL search) ---
+      # --- AI keys (optional; enable Gemini verification & Groq features) ---
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      # --- Groq model for Fuel Intelligence & NL search (GPT-OSS 20B) ---
-      # The LLM performs intent extraction + optional factual explanation only;
-      # final station selection remains deterministic and database-driven.
+      # --- Groq model: conversation, search intent, factual explanation ---
+      # The LLM performs intent extraction, conversational answers and optional
+      # factual explanation only; final station selection remains deterministic
+      # and database-driven.
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
+      # --- Gemini model: report photo verification (multimodal) ---
+      # MUST be a currently supported model. gemini-1.5-flash was shut down on
+      # 29 Sep 2025 and returns 404, which silently disabled verification.
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
       # --- CORS: comma-separated list of allowed frontend origins ---
       - key: CORS_ORIGINS
         sync: false

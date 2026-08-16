@@ -240,6 +240,16 @@ export default function FinderPage() {
     />
   );
 
+  // The map's floating controls must sit ABOVE the bottom sheet at whatever
+  // height the user has dragged it to. A fixed offset (the sheet's "peek"
+  // height) left zoom/locate buried under the sheet as soon as it was
+  // expanded — on a phone that hid the only way to recentre the map.
+  const CONTROLS_OFFSET: Record<SheetSnap, string> = {
+    peek: "bottom-[calc(38%+0.75rem)]",
+    half: "bottom-[calc(62%+0.75rem)]",
+    full: "bottom-[calc(92%+0.75rem)]",
+  };
+
   const mapSurface = (
     <StationMap
       items={items}
@@ -248,7 +258,7 @@ export default function FinderPage() {
       isNearby={isNearby}
       closestStationId={closestStationId}
       onSelect={handleSelect}
-      controlsClassName="bottom-[calc(38%+0.75rem)] lg:bottom-4"
+      controlsClassName={`${CONTROLS_OFFSET[snap]} lg:bottom-4`}
     />
   );
 

@@ -42,11 +42,24 @@ export interface AIRecommendation {
   breakdown: ScoreBreakdown;
 }
 
+/**
+ * Which Groq responsibility answered the message:
+ * - "recommendation": a station search ran (intent -> nearby -> ranking).
+ * - "conversation":   a general question Groq answered directly; no station
+ *   data and no location involved.
+ */
+export type AIAnswerMode = "recommendation" | "conversation";
+
+/** Who produced a part of the answer. "not_applicable" = the step didn't run. */
+export type AISource = "groq" | "fallback" | "not_applicable";
+
 export interface AIRecommendResponse {
   query: string;
+  /** Optional for backwards compatibility with an older backend build. */
+  mode?: AIAnswerMode;
   intent: FuelSearchIntent | null;
-  intent_source: "groq" | "fallback";
-  answer_source: "groq" | "fallback";
+  intent_source: AISource;
+  answer_source: AISource;
   needs_location: boolean;
   recommendations: AIRecommendation[];
   answer: string;
@@ -54,6 +67,16 @@ export interface AIRecommendResponse {
 
 export interface AIRecommendRequest {
   query: string;
-  latitude: number;
-  longitude: number;
+  /** Omitted for a conversational question — the app never invents a position. */
+  latitude?: number;
+  longitude?: number;
+}
+
+/** Response of `POST /api/v1/ai/chat` (conversational Groq). */
+export interface AIChatResponse {
+  message: string;
+  answer: string;
+  answer_source: AISource;
+  mode: "conversation" | "search";
+  model: string;
 }

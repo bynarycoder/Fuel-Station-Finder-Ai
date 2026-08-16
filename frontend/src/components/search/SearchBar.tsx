@@ -144,7 +144,7 @@ export function SearchBar({
           placeholder={placeholder}
           aria-label="Search stations or ask Fuel Intelligence"
           aria-describedby="search-mode-hint"
-          className="h-12 min-w-0 flex-1 bg-transparent text-body text-ink-900 placeholder:text-ink-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 min-w-0 flex-1 bg-transparent text-body text-ink-900 placeholder:text-ink-400 focus:outline-none pointer-coarse:text-[16px] [&::-webkit-search-cancel-button]:hidden"
         />
 
         {text && (
@@ -206,7 +206,7 @@ export function SearchBar({
               key={item.id}
               type="button"
               onClick={item.onApply}
-              className="rounded-pill border border-hairline bg-surface px-2.5 py-1 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700"
+              className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
             >
               {item.label}
             </button>

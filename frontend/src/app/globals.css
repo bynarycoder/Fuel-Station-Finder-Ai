@@ -119,6 +119,25 @@
   .pb-nav {
     padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom));
   }
+
+  /**
+   * Overlay heights on the DYNAMIC viewport.
+   *
+   * `vh` on mobile Safari/Chrome resolves against the LARGEST viewport (browser
+   * chrome retracted), so a `92vh` sheet is taller than what the user can
+   * actually see while the toolbars are visible — its bottom row (the report
+   * form's "Submit", the AI composer) ends up underneath the browser chrome.
+   * `dvh` tracks the *current* viewport. The `vh` line stays first as the
+   * fallback for browsers without `dvh`.
+   */
+  .max-h-sheet {
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+  .h-sheet-tall {
+    height: 92vh;
+    height: 92dvh;
+  }
 }
 
 /* ======================================================================= */

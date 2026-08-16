@@ -12,9 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.core.config import settings
 from app.models import FuelTypeCode, QueueLength
-from app.services.ai.base import AINotConfiguredError, extract_json_object
+from app.services.ai.base import extract_json_object
+from app.services.ai.provider import groq_chat
 
 _VALID_FUEL_CODES = FuelTypeCode.codes()
 _VALID_QUEUE_VALUES = {member.value for member in QueueLength}
@@ -85,31 +85,18 @@ def to_parsed_query(data: dict[str, Any], raw: str) -> ParsedQuery:
 def parse_natural_query(text: str) -> ParsedQuery:
     """Call Groq to parse ``text`` into a structured ``ParsedQuery``.
 
-    Raises ``AINotConfiguredError`` when ``GROQ_API_KEY`` is not set.
+    Raises ``AINotConfiguredError`` when ``GROQ_API_KEY`` is not set, and
+    ``AIProviderError`` (safe category, already logged) when the provider call
+    fails. Client construction — including ``timeout`` and ``max_retries``,
+    which are constructor-only arguments — lives in
+    ``app.services.ai.provider`` so no call site can pass them per request.
     """
-    if not settings.GROQ_API_KEY:
-        raise AINotConfiguredError(
-            "Natural-language search is not configured (GROQ_API_KEY is missing)."
-        )
-
-    # Imported lazily so this module never requires the SDK at startup.
-    from groq import Groq
-
-    # max_retries is a client-constructor parameter, not a per-request kwarg,
-    # on chat.completions.create(). Build the client consistently with the
-    # rest of the AI services (no SDK-level retries; timeout enforced).
-    client = Groq(
-        api_key=settings.GROQ_API_KEY,
-        timeout=settings.AI_TIMEOUT_SECONDS,
-        max_retries=0,
-    )
-    response = client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
+    content = groq_chat(
+        [
             {"role": "system", "content": build_system_prompt()},
             {"role": "user", "content": text},
         ],
+        feature="nl_search",
+        json_mode=True,
     )
-    content = response.choices[0].message.content or ""
     return to_parsed_query(extract_json_object(content), text)

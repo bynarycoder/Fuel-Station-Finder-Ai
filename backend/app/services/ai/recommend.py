@@ -38,7 +38,9 @@ from typing import Any
 
 from app.core.config import settings
 from app.models import FuelTypeCode
+from app.services.ai import chat as chat_service
 from app.services.ai.base import AINotConfiguredError, extract_json_object
+from app.services.ai.provider import groq_chat
 
 logger = logging.getLogger(__name__)
 
@@ -353,33 +355,20 @@ def parse_intent_fallback(text: str) -> FuelSearchIntent:
 def parse_recommend_intent(text: str) -> FuelSearchIntent:
     """Call Groq (the project's existing NL provider) to parse ``text``.
 
-    Raises ``AINotConfiguredError`` when ``GROQ_API_KEY`` is not set.
+    Raises ``AINotConfiguredError`` when ``GROQ_API_KEY`` is not set and
+    ``AIProviderError`` (safe category, already logged) on provider failure.
+    The Groq client — including ``timeout``/``max_retries``, which are
+    *constructor* arguments and never per-request kwargs — is built centrally
+    in ``app.services.ai.provider``.
     """
-    if not settings.GROQ_API_KEY:
-        raise AINotConfiguredError(
-            "Fuel Intelligence is not configured (GROQ_API_KEY is missing)."
-        )
-
-    # Imported lazily so this module never requires the SDK at import time.
-    from groq import Groq
-
-    # max_retries is a client-constructor parameter (SDK-level HTTP retries),
-    # not a valid per-request kwarg on chat.completions.create(). Passing it
-    # per-call raises TypeError before any HTTP request is made.
-    client = Groq(
-        api_key=settings.GROQ_API_KEY,
-        timeout=settings.AI_TIMEOUT_SECONDS,
-        max_retries=0,
-    )
-    response = client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
+    content = groq_chat(
+        [
             {"role": "system", "content": build_intent_prompt()},
             {"role": "user", "content": text},
         ],
+        feature="intent_extraction",
+        json_mode=True,
     )
-    content = response.choices[0].message.content or ""
     return to_fuel_intent(extract_json_object(content), text)
 
 
@@ -801,32 +790,22 @@ def parse_explanation_response(text: str | None, max_chars: int = 1000) -> str:
 def generate_explanation(intent: FuelSearchIntent, top: list[ScoredCandidate]) -> str:
     """Ask Groq to explain the ranked recommendation using supplied facts only.
 
-    Raises ``AINotConfiguredError`` when Groq is not configured.
+    Raises ``AINotConfiguredError`` when Groq is not configured and
+    ``AIProviderError`` (already logged with a safe category) when the provider
+    call fails. The client — with ``timeout``/``max_retries`` set on the
+    constructor, never on ``create()`` — comes from ``app.services.ai.provider``.
     """
-    if not settings.GROQ_API_KEY:
-        raise AINotConfiguredError(
-            "Fuel Intelligence is not configured (GROQ_API_KEY is missing)."
-        )
-
-    from groq import Groq
-
-    # max_retries is a client-constructor parameter (SDK-level HTTP retries),
-    # not a valid per-request kwarg on chat.completions.create(). Passing it
-    # per-call raises TypeError before any HTTP request is made.
-    client = Groq(
-        api_key=settings.GROQ_API_KEY,
-        timeout=settings.AI_TIMEOUT_SECONDS,
-        max_retries=0,
-    )
-    response = client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
+    content = groq_chat(
+        [
             {"role": "system", "content": build_explanation_prompt(intent, top)},
-            {"role": "user", "content": "Explain the recommendation using only the supplied facts."},
+            {
+                "role": "user",
+                "content": "Explain the recommendation using only the supplied facts.",
+            },
         ],
+        feature="explanation",
+        json_mode=True,
     )
-    content = response.choices[0].message.content or ""
     answer = parse_explanation_response(content)
     if not answer:
         return build_deterministic_answer(intent, top, len(top))
@@ -846,18 +825,45 @@ async def recommend_stations(
 ) -> dict[str, Any]:
     """Run the full pipeline and return the API response dict.
 
-    Location handling: ``(None, None)`` coordinates produce a
-    ``needs_location`` response — the assistant explains itself rather than
-    falling back to invented coordinates.
+    Two shapes come out of here, decided by the deterministic router in
+    ``app.services.ai.chat``:
+
+    * ``mode="conversation"`` — the user asked a question rather than for
+      stations ("what can you help me with?"). Groq answers it directly; no
+      database query, no location required.
+    * ``mode="recommendation"`` — the user asked for stations. The full
+      intent → nearby → rank → explain pipeline runs.
+
+    Location handling for a recommendation: ``(None, None)`` coordinates
+    produce a ``needs_location`` response — the assistant explains itself
+    rather than falling back to invented coordinates.
     """
     from app.services import reports as report_service
     from app.services import stations as station_service
 
+    # ------------------------------------------------------------------ #
+    # Conversational branch (Groq answers; the database is not consulted).
+    # ------------------------------------------------------------------ #
+    if chat_service.classify_query(query) == chat_service.MODE_CONVERSATION:
+        answer, answer_source = chat_service.answer_question(query)
+        return {
+            "query": query,
+            "mode": "conversation",
+            "needs_location": False,
+            "intent": None,
+            "intent_source": "not_applicable",
+            "answer_source": answer_source,
+            "recommendations": [],
+            "answer": answer,
+        }
+
     needs_location = latitude is None or longitude is None
     base = {
         "query": query,
+        "mode": "recommendation",
         "needs_location": needs_location,
     }
+
     if needs_location:
         return {
             **base,
