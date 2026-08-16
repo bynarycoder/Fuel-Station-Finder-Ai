@@ -34,7 +34,11 @@ from app.models import QueueLength, ReportStatus, UserRole
 from app.schemas import FuelReportPublic, PaginatedReports, VerificationResultPublic
 from app.services import reports as report_service
 from app.services.ai import AINotConfiguredError
-from app.services.ai.gemini import VERIFICATION_THRESHOLD, analyze_queue_image
+from app.services.ai.gemini import (
+    VERIFICATION_THRESHOLD,
+    GeminiVerificationError,
+    analyze_queue_image,
+)
 from app.services.storage import ImageStorage, get_image_storage
 
 router = APIRouter(prefix="/reports", tags=["Fuel Reports"])
@@ -177,6 +181,19 @@ async def verify_report(
         result = analyze_queue_image(image_bytes, mime_type)
     except AINotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except GeminiVerificationError as exc:  # defensive; service normally returns error result
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Gemini verification is temporarily unavailable.",
+        ) from exc
+
+    if result.error:
+        # Provider failed / returned unusable data. Persist nothing and
+        # surface a clean 503 so the UI knows verification did not run.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"Gemini verification unavailable ({result.error}). Please try again shortly.",
+        )
 
     # Persist the numeric AI confidence so it can be surfaced anywhere the
     # report appears (station detail, admin, feeds) without re-running the model.
@@ -194,4 +211,5 @@ async def verify_report(
         summary=result.summary,
         detected_attributes=result.detected_attributes,
         report_status=report.status,
+        error=None,
     )

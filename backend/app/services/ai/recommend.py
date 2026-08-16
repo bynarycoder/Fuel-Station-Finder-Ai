@@ -363,12 +363,17 @@ def parse_recommend_intent(text: str) -> FuelSearchIntent:
     # Imported lazily so this module never requires the SDK at import time.
     from groq import Groq
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
+    # max_retries is a client-constructor parameter (SDK-level HTTP retries),
+    # not a valid per-request kwarg on chat.completions.create(). Passing it
+    # per-call raises TypeError before any HTTP request is made.
+    client = Groq(
+        api_key=settings.GROQ_API_KEY,
+        timeout=settings.AI_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
     response = client.chat.completions.create(
         model=settings.GROQ_MODEL,
         response_format={"type": "json_object"},
-        timeout=settings.AI_TIMEOUT_SECONDS,
-        max_retries=0,
         messages=[
             {"role": "system", "content": build_intent_prompt()},
             {"role": "user", "content": text},
@@ -805,12 +810,17 @@ def generate_explanation(intent: FuelSearchIntent, top: list[ScoredCandidate]) -
 
     from groq import Groq
 
-    client = Groq(api_key=settings.GROQ_API_KEY)
+    # max_retries is a client-constructor parameter (SDK-level HTTP retries),
+    # not a valid per-request kwarg on chat.completions.create(). Passing it
+    # per-call raises TypeError before any HTTP request is made.
+    client = Groq(
+        api_key=settings.GROQ_API_KEY,
+        timeout=settings.AI_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
     response = client.chat.completions.create(
         model=settings.GROQ_MODEL,
         response_format={"type": "json_object"},
-        timeout=settings.AI_TIMEOUT_SECONDS,
-        max_retries=0,
         messages=[
             {"role": "system", "content": build_explanation_prompt(intent, top)},
             {"role": "user", "content": "Explain the recommendation using only the supplied facts."},
