@@ -154,6 +154,34 @@ describe("an explicit choice wins and persists", () => {
     expect(isDark()).toBe(false);
   });
 
+  /**
+   * Ported from the `ThemeControl` suite that arrived on main in PR #38.
+   * That component was a second, competing theme system (it used a different
+   * storage key, so the two would have desynced) and was removed during the
+   * merge — but this assertion is worth keeping: switching back to light must
+   * fully tear the dark class down, or the Leaflet surface stays dark under a
+   * light UI.
+   */
+  it("returns to light without leaving a dark map surface behind", async () => {
+    installMatchMedia(false);
+    render(
+      <ThemeProvider>
+        <ThemeProbe />
+        <ThemeSelector />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("radio", { name: /dark/i }));
+    expect(isDark()).toBe(true);
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+
+    fireEvent.click(screen.getByRole("radio", { name: /^light$/i }));
+
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+    expect(isDark()).toBe(false);
+    expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
   it("restores the persisted preference on the next mount", async () => {
     installMatchMedia(false);
     window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
