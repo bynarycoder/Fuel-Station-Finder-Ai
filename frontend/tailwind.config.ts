@@ -51,19 +51,19 @@ const config: Config = {
           900: "#7a2e0e",
         },
         ink: {
-          50: "#f8fafb",
-          100: "#f1f4f6",
-          200: "#e4e9ed",
-          300: "#cfd7dd",
+          50: "var(--ink-50)",
+          100: "var(--ink-100)",
+          200: "var(--ink-200)",
+          300: "var(--ink-300)",
           // 400/500 are darkened past the naive "grey" values so muted body
           // copy and placeholders still clear WCAG AA (4.5:1) on BOTH the
           // canvas (#f6f8f9) and surface (#ffffff) backgrounds.
-          400: "#7c8994",
-          500: "#606e78",
-          600: "#4d5b66",
-          700: "#37434d",
-          800: "#232d35",
-          900: "#141b21",
+          400: "var(--ink-400)",
+          500: "var(--ink-500)",
+          600: "var(--ink-600)",
+          700: "var(--ink-700)",
+          800: "var(--ink-800)",
+          900: "var(--ink-900)",
         },
         success: {
           soft: "#ecfdf3",
@@ -90,10 +90,10 @@ const config: Config = {
           strong: "#1849a9",
         },
         /** Semantic surfaces (light product; no dark mode in scope). */
-        canvas: "#f6f8f9",
-        surface: "#ffffff",
-        elevated: "#ffffff",
-        hairline: "#e4e9ed",
+        canvas: "var(--canvas)",
+        surface: "var(--surface)",
+        elevated: "var(--elevated)",
+        hairline: "var(--hairline)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],

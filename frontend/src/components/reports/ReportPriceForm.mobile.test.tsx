@@ -158,8 +158,13 @@ describe("errors are announced and associated with their field", () => {
 
 describe("the primary action is a button, not a form submit", () => {
   it("submits only on click and reports its busy state", async () => {
-    let resolve!: (v: unknown) => void;
-    submitMock.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    let resolve!: (v: { id: string }) => void;
+    submitMock.mockImplementation(
+      () =>
+        new Promise((r: (v: { id: string }) => void) => {
+          resolve = r;
+        }) as ReturnType<typeof submitMock>,
+    );
 
     renderForm();
     toEvidenceStep();
