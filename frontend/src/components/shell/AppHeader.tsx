@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { BrandGlyph } from "@/components/shell/BrandGlyph";
+import { ThemeControl } from "@/components/shell/ThemeControl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -104,6 +105,8 @@ export function AppHeader({
       </Link>
 
       <div className="flex shrink-0 items-center gap-2">
+        <ThemeControl compact />
+
         {onOpenReports && (
           <Button
             variant="ghost"
