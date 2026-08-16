@@ -22,29 +22,15 @@ import {
   UserPlus,
 } from "lucide-react";
 
+import { BrandGlyph } from "@/components/shell/BrandGlyph";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function BrandMark({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-lg bg-accent-400 shadow-e1",
-        className,
-      )}
-      aria-hidden="true"
-    >
-      {/* Fuel drop + navigation arrow: fuel meets wayfinding. */}
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
-        <path
-          d="M12 2.6c3.4 4 5.4 6.8 5.4 9.4A5.4 5.4 0 0 1 12 17.4a5.4 5.4 0 0 1-5.4-5.4c0-2.6 2-5.4 5.4-9.4Z"
-          fill="#0a4d3c"
-        />
-        <path d="M12 8.4l2.9 5.9L12 13l-2.9 1.3L12 8.4Z" fill="#fdb022" />
-      </svg>
-    </span>
-  );
-}
+/**
+ * The brand mark. The glyph itself lives in `BrandGlyph` so server components
+ * can use it too; this re-export keeps the historical import path working.
+ */
+export { BrandGlyph as BrandMark } from "@/components/shell/BrandGlyph";
 
 interface AppHeaderProps {
   authReady: boolean;
@@ -105,7 +91,7 @@ export function AppHeader({
         href="/"
         className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
       >
-        <BrandMark />
+        <BrandGlyph />
         <span className="min-w-0">
           <span className="block truncate text-h3 leading-tight text-white">
             FuelFinder
