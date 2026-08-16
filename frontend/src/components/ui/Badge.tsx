@@ -24,8 +24,8 @@ const badgeVariants = cva(
         warning: "border-warning-border bg-warning-soft text-warning-strong",
         danger: "border-danger-border bg-danger-soft text-danger-strong",
         info: "border-info-border bg-info-soft text-info-strong",
-        solid: "border-transparent bg-brand-800 text-white",
-        "solid-accent": "border-transparent bg-accent-400 text-brand-950",
+        solid: "border-transparent bg-action text-action-fg",
+        "solid-accent": "border-transparent bg-accent-400 text-[#2b1a02]",
       },
       size: {
         sm: "px-2 py-[3px] text-[11px]",

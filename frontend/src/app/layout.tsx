@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import { PwaRegister } from "@/components/PwaRegister";
+import { themeScript } from "@/components/theme/ThemeProvider";
 
 /**
  * Typography: a native system stack, declared once as `--font-sans` in
@@ -30,7 +31,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a4d3c",
+  // Matches the browser chrome to each theme's canvas so the status bar does
+  // not sit as a bright band above a dark app (or vice versa).
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f8f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1118" },
+  ],
   width: "device-width",
   initialScale: 1,
   // Users must always be able to zoom (WCAG 1.4.4).
@@ -44,7 +50,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        {/*
+          Applies the persisted (or system) theme BEFORE first paint, so a
+          dark-mode user never sees a white flash while React hydrates. It
+          must stay blocking and inline — deferring it reintroduces the flash.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="h-full bg-canvas font-sans text-ink-900 antialiased">
         <Providers>
           {children}

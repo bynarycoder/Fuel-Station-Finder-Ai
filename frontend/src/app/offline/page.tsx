@@ -20,7 +20,7 @@ export default function OfflinePage() {
       </p>
       <Link
         href="/"
-        className="mt-2 inline-flex h-12 items-center rounded-lg bg-brand-700 px-5 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800"
+        className="mt-2 inline-flex h-12 items-center rounded-lg bg-action px-5 text-body-sm font-semibold text-action-fg shadow-e1 transition-colors hover:bg-brand-800"
       >
         Browse cached stations
       </Link>

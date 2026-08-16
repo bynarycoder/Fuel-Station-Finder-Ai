@@ -14,16 +14,90 @@
     "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
 
-  --brand-600: #059669;
-  --brand-700: #04795a;
-  --brand-800: #065f49;
-  --brand-900: #0a4d3c;
-  --accent-400: #fdb022;
-  --accent-500: #f79009;
-  --ink-900: #141b21;
-  --ink-500: #606e78;
-  --canvas: #f6f8f9;
-  --hairline: #e4e9ed;
+  /* ---------------------------------------------------------------------- */
+  /* LIGHT THEME (default)                                                   */
+  /*                                                                         */
+  /* Values are SPACE-SEPARATED RGB CHANNELS so Tailwind can apply opacity   */
+  /* modifiers (`bg-ink-900/45`). See tailwind.config.ts.                    */
+  /* ---------------------------------------------------------------------- */
+
+  /* Fuel Station Green — the brand ramp. 600/700 are the action colours. */
+  --brand-50: 236 253 246;
+  --brand-100: 209 250 233;
+  --brand-200: 166 244 213;
+  --brand-300: 110 231 189;
+  --brand-400: 52 211 160;
+  --brand-500: 0 155 85; /* #009B55 — spec primary */
+  --brand-600: 0 138 76; /* #008A4C — spec primary */
+  --brand-700: 4 121 90;
+  --brand-800: 6 95 73;
+  --brand-900: 10 77 60;
+  --brand-950: 2 44 34;
+
+  /* Warm harmattan amber — used sparingly for the single hero action. */
+  --accent-50: 255 250 235;
+  --accent-100: 254 240 199;
+  --accent-200: 254 223 137;
+  --accent-300: 254 200 75;
+  --accent-400: 253 176 34;
+  --accent-500: 247 144 9;
+  --accent-600: 220 104 3;
+  --accent-700: 181 71 8;
+  --accent-800: 147 55 13;
+  --accent-900: 122 46 14;
+
+  /* Neutral ramp: 50 = lightest fill … 900 = highest-contrast text. */
+  --ink-50: 248 250 251;
+  --ink-100: 241 244 246;
+  --ink-200: 228 232 230; /* #E4E8E6 — spec border */
+  --ink-300: 207 215 221;
+  --ink-400: 124 137 148;
+  --ink-500: 107 116 113; /* #6B7471 — spec secondary text */
+  --ink-600: 77 91 102;
+  --ink-700: 55 67 77;
+  --ink-800: 35 45 53;
+  --ink-900: 16 23 22; /* #101716 — spec primary text */
+
+  --success-soft: 236 253 243;
+  --success-border: 166 244 197;
+  --success: 3 152 85;
+  --success-strong: 2 122 72;
+  --warning-soft: 255 250 235;
+  --warning-border: 254 223 137;
+  --warning: 220 104 3;
+  --warning-strong: 181 71 8;
+  --danger-soft: 254 243 242;
+  --danger-border: 254 205 202;
+  --danger: 217 45 32;
+  --danger-strong: 180 35 24;
+  --info-soft: 239 248 255;
+  --info-border: 178 221 255;
+  --info: 23 92 211;
+  --info-strong: 24 73 169;
+
+  /* Solid brand action + its foreground (see tailwind.config role tokens).
+     The spec's #008A4C is 4.43:1 against white — just under WCAG AA for the
+     button labels sitting on it — so the FILL is darkened a touch to #008248
+     (4.9:1). The lighter spec green is retained as `brand-500/600` for tints,
+     chips and icons, so the palette still reads as the same brand. */
+  --action: 0 130 72; /* #008248 */
+  --action-hover: 4 110 62;
+  --action-fg: 255 255 255;
+
+  /* Always-dark brand slab + fixed foregrounds. */
+  --slab: 10 77 60;
+  --slab-fg: 255 255 255;
+  --slab-muted: 209 250 233;
+
+  --canvas: 247 248 247; /* #F7F8F7 — spec background */
+  --surface: 255 255 255; /* #FFFFFF — spec cards */
+  --elevated: 255 255 255;
+  --hairline: 228 232 230; /* #E4E8E6 — spec borders */
+
+  /* Leaflet tile surface, themed so the map never flashes the wrong shell. */
+  --map-shell: 223 230 234;
+  /* How much to desaturate/darken the OSM raster tiles in dark mode. */
+  --map-tile-filter: none;
 
   --radius-md: 0.625rem;
   --radius-lg: 0.875rem;
@@ -39,21 +113,117 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ======================================================================= */
+/* DARK THEME                                                              */
+/*                                                                         */
+/* An intentionally designed palette, not an inversion filter:             */
+/*  - deep desaturated navy surfaces (#0B1118 → #18232C), never pure black */
+/*    (pure black + OLED smearing makes scrolling maps feel cheap, and     */
+/*    kills the sense of elevation the sheet/card stack depends on);       */
+/*  - THE INK RAMP IS INVERTED — `ink-900` stays "highest contrast text",  */
+/*    so every existing `text-ink-900` / `text-ink-500` / `bg-ink-100`     */
+/*    usage in the product keeps its MEANING and themes automatically;     */
+/*  - brand green is lifted (#009B55 → a brighter mint at 500/600) because */
+/*    the light-mode green does not clear 4.5:1 on a dark surface;         */
+/*  - status "soft" fills become low-alpha tints of their hue instead of   */
+/*    near-white pastels, which would glare.                               */
+/* ======================================================================= */
+.dark {
+  /* Brand: lifted for contrast on dark surfaces; 600 is the action colour. */
+  --brand-50: 5 43 33;
+  --brand-100: 6 61 46;
+  --brand-200: 7 82 61;
+  --brand-300: 10 110 79;
+  --brand-400: 13 145 100;
+  --brand-500: 22 176 122;
+  --brand-600: 45 199 143; /* action + selected nav item */
+  --brand-700: 84 216 165;
+  --brand-800: 141 231 194;
+  --brand-900: 190 243 220;
+  --brand-950: 236 253 246;
+
+  --accent-50: 61 33 6;
+  --accent-100: 88 47 8;
+  --accent-200: 122 65 11;
+  --accent-300: 176 96 14;
+  --accent-400: 236 145 32;
+  --accent-500: 247 170 63;
+  --accent-600: 251 195 110;
+  --accent-700: 253 214 152;
+  --accent-800: 254 231 190;
+  --accent-900: 255 243 224;
+
+  /* Inverted neutral ramp: 50 = darkest fill … 900 = brightest text. */
+  --ink-50: 22 31 40;
+  --ink-100: 27 38 48;
+  --ink-200: 38 50 58; /* #26323A — spec dark border */
+  --ink-300: 52 67 78;
+  --ink-400: 130 143 138;
+  --ink-500: 170 181 176; /* #AAB5B0 — spec dark secondary text */
+  --ink-600: 193 203 198;
+  --ink-700: 214 222 217;
+  --ink-800: 231 238 233;
+  --ink-900: 244 247 245; /* #F4F7F5 — spec dark primary text */
+
+  --success-soft: 8 46 32;
+  --success-border: 12 84 56;
+  --success: 52 199 133;
+  --success-strong: 110 224 172;
+  --warning-soft: 56 34 8;
+  --warning-border: 99 60 12;
+  --warning: 240 160 52;
+  --warning-strong: 250 195 116;
+  --danger-soft: 62 24 22;
+  --danger-border: 106 38 34;
+  --danger: 248 113 100;
+  --danger-strong: 252 162 152;
+  --info-soft: 15 36 66;
+  --info-border: 26 62 110;
+  --info: 96 165 250;
+  --info-strong: 147 197 253;
+
+  /* Vivid mint fill with a near-black green label — the dark-theme
+     equivalent of "green button, white text", and far more readable than
+     white-on-mint (which is ~2:1 and fails AA). */
+  --action: 45 199 143;
+  --action-hover: 84 216 165;
+  --action-fg: 3 33 24;
+
+  /* The slab stays dark green in BOTH themes, so its foregrounds are fixed. */
+  --slab: 8 58 45;
+  --slab-fg: 255 255 255;
+  --slab-muted: 190 243 220;
+
+  --canvas: 11 17 24; /* #0B1118 — spec dark background */
+  --surface: 18 26 34; /* #121A22 — spec dark surface */
+  --elevated: 24 35 44; /* #18232C — spec dark elevated surface */
+  --hairline: 38 50 58; /* #26323A — spec dark border */
+
+  --map-shell: 15 22 30;
+  /* Raster OSM tiles have no dark variant; a measured invert+hue-rotate is
+     the standard technique and keeps roads/labels legible without turning
+     the map into a negative of itself. */
+  --map-tile-filter: invert(0.92) hue-rotate(180deg) brightness(0.95)
+    contrast(0.9) saturate(0.6);
+
+  color-scheme: dark;
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    color: var(--ink-900);
-    background: var(--canvas);
+    color: rgb(var(--ink-900));
+    background: rgb(var(--canvas));
     /* Prevent iOS rubber-banding from fighting the map/bottom sheet. */
     overscroll-behavior-y: none;
   }
 
   /* One consistent, visible focus treatment across the whole product. */
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--brand-600);
+    outline: 2px solid rgb(var(--brand-600));
     outline-offset: 2px;
     border-radius: var(--radius-md);
   }
@@ -67,8 +237,8 @@
   }
 
   ::selection {
-    background: #a6f4d5;
-    color: #022c22;
+    background: rgb(var(--brand-200));
+    color: rgb(var(--brand-950));
   }
 }
 
@@ -90,9 +260,9 @@
     @apply absolute inset-0 -translate-x-full animate-shimmer;
     background-image: linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0) 0,
-      rgba(255, 255, 255, 0.65) 60%,
-      rgba(255, 255, 255, 0)
+      rgb(var(--surface) / 0) 0,
+      rgb(var(--surface) / 0.65) 60%,
+      rgb(var(--surface) / 0)
     );
   }
 
@@ -159,19 +329,24 @@
 /* ======================================================================= */
 .leaflet-container {
   font: inherit;
-  background: #dfe6ea;
+  background: rgb(var(--map-shell));
+}
+
+/* Raster OSM tiles are light-only; dark mode filters them (see --map-tile-filter). */
+.leaflet-tile-pane {
+  filter: var(--map-tile-filter);
 }
 
 /* Leaflet's own chrome, restyled to the design system. */
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.82) !important;
+  background: rgb(var(--surface) / 0.85) !important;
   border-radius: 0.375rem 0 0 0;
-  color: #6b7a86 !important;
+  color: rgb(var(--ink-500)) !important;
   font-size: 10px !important;
   padding: 2px 6px !important;
 }
 .leaflet-control-attribution a {
-  color: #4d5b66 !important;
+  color: rgb(var(--ink-600)) !important;
 }
 
 .leaflet-popup-content-wrapper {
@@ -180,7 +355,14 @@
     0 8px 24px -6px rgb(20 27 33 / 0.18),
     0 18px 48px -12px rgb(20 27 33 / 0.2) !important;
   padding: 0 !important;
-  border: 1px solid var(--hairline);
+  border: 1px solid rgb(var(--hairline));
+}
+.leaflet-popup-content-wrapper {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--ink-900)) !important;
+}
+.leaflet-popup-tip {
+  background: rgb(var(--surface)) !important;
 }
 .leaflet-popup-content {
   margin: 0 !important;
@@ -194,7 +376,7 @@
   width: 28px !important;
   height: 28px !important;
   padding: 6px 0 0 0 !important;
-  color: #6b7a86 !important;
+  color: rgb(var(--ink-500)) !important;
 }
 
 /* ---- Station pins (divIcon-based, no default marker image paths) ------- */
@@ -248,7 +430,7 @@
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  background: rgba(23, 92, 211, 0.35);
+  background: rgb(var(--info) / 0.35);
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes pulse-ring {
@@ -266,8 +448,8 @@
   position: absolute;
   inset: 3px;
   border-radius: 9999px;
-  background: #175cd3;
-  border: 3px solid #ffffff;
+  background: rgb(var(--info));
+  border: 3px solid rgb(var(--surface));
   box-shadow: 0 1px 4px rgba(20, 27, 33, 0.35);
 }
 
@@ -284,13 +466,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(140deg, #04795a 0%, #065f49 100%);
-  color: #ffffff;
+  background: linear-gradient(
+    140deg,
+    rgb(var(--brand-600)) 0%,
+    rgb(var(--brand-800)) 100%
+  );
+  color: rgb(var(--surface));
   font-weight: 700;
   font-size: 13px;
   line-height: 1;
-  border: 3px solid #ffffff;
-  box-shadow: 0 3px 10px rgba(20, 27, 33, 0.28);
+  border: 3px solid rgb(var(--surface));
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.28);
   transition: transform var(--duration-base) var(--ease-entrance);
 }
 .fuel-cluster__label {

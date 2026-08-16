@@ -38,7 +38,7 @@ function MapLoading() {
       <div className="relative flex flex-col items-center gap-3">
         <span className="relative flex h-10 w-10 items-center justify-center">
           <span className="absolute inset-0 animate-pulse-ring rounded-pill bg-brand-500/40" />
-          <span className="relative h-4 w-4 rounded-pill border-[3px] border-white bg-brand-700 shadow-e1" />
+          <span className="relative h-4 w-4 rounded-pill border-[3px] border-surface bg-action shadow-e1" />
         </span>
         <p className="text-caption font-medium text-ink-500">Loading map…</p>
       </div>

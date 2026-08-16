@@ -3,10 +3,14 @@
 /**
  * StationCard — the product's primary decision unit.
  *
- * It answers, in this visual order, the six questions a driver actually has:
+ * Layout follows the reference design: a brand mark on the LEFT, the station
+ * identity and facts in the MIDDLE, and distance/price on the RIGHT, with a
+ * chevron affording "there is more inside".
+ *
+ * It still answers, in visual order, the six questions a driver actually has:
  *
  *   What?        station name (+ brand as the quieter prefix)
- *   Where?       distance
+ *   Where?       address, then distance
  *   What fuel?   PMS / AGO / DPK / LPG / CNG chips
  *   How much?    latest REPORTED price (never invented)
  *   Trustworthy? data source + verification, kept as separate facts
@@ -14,11 +18,16 @@
  *
  * Structure: a semantic <article> whose title is a button (selects the station
  * and opens detail). Secondary controls (favourite, Directions) are siblings,
- * never nested inside that button — the previous implementation nested a
- * role="button" and an <a> inside a <button>, which broke keyboard use.
+ * never nested inside that button — nesting a role="button" and an <a> inside
+ * a <button> breaks keyboard use.
+ *
+ * DATA HONESTY (unchanged, and covered by StationCard.test.tsx):
+ * - `data_source` and `verification_status` stay two separate rendered facts;
+ * - a missing price renders "No recent price", never a placeholder number;
+ * - availability is only claimed when a real report backs it.
  */
 
-import { Heart, Navigation, Sparkles } from "lucide-react";
+import { ChevronRight, Heart, Navigation, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -28,6 +37,7 @@ import {
   FuelAvailabilityBadge,
   PriceDisplay,
 } from "@/components/stations/facts";
+import { StationBrandMark } from "@/components/stations/StationBrandMark";
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import { Skeleton } from "@/components/ui/states";
 import type { StationItem } from "@/hooks/useStations";
@@ -81,7 +91,7 @@ export function StationCard({
       data-testid="station-card"
       aria-current={isSelected ? "true" : undefined}
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-surface transition-all duration-base ease-entrance",
+        "group relative overflow-hidden rounded-2xl border bg-surface transition-all duration-base ease-entrance",
         isSelected
           ? "border-brand-500 shadow-e2 ring-1 ring-brand-500"
           : "border-hairline shadow-e1 hover:border-brand-300 hover:shadow-e2",
@@ -89,34 +99,58 @@ export function StationCard({
       )}
     >
       {isClosest && (
-        <div className="flex items-center gap-1.5 bg-brand-800 px-4 py-1.5 text-label uppercase text-brand-100">
+        <div className="flex items-center gap-1.5 bg-slab px-4 py-1.5 text-label uppercase text-slab-muted">
           <Sparkles className="h-3 w-3" aria-hidden="true" />
           Closest to you
         </div>
       )}
 
-      <div className="p-4">
-        {/* Row 1 — What? + Where? */}
-        <div className="flex items-start justify-between gap-3">
+      <div className="p-3.5">
+        {/* Row 1 — logo · identity · distance, exactly as the reference. */}
+        <div className="flex items-start gap-3">
+          <StationBrandMark brand={station.brand} name={station.name} size="md" />
+
           <div className="min-w-0 flex-1">
             <h3 className="min-w-0">
               <button
                 type="button"
                 onClick={() => onSelect(station.id)}
-                className="block w-full truncate text-left text-h3 text-ink-900 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:underline"
+                className="flex w-full items-center gap-1 text-left text-h3 text-ink-900 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:underline"
                 aria-label={`${label} — view station details`}
               >
-                {brandPrefix && (
-                  <span className="font-medium text-ink-500">{brandPrefix} </span>
-                )}
-                {name}
+                <span className="min-w-0 truncate">
+                  {brandPrefix && (
+                    <span className="font-medium text-ink-500">{brandPrefix} </span>
+                  )}
+                  {name}
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-ink-400 transition-transform duration-base group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
               </button>
             </h3>
+
             {(station.address || station.city) && (
               <p className="mt-0.5 truncate text-caption text-ink-500">
                 {[station.address, station.city].filter(Boolean).join(", ")}
               </p>
             )}
+
+            {/* Price sits directly under the name — the reference gives it the
+                strongest treatment after the station name itself. */}
+            <div className="mt-1.5">
+              {pricesLoading && !headline ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <PriceDisplay
+                  price={headline?.price ?? null}
+                  fuelCode={headline?.price != null ? headline.fuelCode : undefined}
+                  size="sm"
+                  emphasis
+                />
+              )}
+            </div>
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -125,7 +159,7 @@ export function StationCard({
                 <DistanceDisplay
                   meters={station.distance_meters}
                   withIcon={false}
-                  className={isClosest ? "text-brand-950" : "text-ink-700"}
+                  className={isClosest ? "text-[#2b1a02]" : "text-ink-700"}
                 />
               </Badge>
             )}
@@ -140,7 +174,7 @@ export function StationCard({
                 aria-pressed={isFavorite}
                 onClick={() => onToggleFavorite(station.id)}
                 className={cn(
-                  "-mr-2 -mt-1 flex h-11 w-11 items-center justify-center rounded-lg transition-colors",
+                  "-mr-1.5 flex h-11 w-11 items-center justify-center rounded-lg transition-colors",
                   isFavorite
                     ? "text-accent-500 hover:bg-accent-50"
                     : "text-ink-300 hover:bg-ink-100 hover:text-accent-400",
@@ -155,41 +189,23 @@ export function StationCard({
           </div>
         </div>
 
-        {/* Row 2 — What fuel? + How much? */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {offered.length > 0 ? (
-              offered.map((fuel) => (
-                <FuelAvailabilityBadge
-                  key={fuel.code}
-                  code={fuel.code}
-                  availability={
-                    summary.byFuel.get(fuel.code)?.availability ?? "unknown"
-                  }
-                />
-              ))
-            ) : (
-              <span className="text-caption text-ink-500">
-                Fuel types not listed
-              </span>
-            )}
-          </div>
-
-          <div className="shrink-0">
-            {pricesLoading && !headline ? (
-              <Skeleton className="h-5 w-24" />
-            ) : (
-              <PriceDisplay
-                price={headline?.price ?? null}
-                fuelCode={headline?.price != null ? headline.fuelCode : undefined}
-                size="sm"
+        {/* Row 2 — What fuel? */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {offered.length > 0 ? (
+            offered.map((fuel) => (
+              <FuelAvailabilityBadge
+                key={fuel.code}
+                code={fuel.code}
+                availability={summary.byFuel.get(fuel.code)?.availability ?? "unknown"}
               />
-            )}
-          </div>
+            ))
+          ) : (
+            <span className="text-caption text-ink-500">Fuel types not listed</span>
+          )}
         </div>
 
-        {/* Row 3 — Can I trust this? */}
-        <div className="mt-3">
+        {/* Row 3 — Can I trust this? (source and verification stay distinct) */}
+        <div className="mt-2.5">
           <StationProvenanceBadge
             dataSource={station.data_source}
             verificationStatus={station.verification_status}

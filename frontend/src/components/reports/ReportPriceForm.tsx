@@ -36,7 +36,7 @@
  * type a price.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -45,6 +45,7 @@ import {
   Check,
   CheckCircle2,
   Loader2,
+  RefreshCw,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -91,6 +92,29 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
   // a selection.
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  /**
+   * Object URL for the staged photo's preview thumbnail.
+   *
+   * Derived state ONLY — it is created from, and revoked with, `photo`, and
+   * has no influence on validation or submission. Revoking on change/unmount
+   * matters because an un-revoked object URL pins the whole image in memory,
+   * which on a phone with a 5 MB photo is a real leak.
+   *
+   * `createObjectURL` is feature-detected so the form still renders in jsdom.
+   */
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!photo || typeof URL?.createObjectURL !== "function") {
+      setPhotoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPhotoPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL?.(url);
+    };
+  }, [photo]);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   // Guards a second submit slipping through before React re-renders the
@@ -238,7 +262,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
             <span
               className={cn(
                 "h-1 rounded-pill transition-colors duration-base",
-                i <= step ? "bg-brand-600" : "bg-ink-200",
+                i <= step ? "bg-action" : "bg-ink-200",
               )}
             />
             <span
@@ -280,7 +304,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                       className={cn(
                         "inline-flex h-11 items-center rounded-lg border px-3.5 text-body-sm font-semibold transition-colors",
                         fuelType === code
-                          ? "border-brand-700 bg-brand-700 text-white"
+                          ? "border-action bg-action text-action-fg"
                           : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
                       )}
                     >
@@ -337,7 +361,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                       className={cn(
                         "flex h-12 items-center justify-center rounded-lg border px-3 text-body-sm font-semibold transition-colors",
                         queue === q
-                          ? "border-brand-700 bg-brand-700 text-white"
+                          ? "border-action bg-action text-action-fg"
                           : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
                       )}
                     >
@@ -364,56 +388,83 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
           {step === 2 && (
             <div className="space-y-5 animate-fade-in">
               <Field
-                label="Add a photo"
-                hint="Optional, but photos get verified faster."
+                label="Photo (Optional)"
+                hint="Add a clear photo of the price board — photos get verified faster."
               >
-                <label
-                  className={cn(
-                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-                    photo
-                      ? "border-brand-400 bg-brand-50"
-                      : "border-ink-200 bg-ink-50 hover:border-brand-300",
+                {/* Reference layout: staged preview on the LEFT, the dashed
+                    browse target on the RIGHT. With no photo yet the target
+                    takes the full width, so the first-run state is not a
+                    half-empty row. */}
+                <div className="flex items-stretch gap-3">
+                  {photo && (
+                    <div
+                      className="relative h-32 w-32 shrink-0 overflow-hidden rounded-xl border border-hairline bg-ink-100"
+                      data-testid="photo-preview"
+                    >
+                      {photoPreviewUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photoPreviewUrl}
+                          alt={`Selected photo: ${photo.name}`}
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={removePhoto}
+                        aria-label={`Remove photo ${photo.name}`}
+                        className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-pill bg-ink-900/70 text-white transition-colors hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
                   )}
-                >
-                  <span
+
+                  <label
                     className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-pill",
-                      photo ? "bg-brand-600 text-white" : "bg-surface text-ink-500",
+                      "flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-6 text-center transition-colors",
+                      photo
+                        ? "border-brand-400 bg-brand-50"
+                        : "border-ink-200 bg-ink-50 hover:border-brand-300",
                     )}
                   >
-                    {photo ? (
-                      <Check className="h-5 w-5" aria-hidden="true" />
-                    ) : (
-                      <Camera className="h-5 w-5" aria-hidden="true" />
-                    )}
-                  </span>
-                  <span className="max-w-full break-all text-body-sm font-semibold text-ink-800">
-                    {photo ? photo.name : "Take or choose a photo"}
-                  </span>
-                  {/* A visible, button-shaped affordance: on a phone the label
-                      IS the picker trigger, so it must look tappable. It stays
-                      a <span> — a nested <button> would swallow the click and
-                      never open the file picker. */}
-                  <span className="inline-flex min-h-touch items-center rounded-lg border border-brand-300 bg-surface px-4 text-body-sm font-semibold text-brand-800 shadow-e1">
-                    {photo ? "Choose a different photo" : "Browse photos"}
-                  </span>
-                  <span className="text-caption text-ink-500">
-                    JPEG, PNG or WebP · up to 5 MB
-                  </span>
-                  {/* Selecting a file ONLY stages it. The upload happens with
-                      the report when the user taps Submit. */}
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept={ACCEPT_ATTRIBUTE}
-                    className="sr-only"
-                    aria-label="Take or choose a photo"
-                    aria-invalid={photoError ? true : undefined}
-                    aria-describedby={photoError ? "report-photo-error" : undefined}
-                    data-testid="report-photo-input"
-                    onChange={handlePhotoChange}
-                  />
-                </label>
+                    <span
+                      className={cn(
+                        "flex h-11 w-11 items-center justify-center rounded-pill",
+                        photo ? "bg-action text-action-fg" : "bg-surface text-ink-500",
+                      )}
+                    >
+                      {photo ? (
+                        <Check className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <Camera className="h-5 w-5" aria-hidden="true" />
+                      )}
+                    </span>
+                    {/* A visible, button-shaped affordance: on a phone the label
+                        IS the picker trigger, so it must look tappable. It stays
+                        a <span> — a nested <button> would swallow the click and
+                        never open the file picker. */}
+                    <span className="inline-flex min-h-touch items-center rounded-lg border border-brand-300 bg-surface px-4 text-body-sm font-semibold text-brand-800 shadow-e1">
+                      {photo ? "Choose a different photo" : "Browse photos"}
+                    </span>
+                    <span className="text-caption text-ink-500">
+                      JPEG, PNG or WebP · up to 5 MB
+                    </span>
+                    {/* Selecting a file ONLY stages it. The upload happens with
+                        the report when the user taps Submit. */}
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept={ACCEPT_ATTRIBUTE}
+                      className="sr-only"
+                      aria-label="Take or choose a photo"
+                      aria-invalid={photoError ? true : undefined}
+                      aria-describedby={photoError ? "report-photo-error" : undefined}
+                      data-testid="report-photo-input"
+                      onChange={handlePhotoChange}
+                    />
+                  </label>
+                </div>
 
                 {photo && (
                   <div
@@ -427,11 +478,12 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                     </p>
                     <button
                       type="button"
-                      onClick={removePhoto}
-                      className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-caption font-semibold text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+                      onClick={() => photoInputRef.current?.click()}
+                      aria-label={`Replace photo ${photo.name}`}
+                      className="flex min-h-touch shrink-0 items-center gap-1 rounded-md px-2 text-caption font-semibold text-ink-600 hover:bg-ink-100 hover:text-ink-900"
                     >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                      Remove
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                      Replace
                     </button>
                   </div>
                 )}

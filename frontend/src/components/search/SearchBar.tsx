@@ -71,7 +71,7 @@ export function SearchBar({
   value,
   onSearch,
   onAsk,
-  placeholder = "Search a station, or ask for the cheapest petrol",
+  placeholder = "Search stations, areas or fuel...",
   className,
   recent,
   onClearRecent,
@@ -116,7 +116,7 @@ export function SearchBar({
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-xl border bg-surface pl-3 pr-1.5 shadow-e1 transition-all duration-base",
+          "flex items-center gap-2 rounded-xl border bg-surface pl-3.5 pr-1.5 shadow-e1 transition-all duration-base",
           focused
             ? "border-brand-500 shadow-e2 ring-2 ring-brand-500/20"
             : "border-hairline",
@@ -144,7 +144,7 @@ export function SearchBar({
           placeholder={placeholder}
           aria-label="Search stations or ask Fuel Intelligence"
           aria-describedby="search-mode-hint"
-          className="h-12 min-w-0 flex-1 bg-transparent text-body text-ink-900 placeholder:text-ink-400 focus:outline-none pointer-coarse:text-[16px] [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
 
         {text && (
@@ -168,9 +168,12 @@ export function SearchBar({
           disabled={!text.trim()}
           aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
           className={cn(
-            "flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-body-sm font-semibold transition-all duration-fast disabled:opacity-40 pointer-coarse:min-h-touch",
+            "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-body-sm font-semibold",
+            "transition-all duration-fast active:scale-[0.97] disabled:opacity-40",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
+            "pointer-coarse:min-h-touch",
             isQuestion
-              ? "bg-brand-700 text-white hover:bg-brand-800"
+              ? "bg-action text-action-fg hover:bg-action-hover"
               : "bg-ink-100 text-ink-700 hover:bg-ink-200",
           )}
         >

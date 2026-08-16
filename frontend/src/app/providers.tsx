@@ -4,6 +4,7 @@ import React, { Component, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ErrorState } from "@/components/ui/states";
 
 interface ProvidersProps {
@@ -88,7 +89,9 @@ export default function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppErrorBoundary>{children}</AppErrorBoundary>
+      <ThemeProvider>
+        <AppErrorBoundary>{children}</AppErrorBoundary>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

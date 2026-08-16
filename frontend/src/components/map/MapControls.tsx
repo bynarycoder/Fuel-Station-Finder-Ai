@@ -60,7 +60,7 @@ export function MapControls({
           "flex h-11 w-11 items-center justify-center rounded-lg border shadow-e2 transition-colors duration-fast",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2",
           tracking
-            ? "border-brand-600 bg-brand-700 text-white hover:bg-brand-800"
+            ? "border-action bg-action text-action-fg hover:bg-action-hover"
             : "border-hairline bg-surface text-ink-700 hover:bg-ink-50",
           locating && "opacity-70",
         )}
