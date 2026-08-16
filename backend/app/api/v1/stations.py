@@ -30,6 +30,7 @@ from app.schemas import (
 from app.services import stations as station_service
 from app.services.ai import AINotConfiguredError
 from app.services.ai.nl_search import parse_natural_query
+from app.services.ai.provider import AIProviderError
 
 router = APIRouter(prefix="/stations", tags=["Fuel Stations"])
 
@@ -121,6 +122,13 @@ async def natural_language_search(
         parsed = parse_natural_query(q)
     except AINotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except AIProviderError as exc:
+        # Provider outage (timeout / rate limit / auth / retired model). The
+        # category is safe to expose; it never contains keys or user content.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"Natural-language search is temporarily unavailable ({exc.category}).",
+        ) from exc
 
     filters = station_service.StationFilters(
         brand=parsed.brand,

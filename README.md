@@ -268,16 +268,37 @@ Report *reads* are now **public** (community feed) and always exclude rejected r
 
 Two AI capabilities, each behind a config gate (graceful 503 when its API key is absent) and split into a deterministic, unit-tested parser + the network call:
 
+### AI provider responsibility map
+
+| User action | Provider | Endpoint | Service | Model | Output |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| General/conversational question | **Groq** | `POST /api/v1/ai/chat` (and `/ai/recommend` when the message isn't a search) | `services/ai/chat.py` | `GROQ_MODEL` | natural-language answer + `answer_source` |
+| Station recommendation | **Groq** + station DB | `POST /api/v1/ai/recommend` | `services/ai/recommend.py` | `GROQ_MODEL` | intent, ranked stations, factual explanation |
+| Natural-language catalogue search | **Groq** | `GET /api/v1/stations/search` | `services/ai/nl_search.py` | `GROQ_MODEL` | structured filters + matching stations |
+| Report photo verification | **Gemini** | `POST /api/v1/reports/{id}/verify` (Admin) | `services/ai/gemini.py` | `GEMINI_MODEL` | `score`, `is_plausible`, `summary`, `detected_attributes` |
+| Provider health | – | `GET /api/v1/ai/diagnostic[?live=true]` | `api/v1/ai_diag.py` | both | per-check PASS/FAIL + safe error category |
+
+Groq is never used for image verification and Gemini is never used for
+conversation, recommendations or intent extraction.
+
 ### 1. Gemini queue-image verification (`app/services/ai/gemini.py`)
 - `POST /api/v1/reports/{id}/verify` (Admin) reads a report's stored photo, sends it to Gemini, and returns a **validation score** (0.0–1.0), plausibility flag, summary and detected attributes.
+- SDK: the supported **`google-genai`** client (the legacy `google-generativeai` package reached end-of-life on 30 Nov 2025). Model: `GEMINI_MODEL` — **must be a currently supported multimodal model**; `gemini-1.5-flash` was shut down on 29 Sep 2025 and returns 404 for every request.
+- Failure policy: a missing key raises a clean 503; any provider failure (timeout, rate limit, auth, retired model, malformed JSON) returns a **zero-confidence** result with a safe error category, and the endpoint answers 503 — a Gemini outage can never mark a report `verified`.
 - High-confidence photos (score ≥ 0.7) **auto-promote** the report to `verified` (with `verified_at`); lower scores stay `pending` for manual review.
 - `build_verification_prompt` / `parse_verification_response` are pure & tested (JSON extraction, score clamping, safe defaults on malformed output).
 
-### 2. Groq natural-language search (`app/services/ai/nl_search.py`)
+### 2. Groq conversational assistant (`app/services/ai/chat.py`)
+- `POST /api/v1/ai/chat` (public) answers general questions — *"Hello, what can you help me with?"*, *"Why should I verify a reported price?"*, *"What fuel types can I report?"* — with Groq **GPT-OSS 20B**.
+- A deterministic router (`classify_query`) decides SEARCH vs. CONVERSATION, so the single "Ask Fuel AI" box handles both and a provider outage can never silently change which feature runs. `POST /ai/recommend` uses the same router and answers non-search messages conversationally (`mode: "conversation"`, no location required).
+- The system prompt is built from the app's own catalogue (`FuelTypeCode`, `QueueLength`, `ReportStatus`) and forbids inventing stations, prices or verification claims; live facts only ever come from the recommendation pipeline.
+- When Groq is unavailable a deterministic help text is returned and labelled `answer_source: "fallback"` — the UI renders "answered without AI" so a fallback is never mistaken for a working AI.
+
+### 3. Groq natural-language search (`app/services/ai/nl_search.py`)
 - `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq **GPT-OSS 20B** (`openai/gpt-oss-20b`), then returns the matching stations plus the parsed intent.
 - `build_system_prompt` / `to_parsed_query` are pure & tested (enum normalisation/validation, casual-term mapping).
 
-### 3. Fuel Intelligence — AI station recommendations (`app/services/ai/recommend.py`)
+### 4. Fuel Intelligence — AI station recommendations (`app/services/ai/recommend.py`)
 - `POST /api/v1/ai/recommend` (public) — the AI assistant that answers questions like *"Find the cheapest petrol near me"*, *"closest CNG"*, *"diesel under ₦1000"*, *"which nearby station is most reliable?"*.
 - The Groq provider is configured via `GROQ_MODEL` (default **`openai/gpt-oss-20b`**). Groq performs **two** operations — **intent extraction** (natural-language query → structured `FuelSearchIntent`) and the optional **factual explanation** (ranked DB facts → natural-language answer). Both use the existing timeout (`AI_TIMEOUT_SECONDS`) and graceful-degradation behaviour.
 - Pipeline (the AI never touches the database): Groq **intent extraction** → existing **nearby station API** (PostGIS) → crowd-sourced **price facts** from reports → **deterministic ranking** → Groq **explanation** limited to the returned facts.
@@ -287,7 +308,14 @@ Two AI capabilities, each behind a config gate (graceful 503 when its API key is
 - Frontend: the **🤖 Fuel AI** panel on the home page (reuses the real geolocation fix, station provenance badges and Directions links).
 
 ### Shared
-`app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`. The Gemini/Groq SDKs are imported lazily inside the call functions, so the app starts even without keys.
+`app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`.
+
+`app/services/ai/provider.py` is the single place that builds the Groq client and issues chat completions:
+- `timeout` (`AI_TIMEOUT_SECONDS`) and `max_retries` (`AI_MAX_RETRIES`) are set on the **client constructor**. `max_retries` is *not* a valid `chat.completions.create()` keyword — passing it there raises `TypeError` before any HTTP request, which is exactly the production regression this centralisation prevents from reappearing.
+- every failure is classified into a safe category (`TIMEOUT`, `RATE_LIMITED`, `AUTH_ERROR`, `MODEL_NOT_FOUND`, `BAD_REQUEST`, `NETWORK_ERROR`, `EMPTY_RESPONSE`, `SDK_PARAMETER_ERROR`, `PROVIDER_ERROR`) and logged as `[AI] provider=… feature=… model=… category=… status=…`. **No key, header, prompt or user content is ever logged.**
+- an empty/blank completion is treated as a failure, not as an answer.
+
+Both SDKs are imported lazily inside the call functions, so the app starts even without keys.
 
 ---
 

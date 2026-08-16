@@ -119,7 +119,7 @@ class TestIntentExtraction:
         assert call["response_format"] == {"type": "json_object"}
         # max_retries MUST live on the client, NOT on create() — this is the
         # production regression (TypeError) we're guarding against.
-        assert init_kwargs["max_retries"] == 0
+        assert init_kwargs["max_retries"] == config.settings.AI_MAX_RETRIES
         assert init_kwargs["timeout"] == config.settings.AI_TIMEOUT_SECONDS
         assert "max_retries" not in call, "max_retries is not a valid create() kwarg"
 
@@ -196,7 +196,7 @@ class TestExplanationGeneration:
         init_kwargs = client_calls[0]
         assert call["model"] == NEW_MODEL
         assert call["response_format"] == {"type": "json_object"}
-        assert init_kwargs["max_retries"] == 0
+        assert init_kwargs["max_retries"] == config.settings.AI_MAX_RETRIES
         assert init_kwargs["timeout"] == config.settings.AI_TIMEOUT_SECONDS
         assert "max_retries" not in call
         assert "Cheap Co" in answer
@@ -249,7 +249,7 @@ class TestFallbackAndTimeout:
         parsed = nl_search.parse_natural_query("short petrol near Ikeja")
         assert create_calls[0]["model"] == NEW_MODEL
         assert create_calls[0]["response_format"] == {"type": "json_object"}
-        assert client_calls[0]["max_retries"] == 0
+        assert client_calls[0]["max_retries"] == config.settings.AI_MAX_RETRIES
         assert "max_retries" not in create_calls[0]
         assert parsed.fuel_type == "PMS"
         assert parsed.city == "Ikeja"

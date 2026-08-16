@@ -67,8 +67,9 @@ class FuelSearchIntentPublic(BaseModel):
 class AIRecommendRequest(BaseModel):
     """Request body for ``POST /api/v1/ai/recommend``.
 
-    Coordinates are optional: without them the assistant responds with a
-    "needs your location" answer rather than inventing a position.
+    Coordinates are optional: without them a *station search* responds with a
+    "needs your location" answer rather than inventing a position, while a
+    conversational question is answered without any location at all.
     """
 
     query: str = Field(min_length=1, max_length=300)
@@ -107,15 +108,49 @@ class AIRecommendation(BaseModel):
 class AIRecommendResponse(BaseModel):
     """Response of ``POST /api/v1/ai/recommend``.
 
+    ``mode`` says which Groq responsibility answered the message:
+
+    * ``"recommendation"`` — a station search ran (intent extraction → nearby
+      query → deterministic ranking → factual explanation);
+    * ``"conversation"`` — the user asked a general question and Groq answered
+      it directly; ``recommendations`` is empty and no location is required.
+
     ``intent_source`` / ``answer_source`` say whether Groq actually produced
-    that part (``"groq"``) or the deterministic fallback did (``"fallback"``)
-    — so clients never mistake a template answer for an LLM one.
+    that part (``"groq"``), the deterministic fallback did (``"fallback"``),
+    or the step does not apply (``"not_applicable"``, conversation mode) — so
+    clients never mistake a template answer for an LLM one.
     """
 
     query: str
+    mode: str = "recommendation"
     intent: FuelSearchIntentPublic | None = None
     intent_source: str = "fallback"
     answer_source: str = "fallback"
     needs_location: bool = False
     recommendations: list[AIRecommendation] = Field(default_factory=list)
     answer: str
+
+
+# --------------------------------------------------------------------------- #
+# Conversational assistant (Groq)
+# --------------------------------------------------------------------------- #
+class AIChatRequest(BaseModel):
+    """Request body for ``POST /api/v1/ai/chat`` (general Groq Q&A)."""
+
+    message: str = Field(min_length=1, max_length=1000)
+
+
+class AIChatResponse(BaseModel):
+    """Response of ``POST /api/v1/ai/chat``.
+
+    ``answer_source`` is ``"groq"`` only when the model actually produced the
+    text; a deterministic safety answer is always labelled ``"fallback"``.
+    ``mode`` echoes the router's decision so a client can hand a station search
+    to ``/ai/recommend`` instead of getting a chatty non-answer.
+    """
+
+    message: str
+    answer: str
+    answer_source: str = "fallback"
+    mode: str = "conversation"
+    model: str

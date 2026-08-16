@@ -68,11 +68,17 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
    - `SUPABASE_JWKS_CACHE_TTL_SECONDS` — `300` (optional; the default is five minutes).
    - `GEMINI_API_KEY`, `GROQ_API_KEY` — optional; enable AI features.
    - `GROQ_MODEL` — `openai/gpt-oss-20b` (the current default; set it explicitly to
-     be unambiguous). Groq GPT-OSS 20B powers Fuel Intelligence **intent extraction**
-     and the optional **factual explanation** only — the LLM never picks the final
-     station. Deterministic, database-driven ranking remains authoritative, so
-     station names/prices/distances/verification all come from the station API and
+     be unambiguous). Groq GPT-OSS 20B powers the **conversational assistant**,
+     Fuel Intelligence **intent extraction** and the optional **factual
+     explanation** only — the LLM never picks the final station. Deterministic,
+     database-driven ranking remains authoritative, so station
+     names/prices/distances/verification all come from the station API and
      fuel reports.
+   - `GEMINI_MODEL` — `gemini-3.5-flash-lite` (report photo verification).
+     **Set this explicitly.** The old default `gemini-1.5-flash` was shut down by
+     Google on 29 Sep 2025 and returns 404 for every request, which silently
+     disabled photo verification while the API key still looked "configured".
+     Changing it in Render requires a redeploy/restart to take effect.
    - `CORS_ORIGINS` — comma-separated, **must include your Vercel frontend URL**, e.g.
      `https://fuel-station-finder-omega.vercel.app`.
 
@@ -116,6 +122,16 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 - [ ] `CORS_ORIGINS` on the backend includes the Vercel origin (no CORS errors).
 - [ ] Sign in at `/admin` with an admin account → analytics/moderation render.
 - [ ] (Optional) Set `GEMINI_API_KEY`/`GROQ_API_KEY` and test AI verification & NL search.
+- [ ] Run the provider diagnostic: `GET /api/v1/ai/diagnostic` (cheap) and, once per deploy,
+      `GET /api/v1/ai/diagnostic?live=true` — it performs a Groq smoke test
+      (`GROQ_SMOKE_TEST_OK`), checks that `GEMINI_MODEL` is actually served to your
+      key (`model_available`) and makes one minimal live Gemini request. No secret
+      is ever returned. `FAIL: MODEL_NOT_FOUND` means the configured model was
+      retired — update `GEMINI_MODEL`/`GROQ_MODEL` and redeploy.
+- [ ] Ask the assistant a normal question ("What can you help me with?"). The panel must
+      show an answer labelled **AI answer**; "answered without AI" means Groq failed and
+      the deterministic fallback replied — check the diagnostic and the Render logs
+      (`[AI] provider=groq … category=…`).
 - [ ] Try **Fuel AI** (`POST /api/v1/ai/recommend`, header "🤖 Fuel AI" on the home page): *"Find the cheapest petrol near me"*. With `GROQ_API_KEY` set, Groq **GPT-OSS 20B** performs intent extraction + the explanation; without it the endpoint answers via the deterministic fallback (flagged as `"fallback"` via `intent_source`/`answer_source`). Confirm the model is `openai/gpt-oss-20b` (see Render env `GROQ_MODEL`).
 - [ ] (Optional) Configure durable media storage (Render Disk or Supabase Storage).
 
@@ -137,9 +153,11 @@ The repo includes a [`render.yaml`](./render.yaml) Blueprint.
 | `SUPABASE_JWKS_CACHE_TTL_SECONDS` | – | `300` |
 | `CORS_ORIGINS` | ✔ | `https://fuel-station-finder-omega.vercel.app` |
 | `GEMINI_API_KEY` | – | (Google AI Studio) |
-| `GROQ_API_KEY` | – | (Groq console) — powers NL search & Fuel AI recommendations |
-| `GEMINI_MODEL` / `GROQ_MODEL` | – | defaults: `gemini-1.5-flash` / `openai/gpt-oss-20b`. GPT-OSS 20B performs Groq intent extraction + optional factual explanation only; final station selection stays deterministic |
+| `GROQ_API_KEY` | – | (Groq console) — powers the conversational assistant, NL search & Fuel AI recommendations |
+| `GROQ_MODEL` | – | default `openai/gpt-oss-20b`. Conversation + intent extraction + optional factual explanation; final station selection stays deterministic |
+| `GEMINI_MODEL` | – | default `gemini-3.5-flash-lite` — report photo verification. **Never** `gemini-1.5-flash` (shut down 29 Sep 2025, returns 404) |
 | `AI_TIMEOUT_SECONDS` | – | default `12` — per-call timeout for AI HTTP calls |
+| `AI_MAX_RETRIES` | – | default `1` — SDK-level retries for transient provider failures (client constructor only) |
 | `AI_RECOMMEND_CACHE_TTL_SECONDS` | – | default `300` — in-memory TTL for AI recommendation results |
 | `MEDIA_DIR` / `MEDIA_URL` | – | defaults: `media` / `/media` |
 

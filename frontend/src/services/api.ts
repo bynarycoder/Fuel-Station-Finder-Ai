@@ -17,6 +17,7 @@ import type { GeocodePlace, GeocodeSearchResponse } from "@/types/geocode";
 import type { PaginatedUsers, User } from "@/types/user";
 import type { AdminAnalytics } from "@/types/admin";
 import type {
+  AIChatResponse,
   AIRecommendRequest,
   AIRecommendResponse,
 } from "@/types/ai";
@@ -319,6 +320,18 @@ export function requestAiRecommendation(input: AIRecommendRequest) {
   });
 }
 
+/**
+ * Ask the assistant a general question (conversational Groq). No location and
+ * no station data are involved; `answer_source` says whether Groq actually
+ * answered or the deterministic safety text was used.
+ */
+export function requestAiChat(message: string) {
+  return request<AIChatResponse>("/ai/chat", {
+    method: "POST",
+    body: { message },
+  });
+}
+
 // --------------------------------------------------------------------------- #
 // Reports (public feed)
 // --------------------------------------------------------------------------- #
@@ -376,7 +389,9 @@ export async function submitReport(input: SubmitReportInput): Promise<FuelReport
     form.set("notes", input.notes);
   }
   if (input.photo) {
-    form.append("photo", input.photo);
+    // The File itself (with its filename) is appended, so the backend receives
+    // a real multipart file part — never a JSON blob or a bare name.
+    form.append("photo", input.photo, input.photo.name);
   }
 
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -397,9 +412,33 @@ export async function submitReport(input: SubmitReportInput): Promise<FuelReport
     throw new ApiError(401, "You must be signed in to report a price.");
   }
   if (!response.ok) {
-    throw new ApiError(response.status, `Report submission failed (${response.status}).`);
+    // Surface the backend's own message (unsupported image type, image too
+    // large, station not found, ...) so the user gets an actionable error
+    // instead of a bare status code.
+    throw new ApiError(response.status, await readErrorMessage(response));
   }
   return (await response.json()) as FuelReport;
+}
+
+/** Extract a human-readable message from an error response body. */
+async function readErrorMessage(response: Response): Promise<string> {
+  const fallback =
+    response.status === 413
+      ? "That photo is too large for the server. Choose a smaller image."
+      : `Report submission failed (${response.status}).`;
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    const detail = body?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    // FastAPI validation errors arrive as a list of objects.
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: unknown };
+      if (typeof first?.msg === "string" && first.msg.trim()) return first.msg;
+    }
+  } catch {
+    // Non-JSON body — fall through to the generic message.
+  }
+  return fallback;
 }
 
 // --------------------------------------------------------------------------- #

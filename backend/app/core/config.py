@@ -33,13 +33,26 @@ class Settings(BaseSettings):
     # AI APIs
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
-    # Groq model powering Fuel Intelligence intent extraction and (optional)
-    # factual explanation generation, plus natural-language station search.
+    # Gemini model used for report-photo verification (multimodal).
+    #
+    # IMPORTANT: gemini-1.5-flash (the previous default) was SHUT DOWN on
+    # 29 Sep 2025 and now returns 404 for every request, which silently broke
+    # photo verification in production. Keep this pointed at a currently
+    # supported multimodal Flash model; override per environment when Google
+    # retires a generation (see https://ai.google.dev/gemini-api/docs/models).
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    # Groq model powering Fuel Intelligence intent extraction, conversational
+    # answers and (optional) factual explanation generation, plus
+    # natural-language station search.
     GROQ_MODEL: str = "openai/gpt-oss-20b"
     # Per-call timeout for AI HTTP calls (seconds). Failures degrade to the
     # deterministic intent parser / template answers instead of erroring.
     AI_TIMEOUT_SECONDS: float = 12.0
+    # SDK-level retry attempts for transient provider failures (connection
+    # errors, 408/429/5xx). Set on the CLIENT CONSTRUCTOR only — passing
+    # max_retries to Groq's chat.completions.create() raises TypeError.
+    # Worst-case latency stays AI_TIMEOUT_SECONDS * (AI_MAX_RETRIES + 1).
+    AI_MAX_RETRIES: int = 1
     # In-memory TTL for computed AI recommendations (seconds). Keyed by
     # (query, rounded lat/lon) so repeated asks don't re-invoke the LLM.
     AI_RECOMMEND_CACHE_TTL_SECONDS: int = 300

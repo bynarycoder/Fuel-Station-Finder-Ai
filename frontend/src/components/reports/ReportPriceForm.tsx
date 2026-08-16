@@ -11,26 +11,49 @@
  * station_id, fuel_type_code, price_per_litre, optional queue_length, notes
  * and photo — exactly what the backend's Form/UploadFile handler expects.
  *
+ * SUBMISSION STATE MACHINE (regression-guarded by ReportPriceForm.test.tsx).
+ * A report used to be submittable by things that are not the Submit button:
+ * the browser's *implicit submission* (Enter in the price field, or Enter
+ * while the hidden file input had focus) fired the form's submit handler, so a
+ * report could be sent — with no photo attached — while the user was still
+ * choosing one. The fix, in order of importance:
+ *
+ *   1. The <form> never submits. `onSubmit` only calls preventDefault(); it
+ *      NEVER creates a report. Implicit submission is therefore inert.
+ *   2. The only path to `POST /reports` is tapping "Submit price report"
+ *      (an explicit type="button" handler).
+ *   3. Selecting a photo only moves it to a PENDING state. The file is
+ *      uploaded as part of that one multipart submit — never before it, and
+ *      never as a side effect of opening the picker.
+ *   4. Cancelling the picker (an onChange with an empty FileList in some
+ *      browsers) changes nothing: no submit, no cleared fields, no success.
+ *   5. Success is shown ONLY after the backend confirms with a persisted
+ *      report id. An upload/validation/network failure keeps the form (and the
+ *      selected photo) intact so the user can retry.
+ *
  * Smart defaults: the fuel selector is seeded from the fuels this station
  * actually lists (falling back to the canonical codes), so most users only
  * type a price.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertCircle,
   ArrowLeft,
   Camera,
   Check,
   CheckCircle2,
   Loader2,
   ShieldCheck,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DialogHeader } from "@/components/ui/Sheet";
 import { ApiError, submitReport, type SubmitReportInput } from "@/services/api";
 import { validatePrice } from "@/lib/pricing";
+import { ACCEPT_ATTRIBUTE, validatePhotoFile } from "@/lib/upload";
 import { stationLabel } from "@/lib/stationName";
 import { cn } from "@/lib/utils";
 import {
@@ -63,14 +86,25 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
   const [price, setPrice] = useState("");
   const [queue, setQueue] = useState<QueueLength | "">("");
   const [notes, setNotes] = useState("");
+  // Photo states are deliberately separate from submission states: a selected
+  // photo is PENDING until the user submits, and a rejected file never becomes
+  // a selection.
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  // Guards a second submit slipping through before React re-renders the
+  // disabled button (double-tap / double Enter).
+  const submittingRef = useRef(false);
 
   const mutation = useMutation({
     mutationFn: (vars: SubmitReportInput) => submitReport(vars),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reports", "station", station.id] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+    onSettled: () => {
+      submittingRef.current = false;
     },
   });
 
@@ -86,15 +120,66 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
     setStep((s) => Math.min(STEPS.length - 1, s + 1));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  /**
+   * The form element never submits a report. Implicit submission (Enter in a
+   * field, Enter on the focused file input, a stray label activation) lands
+   * here and is swallowed, so choosing a photo can never create a report.
+   */
+  function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+  }
+
+  /** File chosen (or picker cancelled) — this NEVER submits the report. */
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const selected = input.files?.[0] ?? null;
+
+    // Cancelled picker: some browsers fire change with an empty FileList.
+    // Keep the current state exactly as it was — no submit, no clearing.
+    if (!selected) {
+      input.value = "";
+      return;
+    }
+
+    const result = validatePhotoFile(selected);
+    // Reset the input so re-picking the SAME file fires change again.
+    input.value = "";
+
+    if (!result.ok) {
+      setPhoto(null);
+      setPhotoError(result.error);
+      return;
+    }
+    setPhotoError(null);
+    setPhoto(result.file);
+  }
+
+  function removePhoto() {
+    setPhoto(null);
+    setPhotoError(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  }
+
+  /**
+   * The ONLY path that creates a report. Validates first, then sends one
+   * multipart request (fields + photo). Success is rendered only after the
+   * backend confirms.
+   */
+  function handleSubmitClick() {
+    if (submittingRef.current || mutation.isPending) return;
+
     const priceResult = validatePrice(price);
     if (!priceResult.ok) {
       setFieldError(priceResult.error);
       setStep(0);
       return;
     }
+    if (photoError) {
+      // An invalid file must be resolved (or removed) before submitting.
+      return;
+    }
     setFieldError(null);
+    submittingRef.current = true;
     mutation.mutate({
       station_id: station.id,
       fuel_type_code: fuelType,
@@ -105,8 +190,11 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
     });
   }
 
-  /* ------------------------------------------------------------- success -- */
-  if (mutation.isSuccess) {
+  /* ------------------------------------------------------------- success --
+   * Only a backend-confirmed report (a persisted id came back) shows success.
+   * Neither selecting a photo nor an in-flight request can reach this screen.
+   */
+  if (mutation.isSuccess && mutation.data?.id) {
     return (
       <>
         <DialogHeader
@@ -172,7 +260,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+      <form onSubmit={handleFormSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <p className="sr-only" aria-live="polite">
             Step {step + 1} of {STEPS.length}: {STEPS[step]}
@@ -216,6 +304,14 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                     autoFocus
                     data-autofocus=""
                     onChange={(e) => setPrice(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Enter advances the wizard. It must never submit the
+                      // report: the form's submit handler is inert by design.
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        goNext();
+                      }
+                    }}
                     placeholder="850"
                     aria-label="Price in naira per litre"
                     className="h-14 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-h1 tabular-nums text-ink-900 placeholder:font-normal placeholder:text-ink-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
@@ -293,16 +389,52 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                     {photo ? photo.name : "Take or choose a photo"}
                   </span>
                   <span className="text-caption text-ink-500">
-                    JPEG, PNG or WebP
+                    JPEG, PNG or WebP · up to 5 MB
                   </span>
+                  {/* Selecting a file ONLY stages it. The upload happens with
+                      the report when the user taps Submit. */}
                   <input
+                    ref={photoInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    capture="environment"
+                    accept={ACCEPT_ATTRIBUTE}
                     className="sr-only"
-                    onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                    aria-label="Take or choose a photo"
+                    data-testid="report-photo-input"
+                    onChange={handlePhotoChange}
                   />
                 </label>
+
+                {photo && (
+                  <div
+                    className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-hairline bg-surface px-3 py-2"
+                    data-testid="photo-pending"
+                  >
+                    <p className="min-w-0 text-caption text-ink-600">
+                      <span className="font-semibold text-ink-800">Selected:</span>{" "}
+                      <span className="break-all">{photo.name}</span> — uploads when
+                      you submit this report.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-caption font-semibold text-ink-600 hover:bg-ink-100 hover:text-ink-900"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                {photoError && (
+                  <p
+                    role="alert"
+                    data-testid="photo-error"
+                    className="mt-2 flex items-start gap-1.5 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-caption font-medium text-danger-strong"
+                  >
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    {photoError}
+                  </p>
+                )}
               </Field>
 
               {/* Review summary */}
@@ -367,7 +499,12 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
               Continue
             </Button>
           ) : (
-            <Button type="submit" className="flex-1" disabled={mutation.isPending}>
+            <Button
+              type="button"
+              className="flex-1"
+              onClick={handleSubmitClick}
+              disabled={mutation.isPending}
+            >
               {mutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -47,6 +47,7 @@ import { StationProvenanceBadge } from "@/components/stations/StationProvenanceB
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThinkingDots } from "@/components/ui/states";
+import { looksLikeStationSearch } from "@/lib/aiRouting";
 import { directionsUrl, formatDistance } from "@/lib/format";
 import { stationLabel, stationNameParts } from "@/lib/stationName";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,8 @@ const EXAMPLE_QUERIES = [
   "Find the cheapest petrol near me",
   "Find the closest CNG station",
   "I need diesel under ₦1000",
-  "Which nearby station is most reliable?",
+  // A general question — answered conversationally, no location needed.
+  "What can you help me with?",
 ];
 
 const SORT_LABELS: Record<string, string> = {
@@ -128,8 +130,11 @@ export function FuelIntelligence({
     if (!text) return;
     setError(null);
     setLocationError(null);
-    if (!location) {
-      // No valid GPS fix — the assistant must not invent one.
+    // A STATION SEARCH needs a real position: park it until the user shares
+    // one (the assistant must never invent coordinates). A general question
+    // needs no location at all and is sent straight to Groq — the backend
+    // re-runs the same routing rules and stays authoritative.
+    if (!location && looksLikeStationSearch(text)) {
       setPendingQuery(text);
       setResult(null);
       setPhase("idle");
@@ -140,8 +145,9 @@ export function FuelIntelligence({
     try {
       const response = await requestAiRecommendation({
         query: text,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        ...(location
+          ? { latitude: location.latitude, longitude: location.longitude }
+          : {}),
       });
       setResult(response);
       setPhase("done");
@@ -371,9 +377,19 @@ export function FuelIntelligence({
         {/* Results */}
         {phase === "done" && result && (
           <div className="mt-3 space-y-3 animate-slide-up" data-testid="fuel-intelligence-result">
-            <IntentSummary result={result} />
+            {result.mode !== "conversation" && <IntentSummary result={result} />}
 
-            {result.recommendations.length === 0 ? (
+            {result.mode === "conversation" ? (
+              <div
+                className="rounded-xl border border-hairline bg-ink-50 px-3 py-3"
+                data-testid="ai-conversation-answer"
+              >
+                <p className="whitespace-pre-line text-body-sm text-ink-800">
+                  {result.answer}
+                </p>
+                <AnswerSourceLabel source={result.answer_source} />
+              </div>
+            ) : result.recommendations.length === 0 ? (
               <div className="rounded-xl border border-hairline bg-ink-50 px-3 py-3 text-body-sm text-ink-700">
                 {result.answer}
               </div>
@@ -451,6 +467,30 @@ export function FuelIntelligence({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Says who actually wrote the answer. A deterministic safety answer is never
+ * presented as an AI one.
+ */
+function AnswerSourceLabel({ source }: { source: string }) {
+  const isAi = source === "groq";
+  return (
+    <p className="mt-2 text-caption text-ink-500" data-testid="ai-answer-source">
+      {isAi ? (
+        <span className="inline-flex items-center gap-1 font-medium text-brand-700">
+          <Sparkles className="h-3 w-3" aria-hidden="true" /> AI answer
+        </span>
+      ) : (
+        <span
+          className="rounded-pill bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-500"
+          title="The AI provider was unavailable; a standard answer was shown."
+        >
+          answered without AI
+        </span>
+      )}
+    </p>
   );
 }
 
