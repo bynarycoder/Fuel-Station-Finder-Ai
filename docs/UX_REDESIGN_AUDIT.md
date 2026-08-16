@@ -211,3 +211,90 @@ placeholders. Every text/background pair in the product now clears AA 4.5:1.
 Note: browser binaries cannot be downloaded in this sandbox, so responsive
 verification was done against rendered HTML, the compiled CSS breakpoints and
 the live preview rather than automated screenshots.
+
+---
+
+# Addendum — trust surfaces & breakpoint regression locks
+
+A follow-up pass closing the three gaps that remained against the product
+brief. No map, geolocation, store or backend code was touched.
+
+## 1. Breakpoint regression tests (added BEFORE any UI change)
+
+The existing `page.single-map.test.tsx` proved "one map" against a boolean
+`matchMedia` stub, which cannot express a *width*. Since the original crash was
+a responsive-layout bug, the guard is now expressed in the same dimension.
+
+- `src/test/viewport.ts` — a viewport harness. jsdom has no layout engine, so
+  `innerWidth` and `matchMedia` are unrelated and neither reacts to the other.
+  The harness keeps them in sync, re-evaluates registered `min-width`/
+  `max-width` queries on resize, fires `change` on the lists that flipped and
+  dispatches `resize`.
+- `src/app/page.breakpoints.test.tsx` — 12 tests over the four required widths
+  (390 / 768 / 1024 / 1440) asserting:
+  1. exactly one Leaflet map instance mounts at every width;
+  2. every coordinate reaching the map layer is finite and in range;
+  3. walking 390 → 1440 → 390 never remounts or duplicates the map
+     (`mounts === 1`, `unmounts === 0` for the whole session);
+  4. a resize preserves the acquired location and does **not** re-run
+     acquisition (no second permission prompt);
+  5. a resize preserves `selectedStationId` in both directions;
+  6. a rapid orientation-style resize burst still yields one map.
+
+**These tests were proven to fail.** Temporarily restoring the original bug —
+`mapSurface` rendered twice behind `lg:hidden` / `hidden lg:block` — turned all
+12 red; reverting turned them green. They are load-bearing, not decorative.
+
+## 2. Shared premium footer
+
+- `src/components/shell/AppFooter.tsx` — mission statement, two link groups,
+  the Fuel Intelligence line, creator contacts (mailto/tel/LinkedIn) and the
+  tech stack, on the brand gradient. Server component, zero client JS.
+- `src/components/shell/BrandGlyph.tsx` — the brand mark extracted from
+  `AppHeader` so server components can render it without pulling in the
+  header's client-side menu state. `AppHeader` re-exports it as `BrandMark`,
+  so every existing call site is unchanged.
+- `src/lib/siteInfo.ts` — one source of truth for creator, portfolio, stack
+  and footer nav, so the footer and About page can never drift apart.
+
+The footer is **not** mounted on `/`. The finder is a `h-[100dvh]
+overflow-hidden` map shell: a footer there would either compress the map or be
+unreachable. About remains linked from the header menu and desktop nav.
+
+Every footer link resolves to a real destination — no decorative hrefs.
+
+## 3. About page rebuilt as the trust page
+
+Replaced the capstone/3MTT compliance checklist and phase roadmap (internal
+delivery reporting, not user value) with the sections the brief requires:
+
+hero "Find fuel smarter. Drive with confidence." · problem · mission · how it
+works (location → discovery → comparison → trust → intelligence → reporting) ·
+Fuel Intelligence (what it does vs. **what it will never do**) · Data & Trust
+(imported data, community reports, verification, and explicit limitations) ·
+Built for Nigeria · Technology · Creator · Portfolio · closing CTA.
+
+Portfolio cites **JobLiberty as a UI/UX reference only** — a content test
+asserts the string appears nowhere outside the portfolio section, so it can
+never leak into the product chrome. MammoGuard is described as a breast cancer
+prediction application.
+
+`src/app/about/page.test.tsx` (17 tests) pins the mission copy, the six-step
+order, the AI honesty rules, the limitations, the real contact details, the
+JobLiberty containment rule, and that no anchor is empty or dangling.
+
+## Verification
+
+| Check | Result |
+| --- | --- |
+| `npx vitest run` | **333 passed / 31 files** (was 304 / 29 — 29 added, 0 removed, 0 modified) |
+| `npx tsc --noEmit` | clean |
+| `npm run lint` | no warnings or errors |
+| `npm run build` | success — `/about` 715 B / 114 kB (now a static server component), home 38.5 kB / 229 kB |
+| Routes | `/`, `/about`, `/admin`, `/offline` all HTTP 200 |
+| Responsive | every `grid-cols-*` in the new files is breakpoint-prefixed → single column at 360 px; no fixed pixel widths |
+| Prod CSS | `bg-brand-sheen`, `min-h-touch`, `scroll-mt-20`, accent/brand utilities all present; `(pointer:coarse)` and `(prefers-reduced-motion:reduce)` queries emitted |
+
+Browser binaries still cannot be downloaded in this sandbox, so responsive
+verification was again done against rendered HTML and compiled CSS rather than
+screenshots.
