@@ -477,7 +477,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))}
               placeholder="e.g. NNPC, Mobil, A.A. Rano"
               aria-label="Filter by brand"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
           </Fieldset>
 
@@ -496,7 +496,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
               placeholder="e.g. Lagos, Abuja, Kano"
               aria-label="Filter by city"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
             <p className="mt-2 text-caption text-ink-500">
               Searching by city works without sharing your location.

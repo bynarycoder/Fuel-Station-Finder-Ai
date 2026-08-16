@@ -189,7 +189,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                    className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                   />
                 </label>
                 <label className="block">
@@ -204,7 +204,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                     }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                    className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                   />
                 </label>
                 {mode === "signup" && (
@@ -218,7 +218,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                       autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                      className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                     />
                   </label>
                 )}

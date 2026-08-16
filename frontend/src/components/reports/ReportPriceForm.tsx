@@ -314,6 +314,8 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                     }}
                     placeholder="850"
                     aria-label="Price in naira per litre"
+                    aria-invalid={fieldError ? true : undefined}
+                    aria-describedby={fieldError ? "report-field-error" : undefined}
                     className="h-14 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-h1 tabular-nums text-ink-900 placeholder:font-normal placeholder:text-ink-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                   />
                 </div>
@@ -352,7 +354,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                   maxLength={1000}
                   rows={3}
                   placeholder="e.g. PMS available, card payment working"
-                  className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                 />
               </Field>
             </div>
@@ -385,8 +387,15 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                       <Camera className="h-5 w-5" aria-hidden="true" />
                     )}
                   </span>
-                  <span className="text-body-sm font-semibold text-ink-800">
+                  <span className="max-w-full break-all text-body-sm font-semibold text-ink-800">
                     {photo ? photo.name : "Take or choose a photo"}
+                  </span>
+                  {/* A visible, button-shaped affordance: on a phone the label
+                      IS the picker trigger, so it must look tappable. It stays
+                      a <span> — a nested <button> would swallow the click and
+                      never open the file picker. */}
+                  <span className="inline-flex min-h-touch items-center rounded-lg border border-brand-300 bg-surface px-4 text-body-sm font-semibold text-brand-800 shadow-e1">
+                    {photo ? "Choose a different photo" : "Browse photos"}
                   </span>
                   <span className="text-caption text-ink-500">
                     JPEG, PNG or WebP · up to 5 MB
@@ -399,6 +408,8 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                     accept={ACCEPT_ATTRIBUTE}
                     className="sr-only"
                     aria-label="Take or choose a photo"
+                    aria-invalid={photoError ? true : undefined}
+                    aria-describedby={photoError ? "report-photo-error" : undefined}
                     data-testid="report-photo-input"
                     onChange={handlePhotoChange}
                   />
@@ -428,6 +439,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                 {photoError && (
                   <p
                     role="alert"
+                    id="report-photo-error"
                     data-testid="photo-error"
                     className="mt-2 flex items-start gap-1.5 rounded-lg border border-danger-border bg-danger-soft px-3 py-2 text-caption font-medium text-danger-strong"
                   >
@@ -458,6 +470,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
           {fieldError && (
             <p
               role="alert"
+              id="report-field-error"
               className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-body-sm font-medium text-danger-strong"
             >
               {fieldError}

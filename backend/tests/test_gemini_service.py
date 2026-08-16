@@ -216,3 +216,32 @@ def test_provider_failure_score_stays_below_verification_threshold(monkeypatch) 
     _install_client(monkeypatch, RuntimeError("boom"))
     result = gemini.analyze_queue_image(b"fake", "image/png")
     assert result.score < gemini.VERIFICATION_THRESHOLD
+
+
+# --------------------------------------------------------------------------- #
+# Real-SDK contract (no network): the arguments we pass must actually exist in
+# the installed google-genai version. Mocks cannot catch SDK API drift.
+# --------------------------------------------------------------------------- #
+def test_client_is_built_against_the_real_sdk_contract(monkeypatch) -> None:
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(config.settings, "AI_TIMEOUT_SECONDS", 12.0)
+    monkeypatch.setattr(config.settings, "AI_MAX_RETRIES", 1)
+
+    client = gemini.build_gemini_client()
+
+    # google-genai expects the HTTP timeout in MILLISECONDS.
+    options = client._api_client._http_options
+    assert options.timeout == 12000
+    assert options.retry_options.attempts == 2
+
+
+def test_request_payload_uses_valid_sdk_types() -> None:
+    """The image part / config we send must be constructible by the real SDK."""
+    from google.genai import types as genai_types
+
+    part = genai_types.Part.from_bytes(data=b"\x89PNG", mime_type="image/png")
+    assert part.inline_data is not None
+    assert part.inline_data.mime_type == "image/png"
+
+    cfg = genai_types.GenerateContentConfig(response_mime_type="application/json")
+    assert cfg.response_mime_type == "application/json"

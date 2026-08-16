@@ -21,8 +21,14 @@ import { vi } from "vitest";
 
 /** Width in CSS pixels of the viewports the finder is verified against. */
 export const BREAKPOINTS = {
+  /** Smallest phone we support — Galaxy S8/A-series, iPhone SE landscape-free. */
+  mobileSmall: 360,
   /** Small phone — iPhone 12/13/14, the most common Nigerian Android width. */
   mobile: 390,
+  /** Large phone — iPhone 11/XR/14 Plus. */
+  mobileLarge: 414,
+  /** Largest common phone — iPhone 15/16 Pro Max. */
+  mobileXl: 430,
   /** Tablet portrait — still the mobile layout (below Tailwind `lg`). */
   tablet: 768,
   /** Tailwind `lg` — the exact threshold where the split layout appears. */

@@ -200,7 +200,7 @@ export function LocationPicker({ open, onClose, onConfirm }: LocationPickerProps
             placeholder={SEARCH_PLACEHOLDER}
             maxLength={120}
             aria-label="Search for a city, town or area"
-            className="h-11 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="h-11 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
           />
         </div>
 

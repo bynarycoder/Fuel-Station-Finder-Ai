@@ -240,7 +240,7 @@ export function FuelIntelligence({
             }}
             placeholder="e.g. Find the cheapest petrol near me"
             maxLength={300}
-            className="h-11 min-w-0 flex-1 rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="h-11 min-w-0 flex-1 rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             aria-label="Ask Fuel AI"
           />
           <Button
@@ -269,7 +269,7 @@ export function FuelIntelligence({
                   setQuery(example);
                   void ask(example);
                 }}
-                className="rounded-pill border border-hairline bg-surface px-2.5 py-1 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700"
+                className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
               >
                 {example}
               </button>
@@ -330,7 +330,7 @@ export function FuelIntelligence({
               <button
                 type="button"
                 onClick={onChooseLocation}
-                className="font-semibold text-brand-800 underline-offset-2 hover:underline"
+                className="inline-flex items-center px-1 font-semibold text-brand-800 underline-offset-2 hover:underline pointer-coarse:min-h-touch"
               >
                 Change
               </button>
@@ -384,13 +384,13 @@ export function FuelIntelligence({
                 className="rounded-xl border border-hairline bg-ink-50 px-3 py-3"
                 data-testid="ai-conversation-answer"
               >
-                <p className="whitespace-pre-line text-body-sm text-ink-800">
+                <p className="whitespace-pre-line break-words text-body-sm text-ink-800">
                   {result.answer}
                 </p>
                 <AnswerSourceLabel source={result.answer_source} />
               </div>
             ) : result.recommendations.length === 0 ? (
-              <div className="rounded-xl border border-hairline bg-ink-50 px-3 py-3 text-body-sm text-ink-700">
+              <div className="break-words rounded-xl border border-hairline bg-ink-50 px-3 py-3 text-body-sm text-ink-700">
                 {result.answer}
               </div>
             ) : (
@@ -644,8 +644,8 @@ function TopRecommendation({
         {/* Why this station */}
         <div className="mt-3 border-t border-hairline pt-3">
           <p className="text-label uppercase text-ink-500">Why this station?</p>
-          <p className="mt-1 text-body-sm text-ink-800">{top.reason}</p>
-          <p className="mt-1 text-caption leading-relaxed text-ink-600">
+          <p className="mt-1 break-words text-body-sm text-ink-800">{top.reason}</p>
+          <p className="mt-1 break-words text-caption leading-relaxed text-ink-600">
             {result.answer}
           </p>
         </div>

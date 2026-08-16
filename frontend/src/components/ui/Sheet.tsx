@@ -19,6 +19,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 
@@ -84,6 +85,46 @@ function useDialogBehaviour(open: boolean, onClose: () => void) {
   }, [open, onClose]);
 
   return containerRef;
+}
+
+/**
+ * How many pixels of the layout viewport the on-screen keyboard is covering.
+ *
+ * A bottom-anchored dialog is positioned against the LAYOUT viewport, which
+ * does not shrink when the soft keyboard opens — so on a phone the keyboard
+ * sits on top of the dialog's last row (the report form's Submit button, the
+ * AI composer). `visualViewport` reports the actually-visible area; padding
+ * the overlay by the difference lifts the dialog above the keyboard.
+ *
+ * Returns 0 when the API is unavailable (SSR, jsdom, older browsers), so the
+ * layout is exactly what it was before.
+ */
+function useKeyboardInset(active: boolean): number {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    if (!active || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      // offsetTop accounts for a viewport scrolled by the focused field.
+      const covered = window.innerHeight - vv.height - vv.offsetTop;
+      // Ignore sub-100px changes: those are toolbar collapses, not keyboards.
+      setInset(covered > 100 ? Math.round(covered) : 0);
+    };
+
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      setInset(0);
+    };
+  }, [active]);
+
+  return inset;
 }
 
 function Scrim({ onClose }: { onClose: () => void }) {
@@ -157,9 +198,14 @@ export function Modal({
   className?: string;
 }) {
   const ref = useDialogBehaviour(open, onClose);
+  // Hooks must run unconditionally — `open` gates the effect, not the call.
+  const keyboardInset = useKeyboardInset(open);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-modal flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-modal flex items-end justify-center p-0 sm:items-center sm:p-4"
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+    >
       <Scrim onClose={onClose} />
       <div
         ref={ref}
@@ -167,7 +213,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={labelledBy}
         className={cn(
-          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden bg-surface shadow-e3",
+          "relative z-10 flex max-h-sheet w-full flex-col overflow-hidden bg-surface shadow-e3",
           "rounded-t-2xl animate-sheet-in sm:max-w-md sm:rounded-2xl sm:animate-slide-up",
           className,
         )}
@@ -198,9 +244,13 @@ export function SidePanel({
   className?: string;
 }) {
   const ref = useDialogBehaviour(open, onClose);
+  const keyboardInset = useKeyboardInset(open);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-modal flex items-end justify-end sm:items-stretch">
+    <div
+      className="fixed inset-0 z-modal flex items-end justify-end sm:items-stretch"
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+    >
       <Scrim onClose={onClose} />
       <div
         ref={ref}
@@ -208,7 +258,7 @@ export function SidePanel({
         aria-modal="true"
         aria-labelledby={labelledBy}
         className={cn(
-          "relative z-10 flex h-[92vh] w-full flex-col overflow-hidden bg-canvas shadow-e3",
+          "relative z-10 flex h-sheet-tall w-full flex-col overflow-hidden bg-canvas shadow-e3",
           "rounded-t-2xl animate-sheet-in",
           "sm:h-full sm:w-full sm:max-w-[440px] sm:rounded-none sm:animate-panel-in",
           className,
