@@ -284,12 +284,18 @@ export type SheetSnap = "peek" | "half" | "full";
 export const SHEET_SNAP_PERCENT: Record<SheetSnap, number> = {
   /** Collapsed: the drag handle, the "All stations" row and ~one card. */
   peek: 42,
+  /** Collapsed on a ≤700 px-tall viewport (see `shorty:` in the config). */
   half: 68,
   full: 92,
 };
 
+/** Collapsed height on short (≤700 px) viewports. */
+export const SHEET_PEEK_SHORT_PERCENT = 34;
+
 const SNAP_CLASS: Record<SheetSnap, string> = {
-  peek: "h-[42%]",
+  // `shorty:` (≤700 px tall) hands ~8 % of the map back to the map — see
+  // tailwind.config.ts. CONTROLS_OFFSET in app/page.tsx mirrors these.
+  peek: "h-[42%] shorty:h-[34%]",
   half: "h-[68%]",
   full: "h-[92%]",
 };

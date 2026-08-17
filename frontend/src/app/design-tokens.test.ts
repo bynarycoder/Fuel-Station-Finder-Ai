@@ -45,7 +45,9 @@ describe("light theme tokens", () => {
     ["canvas", "#F5F7F8", "light background"],
     ["surface", "#FFFFFF", "white surface"],
     ["ink-900", "#15212B", "primary text"],
-    ["ink-500", "#687680", "muted text"],
+    // The spec's #687680 measures 4.35:1 on the canvas — one notch darker
+    // clears AA everywhere muted captions are actually used.
+    ["ink-500", "#626F79", "muted text"],
     ["hairline", "#DCE4E8", "border"],
     ["danger", "#E53935", "error"],
     ["success", "#16A765", "success"],
@@ -53,8 +55,10 @@ describe("light theme tokens", () => {
     expect(tokenIn(lightBlock, token)).toBe(channels(hex));
   });
 
-  it("uses the primary green as the solid action fill, with white labels", () => {
-    expect(tokenIn(lightBlock, "action")).toBe(channels("#16A765"));
+  it("fills solid actions with the ramp's AA-safe green, labelled white", () => {
+    // #16A765 stays THE brand green (500) — but a fill carrying white text
+    // steps down to brand-700, which clears AA. See the contrast suite below.
+    expect(tokenIn(lightBlock, "action")).toBe(channels("#0D7C4A"));
     expect(tokenIn(lightBlock, "action-fg")).toBe(channels("#FFFFFF"));
   });
 });
@@ -81,6 +85,77 @@ describe("dark theme tokens", () => {
     const lightInk = tokenIn(lightBlock, "ink-900")!.split(" ").map(Number);
     const darkInk = tokenIn(darkBlock, "ink-900")!.split(" ").map(Number);
     expect(lightInk[0]).toBeLessThan(darkInk[0]);
+  });
+});
+
+/* ------------------------------------------------------------- contrast -- */
+
+function luminance(rgb: string): number {
+  const [r, g, b] = rgb.split(" ").map((n) => Number(n) / 255);
+  const f = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+function ratio(a: string, b: string): number {
+  const la = luminance(a) + 0.05;
+  const lb = luminance(b) + 0.05;
+  return Math.round((Math.max(la, lb) / Math.min(la, lb)) * 100) / 100;
+}
+
+/**
+ * WCAG AA, computed from the tokens themselves.
+ *
+ * A browser pass (`scripts/ui-audit.mjs`) walks every rendered text node in
+ * both themes; this suite is the cheap CI guard that stops the underlying
+ * VALUES from regressing without one.
+ */
+describe("WCAG AA contrast of the token pairs the product actually uses", () => {
+  const L = (name: string) => tokenIn(lightBlock, name)!;
+  const D = (name: string) => tokenIn(darkBlock, name)!;
+
+  it.each([
+    ["body text on the canvas", "ink-900", "canvas", 4.5],
+    ["body text on a surface", "ink-900", "surface", 4.5],
+    ["muted text on the canvas", "ink-500", "canvas", 4.5],
+    ["muted text on a surface", "ink-500", "surface", 4.5],
+    ["muted text on the quiet fill", "ink-500", "ink-50", 4.5],
+    ["a label on the primary fill", "action-fg", "action", 4.5],
+    ["a label on the dark-green slab", "slab-fg", "slab", 4.5],
+    ["price/link green on a surface", "brand-700", "surface", 4.5],
+    ["price/link green on a green tint", "brand-700", "brand-50", 4.5],
+    ["error text on a surface", "danger-strong", "surface", 4.5],
+    ["error text on the error tint", "danger-strong", "danger-soft", 4.5],
+    ["success text on the success tint", "success-strong", "success-soft", 4.5],
+  ])("light · %s", (_name, fg, bg, min) => {
+    expect(ratio(L(fg), L(bg))).toBeGreaterThanOrEqual(min);
+  });
+
+  it.each([
+    ["body text on the canvas", "ink-900", "canvas", 4.5],
+    ["body text on a surface", "ink-900", "surface", 4.5],
+    ["muted text on a surface", "ink-500", "surface", 4.5],
+    ["muted text on the elevated surface", "ink-500", "elevated", 4.5],
+    ["a label on the primary fill", "action-fg", "action", 4.5],
+    ["a label on the dark-green slab", "slab-fg", "slab", 4.5],
+    ["price/link green on a surface", "brand-700", "surface", 4.5],
+    ["error text on the error tint", "danger-strong", "danger-soft", 4.5],
+  ])("dark · %s", (_name, fg, bg, min) => {
+    expect(ratio(D(fg), D(bg))).toBeGreaterThanOrEqual(min);
+  });
+
+  it("non-text UI still separates from its background (3:1)", () => {
+    // The primary fill against the page, and the border against the surface.
+    expect(ratio(L("action"), L("canvas"))).toBeGreaterThanOrEqual(3);
+    expect(ratio(D("action"), D("surface"))).toBeGreaterThanOrEqual(3);
+  });
+
+  it("documents the one intentional exception", () => {
+    // #16A765 + white is 3.11:1 — it is NOT used for text-bearing fills. The
+    // brand green survives as the ramp's 500 step (icons, pins, borders,
+    // tints), where 3:1 for non-text UI is the applicable bar.
+    expect(ratio(L("brand-500"), "255 255 255")).toBeLessThan(4.5);
+    expect(tokenIn(lightBlock, "brand-500")).toBe(channels("#16A765"));
+    expect(tokenIn(darkBlock, "brand-500")).toBe(channels("#16A765"));
   });
 });
 

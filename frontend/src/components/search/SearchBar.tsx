@@ -144,7 +144,7 @@ export function SearchBar({
           placeholder={placeholder}
           aria-label="Search stations or ask Fuel Intelligence"
           aria-describedby="search-mode-hint"
-          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] shorty:h-11 text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
 
         {text && (
@@ -218,7 +218,7 @@ export function SearchBar({
             <button
               type="button"
               onClick={onClearRecent}
-              className="ml-auto rounded-md px-2 py-1 text-caption text-ink-500 transition-colors hover:text-danger"
+              className="ml-auto rounded-md px-2 py-1 text-caption text-ink-500 transition-colors hover:text-danger-strong"
             >
               Clear
             </button>

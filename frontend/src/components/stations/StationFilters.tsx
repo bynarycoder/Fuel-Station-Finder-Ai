@@ -61,9 +61,6 @@ const FUEL_SHORT: Record<string, string> = {
   CNG: "CNG",
 };
 
-/** Fuels promoted to the always-visible quick row. */
-const QUICK_FUELS = ["PMS", "AGO", "CNG"] as const;
-
 interface StationFiltersProps {
   /** Compact layout for the mobile finder header. */
   compact?: boolean;
@@ -299,6 +296,11 @@ export function StationFilters({
             size="sm"
             onClick={handleFavoritesToggle}
             aria-pressed={favoritesOnly}
+            // Icon-only on the compact bar: the name lives on aria-label, NOT
+            // in an sr-only <span> — an absolutely-positioned sr-only box
+            // inside a horizontal scroll rail is measured against the page and
+            // silently widened the document to 342 px at a 320 px viewport.
+            aria-label={favoritesOnly ? "Showing favourites only" : "Show favourites only"}
             className={cn(
               "shrink-0",
               favoritesOnly && "border-accent-300 bg-accent-50 text-accent-700",
@@ -316,9 +318,6 @@ export function StationFilters({
               )}
               aria-hidden="true"
             />
-            <span className="sr-only">
-              {favoritesOnly ? "Showing favourites only" : "Show favourites only"}
-            </span>
           </Button>
         )}
 
@@ -405,7 +404,7 @@ export function StationFilters({
               setRadiusMeters(DEFAULT_RADIUS_METERS);
               setFavoritesOnly(false);
             }}
-            className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+            className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger-strong"
           >
             Clear all
           </button>
@@ -508,7 +507,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))}
               placeholder="e.g. NNPC, Mobil, A.A. Rano"
               aria-label="Filter by brand"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
           </Fieldset>
 
@@ -527,7 +526,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
               placeholder="e.g. Lagos, Abuja, Kano"
               aria-label="Filter by city"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
             <p className="mt-2 text-caption text-ink-500">
               Searching by city works without sharing your location.

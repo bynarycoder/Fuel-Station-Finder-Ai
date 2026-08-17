@@ -27,7 +27,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import FinderPage from "@/app/page";
-import { SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
+import { SHEET_PEEK_SHORT_PERCENT, SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
 import type { StationItem } from "@/hooks/useStations";
 import * as api from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
@@ -240,6 +240,23 @@ describe("station bottom sheet", () => {
       expect(
         within(mapSection).getByRole("button", { name: /see all/i }),
       ).toBeInTheDocument(),
+    );
+  });
+
+  it("gives a short viewport more map by shrinking the collapsed sheet", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    // A 320x640 phone: the chrome is fixed (44 px touch targets), so the
+    // collapsed sheet is what has to give. Both the sheet and the control
+    // offset carry the `shorty:` variant, and they must agree.
+    const sheet = screen
+      .getByRole("button", { name: /drag or use arrow keys/i })
+      .closest("section")!;
+    expect(sheet.className).toContain(`h-[${SHEET_SNAP_PERCENT.peek}%]`);
+    expect(sheet.className).toContain(`shorty:h-[${SHEET_PEEK_SHORT_PERCENT}%]`);
+    expect(mapProbe.controlsClassName.at(-1)).toContain(
+      `shorty:bottom-[calc(${SHEET_PEEK_SHORT_PERCENT}%+0.75rem)]`,
     );
   });
 

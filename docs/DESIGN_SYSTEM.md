@@ -24,13 +24,14 @@ so Tailwind can keep applying opacity modifiers (`bg-ink-900/45`) while the
 
 | Role | Token | Value |
 | --- | --- | --- |
-| Primary green | `brand-500` / `action` | `#16A765` |
+| Primary green | `brand-500` | `#16A765` |
+| Solid action fill | `action` | `#0D7C4A` (brand-700) |
 | Dark green | `brand-900` / `slab` | `#075E3D` |
 | Action orange | `accent-400` | `#F7931E` |
 | Background | `canvas` | `#F5F7F8` |
 | Surface | `surface` | `#FFFFFF` |
 | Primary text | `ink-900` | `#15212B` |
-| Muted text | `ink-500` | `#687680` |
+| Muted text | `ink-500` | `#626F79` |
 | Border | `hairline` / `ink-200` | `#DCE4E8` |
 | Success | `success` | `#16A765` |
 | Error | `danger` | `#E53935` |
@@ -49,6 +50,7 @@ instead of heavy shadows, and the same recognisable green.
 | Muted text | `ink-500` | `#A9B5BD` |
 | Border | `hairline` / `ink-200` | `#253847` |
 | Primary green | `brand-500` / `action` | `#16A765` |
+| On-primary label | `action-fg` | `#052014` |
 | Dark green | `slab` | `#075E3D` |
 | Orange | `accent-400` | `#F7931E` |
 
@@ -67,13 +69,24 @@ Two roles are **pinned** and never invert:
 * `slab` / `slab-fg` / `slab-muted` — the always-dark green surface used by the
   account header, the AI header and the "Browse all" action.
 
-### Accessibility note
+### Accessibility rules
 
-The specified primary green (`#16A765`) with white labels is a **3.1:1** pair.
-That clears WCAG AA for UI components and large text, and it is what the design
-calls for, so it is what ships — every label on it is ≥14 px semibold, and the
-hover state deepens to `#0F8B54`. Anything smaller (e.g. the 9 px count badge
-on the Map tab) uses the always-dark `slab` green instead, which is ~8:1.
+`#16A765` is the brand green and stays exactly that — `brand-500`, used by map
+pins, icons, borders, tints and focus rings, all roles whose bar is 3:1. It is
+**not** used behind white text: that pair is only 3.11:1.
+
+| Job | Token | Ratio |
+| --- | --- | --- |
+| Filled control + white label (light) | `action` `#0D7C4A` | 5.25:1 |
+| Filled control + dark label (dark) | `action` `#16A765` on `action-fg` `#052014` | 5.52:1 |
+| Green TEXT (prices, links) | `brand-700` | 5.25:1 light · 9.08:1 dark |
+| Muted text | `ink-500` `#626F79` | ≥4.5:1 on canvas, surface and `ink-50` |
+| Error TEXT | `danger-strong` | 5.84:1 (the `#E53935` `danger` token is a fill/border colour) |
+| Placeholders | `ink-500` | 5.40:1 — never `ink-400` |
+
+Every rule above is enforced twice: `src/app/design-tokens.test.ts` computes
+the ratios from the tokens in CI, and `scripts/ui-audit.mjs` walks every
+rendered text node in a real browser, in both themes.
 
 ---
 
@@ -149,7 +162,16 @@ floating controls are lifted by the same percentages so zoom/locate is never
 buried. `page.map-first.test.tsx` locks the order, the overlay relationship and
 the offsets.
 
-## 8. Rules
+## 8. Tooling trap: `cn()` and the custom type scale
+
+`tailwind-merge` only recognises Tailwind's own font-size names; anything else
+after `text-` is assumed to be a colour. Because this project ships a custom
+scale (`text-h3`, `text-body-sm`, …), `cn("text-slab-fg", "text-body-sm")` used
+to drop the colour entirely and every sized button rendered with inherited ink.
+`src/lib/utils.ts` therefore extends tailwind-merge with the scale. If you add
+a font-size token, add it there too — and to `src/lib/utils.test.ts`.
+
+## 9. Rules
 
 1. No raw hex in components. The exceptions are surfaces rendered outside React
    (Leaflet marker SVG strings in `components/map/icons.ts`, the sparkline
@@ -159,4 +181,8 @@ the offsets.
 3. Never invent station data. Sections such as Services and Opening hours are
    rendered only when the API actually returns them.
 4. Nothing may make the page scroll horizontally; rails scroll, the page does
-   not.
+   not. Beware `sr-only` inside a scroll rail: it is absolutely positioned
+   against the page and silently widens the document — use `aria-label`.
+5. Text colour is a token decision, not a per-component one. Run
+   `node scripts/ui-audit.mjs` (see `docs/UI_QA_AUDIT.md`) before changing any
+   colour that carries text.

@@ -154,7 +154,7 @@ export function ErrorState({
         className,
       )}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-white text-danger">
+      <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-white text-danger-strong">
         <AlertTriangle className="h-5 w-5" aria-hidden="true" />
       </span>
       <p className="text-h3 text-ink-900">{title}</p>

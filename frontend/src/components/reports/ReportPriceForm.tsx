@@ -400,7 +400,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                   maxLength={1000}
                   rows={3}
                   placeholder="e.g. PMS available, card payment working"
-                  className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
+                  className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                 />
               </Field>
             </div>
@@ -624,7 +624,7 @@ function Field({
       <p className="mb-2 text-body-sm font-semibold text-ink-800">
         {label}
         {required && (
-          <span className="text-danger" aria-hidden="true">
+          <span className="text-danger-strong" aria-hidden="true">
             {" "}
             *
           </span>

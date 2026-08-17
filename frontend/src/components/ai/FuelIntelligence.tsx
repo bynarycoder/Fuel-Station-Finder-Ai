@@ -406,7 +406,7 @@ export function FuelIntelligence({
                 />
 
                 {result.recommendations.length > 1 && (
-                  <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
+                  <div className="overflow-hidden rounded-lg border border-hairline bg-surface">
                     <button
                       type="button"
                       onClick={() => setShowRunnerUps((v) => !v)}
@@ -517,7 +517,7 @@ export function FuelIntelligence({
             placeholder="Ask anything..."
             maxLength={300}
             enterKeyHint="send"
-            className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             aria-label="Ask Fuel AI"
           />
           <button
@@ -692,7 +692,7 @@ function TopRecommendation({
         </div>
 
         {/* Facts: price → fuels. Never invented. */}
-        <div className="mt-3 rounded-xl bg-brand-50/70 p-3 ring-1 ring-brand-100">
+        <div className="mt-3 rounded-lg bg-brand-50/70 p-3 ring-1 ring-brand-100">
           {top.latest_price != null ? (
             <p className="text-display leading-none text-brand-900" data-testid="ai-price">
               ₦{top.latest_price.toLocaleString()}

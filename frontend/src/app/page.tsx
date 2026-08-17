@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageSquare, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { AccountPanel } from "@/components/account/AccountPanel";
 import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
@@ -38,12 +38,10 @@ import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
-import { Button } from "@/components/ui/button";
 import {
   BottomSheet,
   DialogHeader,
   Modal,
-  SHEET_SNAP_PERCENT,
   SidePanel,
   type SheetSnap,
 } from "@/components/ui/Sheet";
@@ -279,7 +277,7 @@ export default function FinderPage() {
   // Tailwind only generates arbitrary values it can see as static strings —
   // `page.mobile.test.tsx` asserts the two stay in sync.
   const CONTROLS_OFFSET: Record<SheetSnap, string> = {
-    peek: "bottom-[calc(42%+0.75rem)]",
+    peek: "bottom-[calc(42%+0.75rem)] shorty:bottom-[calc(34%+0.75rem)]",
     half: "bottom-[calc(68%+0.75rem)]",
     full: "bottom-[calc(92%+0.75rem)]",
   };
@@ -398,7 +396,7 @@ export default function FinderPage() {
              of the viewport. Horizontal padding drops to 12 px under 375 px
              (spec §24, Mobile S) and every row scrolls sideways rather than
              clipping, so CNG and "Filters" stay reachable at 320 px. */}
-        <div className="shrink-0 space-y-2 border-b border-hairline bg-surface px-3 pb-2 pt-2 sm:px-4 sm:pb-3 lg:hidden">
+        <div className="shrink-0 space-y-2 border-b border-hairline bg-surface px-3 pb-2 pt-2 shorty:space-y-1.5 shorty:pb-1.5 shorty:pt-1.5 sm:px-4 sm:pb-3 lg:hidden">
           <SearchBar
             value={filters.q}
             onSearch={handleSearch}

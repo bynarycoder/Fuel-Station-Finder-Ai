@@ -94,7 +94,7 @@ export function AppHeader({
             {/* Brand treatment (spec §8): "FuelFinder" in the primary text
                 colour, "AI" in the primary green — same size, same weight. */}
             <span className="block truncate text-h3 leading-tight text-ink-900">
-              FuelFinder<span className="text-brand-600">&nbsp;AI</span>
+              FuelFinder<span className="text-brand-700">&nbsp;AI</span>
             </span>
             <span className="hidden truncate text-caption text-ink-500 sm:block">
               {subtitle}

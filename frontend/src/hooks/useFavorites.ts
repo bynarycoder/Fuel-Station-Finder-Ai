@@ -58,7 +58,7 @@ export function useFavorites(enabled: boolean) {
       // Replace optimistic state with server truth.
       void queryClient.invalidateQueries({ queryKey: FAVORITES_QUERY_KEY });
     },
-    onError: (_err, stationId, ctx) => {
+    onError: (_err, stationId) => {
       // Roll back the optimistic add.
       applyLocal((ids) => ids.delete(stationId));
       void queryClient.invalidateQueries({ queryKey: FAVORITES_QUERY_KEY });
@@ -74,7 +74,7 @@ export function useFavorites(enabled: boolean) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: FAVORITES_QUERY_KEY });
     },
-    onError: (_err, stationId, ctx) => {
+    onError: (_err, stationId) => {
       applyLocal((ids) => ids.add(stationId));
       void queryClient.invalidateQueries({ queryKey: FAVORITES_QUERY_KEY });
     },
