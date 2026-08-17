@@ -87,7 +87,7 @@ export default function AdminPage() {
   if (me.isError || !isAdmin) {
     return (
       <CenteredNotice
-        icon={<ShieldAlert className="h-8 w-8 text-danger" aria-hidden="true" />}
+        icon={<ShieldAlert className="h-8 w-8 text-danger-strong" aria-hidden="true" />}
         text="You need an Admin account to view this dashboard."
         action={
           <button
@@ -254,7 +254,7 @@ function CenteredNotice({
 // --------------------------------------------------------------------------- #
 function Stat({ label, value, accent }: { label: string; value: number | string; accent?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${accent ? "border-brand-200 bg-brand-50" : "border-hairline bg-surface"}`}>
+    <div className={`rounded-lg border p-4 ${accent ? "border-brand-200 bg-brand-50" : "border-hairline bg-surface"}`}>
       <p className="text-label uppercase text-ink-500">{label}</p>
       <p className="mt-1 text-display tabular-nums text-ink-900">{value}</p>
     </div>
@@ -343,7 +343,7 @@ function ReportsSection({
           {reports.map((report) => (
             <div key={report.id}>
             <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-hairline bg-surface p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-hairline bg-surface p-3"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink-900">
@@ -542,7 +542,7 @@ function UsersSection({
           {users.map((user) => (
             <div
               key={user.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-hairline bg-surface p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-hairline bg-surface p-3"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink-900">

@@ -61,9 +61,6 @@ const FUEL_SHORT: Record<string, string> = {
   CNG: "CNG",
 };
 
-/** Fuels promoted to the always-visible quick row. */
-const QUICK_FUELS = ["PMS", "AGO", "CNG"] as const;
-
 interface StationFiltersProps {
   /** Compact layout for the mobile finder header. */
   compact?: boolean;
@@ -233,14 +230,20 @@ export function StationFilters({
 
   return (
     <div className={cn("space-y-2.5", className)}>
-      {/* Primary controls — Near me is the visually dominant action. */}
+      {/* Primary controls (spec §11) — "Near me" is the orange proximity
+          action, "Browse all" the dark-green supporting one. One compact,
+          horizontally scrollable row so nothing is ever clipped at 320 px
+          and the map keeps the vertical space. */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Button
-          variant={isNearby ? "primary" : "accent"}
+          variant="accent"
           size={compact ? "sm" : "md"}
           onClick={() => void handleNearMe()}
           disabled={loading}
-          className="shrink-0"
+          className={cn(
+            "shrink-0",
+            isNearby && "ring-2 ring-accent-500/40 ring-offset-1 ring-offset-canvas",
+          )}
           title={isWatching ? "Live location tracking is active" : undefined}
         >
           {loading ? (
@@ -252,7 +255,7 @@ export function StationFilters({
         </Button>
 
         <Button
-          variant={isNearby ? "secondary" : "quiet"}
+          variant={isNearby ? "secondary" : "deep"}
           size={compact ? "sm" : "md"}
           onClick={handleBrowseAll}
           className="shrink-0"
@@ -287,6 +290,37 @@ export function StationFilters({
           </Button>
         )}
 
+        {compact && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleFavoritesToggle}
+            aria-pressed={favoritesOnly}
+            // Icon-only on the compact bar: the name lives on aria-label, NOT
+            // in an sr-only <span> — an absolutely-positioned sr-only box
+            // inside a horizontal scroll rail is measured against the page and
+            // silently widened the document to 342 px at a 320 px viewport.
+            aria-label={favoritesOnly ? "Showing favourites only" : "Show favourites only"}
+            className={cn(
+              "shrink-0",
+              favoritesOnly && "border-accent-300 bg-accent-50 text-accent-700",
+            )}
+            title={
+              auth.isAuthed
+                ? "Show only your favorite stations"
+                : "Sign in to use favorites"
+            }
+          >
+            <Heart
+              className={cn(
+                "h-4 w-4",
+                favoritesOnly && "fill-accent-400 text-accent-500",
+              )}
+              aria-hidden="true"
+            />
+          </Button>
+        )}
+
         <Button
           variant="secondary"
           size={compact ? "sm" : "md"}
@@ -313,31 +347,36 @@ export function StationFilters({
         design's placement). Both wrote to the SAME `filters.fuelType`, so
         keeping both produced a duplicated control — this row keeps only the
         Favourites toggle, which the chip row does not cover.
+
+        On the compact (mobile) bar the toggle is folded into the action row
+        above instead of costing the map another 36 px of height.
       */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        <button
-          type="button"
-          onClick={handleFavoritesToggle}
-          aria-pressed={favoritesOnly}
-          title={
-            auth.isAuthed
-              ? "Show only your favorite stations"
-              : "Sign in to use favorites"
-          }
-          className={cn(
-            "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
-            favoritesOnly
-              ? "border-accent-300 bg-accent-50 text-accent-700"
-              : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
-          )}
-        >
-          <Heart
-            className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
-            aria-hidden="true"
-          />
-          {favoritesOnly ? "My favorites" : "Favorites"}
-        </button>
-      </div>
+      {!compact && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <button
+            type="button"
+            onClick={handleFavoritesToggle}
+            aria-pressed={favoritesOnly}
+            title={
+              auth.isAuthed
+                ? "Show only your favorite stations"
+                : "Sign in to use favorites"
+            }
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
+              favoritesOnly
+                ? "border-accent-300 bg-accent-50 text-accent-700"
+                : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
+            )}
+          >
+            <Heart
+              className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
+              aria-hidden="true"
+            />
+            {favoritesOnly ? "My favorites" : "Favorites"}
+          </button>
+        </div>
+      )}
 
       {/* Always show what is actually filtered. */}
       {activeChips.length > 0 && (
@@ -365,7 +404,7 @@ export function StationFilters({
               setRadiusMeters(DEFAULT_RADIUS_METERS);
               setFavoritesOnly(false);
             }}
-            className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+            className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger-strong"
           >
             Clear all
           </button>
@@ -390,7 +429,7 @@ export function StationFilters({
       {showFavoritesPrompt && (
         <div
           role="status"
-          className="flex items-start gap-2.5 rounded-xl border border-info-border bg-info-soft px-3 py-2.5 text-caption leading-relaxed text-info-strong"
+          className="flex items-start gap-2.5 rounded-lg border border-info-border bg-info-soft px-3 py-2.5 text-caption leading-relaxed text-info-strong"
         >
           <Heart className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
@@ -468,7 +507,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))}
               placeholder="e.g. NNPC, Mobil, A.A. Rano"
               aria-label="Filter by brand"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
           </Fieldset>
 
@@ -487,7 +526,7 @@ export function StationFilters({
               onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
               placeholder="e.g. Lagos, Abuja, Kano"
               aria-label="Filter by city"
-              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
+              className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
             <p className="mt-2 text-caption text-ink-500">
               Searching by city works without sharing your location.

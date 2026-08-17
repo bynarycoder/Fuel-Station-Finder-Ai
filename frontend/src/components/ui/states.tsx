@@ -28,7 +28,7 @@ export function Skeleton({ className }: { className?: string }) {
  */
 export function StationCardSkeleton() {
   return (
-    <div className="rounded-xl border border-hairline bg-surface p-4 shadow-e1">
+    <div className="rounded-lg border border-hairline bg-surface p-4 shadow-e1">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-2">
           <Skeleton className="h-4 w-2/3" />
@@ -104,7 +104,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed border-ink-200 bg-surface text-center",
+        "flex flex-col items-center justify-center rounded-lg border border-dashed border-ink-200 bg-surface text-center",
         dense ? "gap-2 px-4 py-6" : "gap-3 px-6 py-10",
         className,
       )}
@@ -149,12 +149,12 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-danger-border bg-danger-soft text-center",
+        "flex flex-col items-center justify-center rounded-lg border border-danger-border bg-danger-soft text-center",
         dense ? "gap-2 px-4 py-6" : "gap-3 px-6 py-10",
         className,
       )}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-white text-danger">
+      <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-white text-danger-strong">
         <AlertTriangle className="h-5 w-5" aria-hidden="true" />
       </span>
       <p className="text-h3 text-ink-900">{title}</p>

@@ -51,12 +51,14 @@ export function PriceDisplay({
     );
   }
 
+  // `sm` still reads as a PRICE, not as body copy: 16 px, bold, green. The
+  // price is the second thing a driver looks at after the station name.
   const numberClass =
     size === "lg"
       ? "text-display"
       : size === "md"
         ? "text-h2"
-        : "text-body-sm font-semibold";
+        : "text-body font-semibold";
 
   return (
     <span className={cn("inline-flex items-baseline gap-1", className)}>

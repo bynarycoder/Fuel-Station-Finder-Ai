@@ -116,7 +116,7 @@ export function SearchBar({
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-xl border bg-surface pl-3.5 pr-1.5 shadow-e1 transition-all duration-base",
+          "flex items-center gap-2 rounded-lg border bg-surface pl-3.5 pr-1.5 shadow-e1 transition-all duration-base",
           focused
             ? "border-brand-500 shadow-e2 ring-2 ring-brand-500/20"
             : "border-hairline",
@@ -144,7 +144,7 @@ export function SearchBar({
           placeholder={placeholder}
           aria-label="Search stations or ask Fuel Intelligence"
           aria-describedby="search-mode-hint"
-          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] shorty:h-11 text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
 
         {text && (
@@ -168,7 +168,7 @@ export function SearchBar({
           disabled={!text.trim()}
           aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
           className={cn(
-            "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-body-sm font-semibold",
+            "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-semibold",
             "transition-all duration-fast active:scale-[0.97] disabled:opacity-40",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
             "pointer-coarse:min-h-touch",
@@ -218,7 +218,7 @@ export function SearchBar({
             <button
               type="button"
               onClick={onClearRecent}
-              className="ml-auto rounded-md px-2 py-1 text-caption text-ink-500 transition-colors hover:text-danger"
+              className="ml-auto rounded-md px-2 py-1 text-caption text-ink-500 transition-colors hover:text-danger-strong"
             >
               Clear
             </button>

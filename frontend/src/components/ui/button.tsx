@@ -3,13 +3,14 @@
 /**
  * Button — the product's single action primitive (cva + design tokens).
  *
- * Variants map to intent, not colour:
- * - `primary`   brand action ("Get directions", "Submit")
- * - `accent`    the ONE most important action on a surface ("Near me")
+ * Variants map to intent, not colour (spec §32 — visual hierarchy):
+ * - `primary`   brand green action ("Get Directions", "Submit Report")
+ * - `deep`      dark-green supporting action ("Browse all")
+ * - `accent`    orange proximity/location action ("Near me")
  * - `secondary` bordered, neutral ("Report update")
  * - `ghost`     low emphasis, inline
  * - `quiet`     tinted, no border — used inside cards/sheets
- * - `danger`    destructive
+ * - `danger`    destructive (Sign out, errors)
  *
  * Sizes keep a ≥44 px touch target on `md`/`lg`; `sm` is only for dense
  * desktop rails and `icon` uses a 44 px hit area with a smaller visual box.
@@ -33,6 +34,8 @@ const buttonVariants = cva(
       variant: {
         primary:
           "bg-action text-action-fg shadow-e1 hover:bg-action-hover hover:shadow-e2",
+        deep:
+          "bg-slab text-slab-fg shadow-e1 hover:bg-brand-800 hover:shadow-e2",
         accent:
           "bg-accent-400 text-[#2b1a02] shadow-e1 hover:bg-accent-300 hover:shadow-e2",
         secondary:
@@ -52,9 +55,9 @@ const buttonVariants = cva(
       size: {
         xs: "h-8 rounded-md px-2.5 text-caption pointer-coarse:min-h-touch",
         sm: "h-9 rounded-md px-3 text-body-sm pointer-coarse:min-h-touch",
-        md: "h-11 rounded-lg px-4 text-body-sm",
-        lg: "h-12 rounded-lg px-5 text-body",
-        icon: "h-11 w-11 rounded-lg",
+        md: "h-11 rounded-md px-4 text-body-sm",
+        lg: "h-12 rounded-md px-5 text-body",
+        icon: "h-11 w-11 rounded-md",
         "icon-sm": "h-9 w-9 rounded-md pointer-coarse:min-h-touch pointer-coarse:min-w-touch",
       },
       block: { true: "w-full", false: "" },

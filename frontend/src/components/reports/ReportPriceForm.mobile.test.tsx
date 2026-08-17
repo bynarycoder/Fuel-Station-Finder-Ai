@@ -165,7 +165,7 @@ describe("the primary action is a button, not a form submit", () => {
     renderForm();
     toEvidenceStep();
 
-    const button = screen.getByRole("button", { name: /submit price report/i });
+    const button = screen.getByRole("button", { name: /submit report/i });
     expect(button).toHaveAttribute("type", "button");
 
     fireEvent.click(button);

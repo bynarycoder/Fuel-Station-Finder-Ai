@@ -195,7 +195,7 @@ describe("explicit submission", () => {
     const file = VALID_PHOTO();
     selectFiles(photoInput(), [file]);
 
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock).toHaveBeenCalledWith(
@@ -217,7 +217,7 @@ describe("explicit submission", () => {
     renderForm();
     goToEvidenceStep();
     selectFiles(photoInput(), [VALID_PHOTO()]);
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     // In flight: no success screen yet.
     await screen.findByText(/submitting…/i);
@@ -235,7 +235,7 @@ describe("explicit submission", () => {
     goToEvidenceStep();
     selectFiles(photoInput(), [VALID_PHOTO()]);
 
-    const button = screen.getByRole("button", { name: /submit price report/i });
+    const button = screen.getByRole("button", { name: /submit report/i });
     fireEvent.click(button);
     fireEvent.click(button);
     fireEvent.click(button);
@@ -256,14 +256,14 @@ describe("failures never fake a success", () => {
     renderForm();
     goToEvidenceStep();
     selectFiles(photoInput(), [VALID_PHOTO()]);
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     expect(await screen.findByText(/unsupported image type/i)).toBeInTheDocument();
     expect(screen.queryByText(/report submitted/i)).not.toBeInTheDocument();
     // The staged photo and the price are preserved so the user can retry.
     expect(screen.getByTestId("photo-pending")).toHaveTextContent("queue.png");
     expect(
-      screen.getByRole("button", { name: /submit price report/i }),
+      screen.getByRole("button", { name: /submit report/i }),
     ).toBeEnabled();
   });
 
@@ -273,7 +273,7 @@ describe("failures never fake a success", () => {
     renderForm();
     goToEvidenceStep();
     selectFiles(photoInput(), [VALID_PHOTO()]);
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument();
     expect(screen.queryByText(/report submitted/i)).not.toBeInTheDocument();
@@ -288,10 +288,10 @@ describe("failures never fake a success", () => {
     goToEvidenceStep();
     selectFiles(photoInput(), [VALID_PHOTO()]);
 
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
     expect(await screen.findByText(/temporarily unavailable/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
     expect(await screen.findByText(/report submitted/i)).toBeInTheDocument();
     expect(submitMock).toHaveBeenCalledTimes(2);
   });
@@ -356,7 +356,7 @@ describe("file validation (mirrors the backend rules)", () => {
     renderForm();
     goToEvidenceStep();
 
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0].photo).toBeUndefined();

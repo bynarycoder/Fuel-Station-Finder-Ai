@@ -40,6 +40,18 @@ const config: Config = {
   darkMode: "class",
   theme: {
     extend: {
+      /**
+       * `shorty:` — a HEIGHT breakpoint, not a width one.
+       *
+       * On a 320x640 phone the chrome (header + search + chips + actions,
+       * all at 44 px touch targets) plus a 42 % sheet leaves the map with
+       * less room than its own controls. Rather than shrink touch targets
+       * below the accessible minimum, short viewports get a smaller collapsed
+       * sheet and tighter stack spacing.
+       */
+      screens: {
+        shorty: { raw: "(max-height: 700px)" },
+      },
       colors: {
         brand: {
           50: channel("brand-50"),
@@ -139,17 +151,20 @@ const config: Config = {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       /**
-       * Type scale — mobile-first. Sizes stay modest so a heading never eats a
-       * 360 px screen; hierarchy comes from weight + colour + spacing.
+       * Type scale — the spec's ladder, mobile-first:
+       *   H1 24/700 · H2 20/700 · H3 18/700 · Body 16/400 · Body-sm 14/400
+       *   Caption 12/500
+       * Hierarchy comes from weight + colour + spacing, never from making
+       * everything bold.
        */
       fontSize: {
-        display: ["1.75rem", { lineHeight: "2.125rem", letterSpacing: "-0.02em", fontWeight: "700" }],
-        h1: ["1.375rem", { lineHeight: "1.75rem", letterSpacing: "-0.015em", fontWeight: "700" }],
-        h2: ["1.125rem", { lineHeight: "1.5rem", letterSpacing: "-0.01em", fontWeight: "650" }],
-        h3: ["1rem", { lineHeight: "1.375rem", letterSpacing: "-0.005em", fontWeight: "600" }],
-        body: ["0.9375rem", { lineHeight: "1.4375rem" }],
-        "body-sm": ["0.875rem", { lineHeight: "1.3125rem" }],
-        caption: ["0.8125rem", { lineHeight: "1.125rem" }],
+        display: ["1.75rem", { lineHeight: "2.25rem", letterSpacing: "-0.02em", fontWeight: "700" }],
+        h1: ["1.5rem", { lineHeight: "2rem", letterSpacing: "-0.015em", fontWeight: "700" }],
+        h2: ["1.25rem", { lineHeight: "1.75rem", letterSpacing: "-0.01em", fontWeight: "700" }],
+        h3: ["1.125rem", { lineHeight: "1.5rem", letterSpacing: "-0.005em", fontWeight: "700" }],
+        body: ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }],
+        "body-sm": ["0.875rem", { lineHeight: "1.25rem", fontWeight: "400" }],
+        caption: ["0.75rem", { lineHeight: "1rem", fontWeight: "500" }],
         label: ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.04em", fontWeight: "600" }],
       },
       spacing: {
@@ -157,22 +172,25 @@ const config: Config = {
         gutter: "1rem",
         "gutter-lg": "1.5rem",
         touch: "2.75rem", // 44 px minimum touch target
-        sheet: "4.5rem", // mobile bottom-nav height (safe-area added in CSS)
+        sheet: "4rem", // mobile bottom-nav height (safe-area added in CSS)
       },
+      /** Radius scale — 8 / 12 / 16 / 20 / 24 px, plus a pill for chips. */
       borderRadius: {
-        sm: "0.375rem",
-        md: "0.625rem",
-        lg: "0.875rem",
-        xl: "1.125rem",
-        "2xl": "1.5rem",
+        sm: "0.5rem",   /*  8px */
+        md: "0.75rem",  /* 12px — inputs, small controls */
+        lg: "1rem",     /* 16px — cards, inputs */
+        xl: "1.25rem",  /* 20px — panels */
+        "2xl": "1.5rem", /* 24px — major panels, bottom sheet */
         pill: "9999px",
       },
       /** Restrained three-level elevation — premium UI is not glowy. */
       boxShadow: {
-        e1: "0 1px 2px 0 rgb(20 27 33 / 0.05), 0 1px 3px 0 rgb(20 27 33 / 0.06)",
-        e2: "0 2px 4px -1px rgb(20 27 33 / 0.06), 0 6px 16px -4px rgb(20 27 33 / 0.10)",
-        e3: "0 8px 24px -6px rgb(20 27 33 / 0.14), 0 18px 48px -12px rgb(20 27 33 / 0.18)",
-        focus: "0 0 0 3px rgb(5 150 105 / 0.32)",
+        /* Spec elevation: small / medium / large. Deliberately soft — dark
+           mode leans on surface + border separation instead of black glow. */
+        e1: "0 2px 8px rgb(0 0 0 / 0.05)",
+        e2: "0 4px 12px rgb(0 0 0 / 0.08)",
+        e3: "0 8px 24px rgb(0 0 0 / 0.12)",
+        focus: "0 0 0 3px rgb(22 167 101 / 0.32)",
       },
       transitionDuration: {
         fast: "120ms",

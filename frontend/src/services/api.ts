@@ -98,7 +98,6 @@ export function setAuthTokenProvider(
   authTokenProvider = provider;
 }
 
-type QueryValue = string | number | boolean | undefined | null;
 
 interface RequestOptions {
   method?: string;

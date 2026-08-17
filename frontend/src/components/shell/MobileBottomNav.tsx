@@ -86,7 +86,11 @@ export function MobileBottomNav({
                 aria-hidden="true"
               />
               {id === "map" && typeof stationCount === "number" && stationCount > 0 && (
-                <span className="absolute -right-2.5 -top-1.5 rounded-pill bg-action px-1.5 text-[9px] font-bold leading-4 text-action-fg">
+                // The count is 9 px type, so it uses the always-dark brand
+                // slab rather than the primary fill: white on the primary
+                // green is a 3.1:1 pair — acceptable for a 14 px semibold
+                // button label, not for a badge this small.
+                <span className="absolute -right-2.5 -top-1.5 rounded-pill bg-slab px-1.5 text-[9px] font-bold leading-4 text-slab-fg">
                   {stationCount > 99 ? "99+" : stationCount}
                 </span>
               )}

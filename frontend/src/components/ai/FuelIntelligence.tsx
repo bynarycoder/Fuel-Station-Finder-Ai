@@ -67,13 +67,15 @@ import { FUEL_TYPE_LABELS } from "@/types/station";
  * conversationally with no location involved.
  */
 const EXAMPLE_QUERIES = [
+  "Cheapest diesel near me",
   "Find the cheapest petrol near me",
-  "Which stations are open nearby?",
-  "What fuel stations are close to me?",
+  "Open stations now",
   // NOTE: suggestions deliberately contain NO price figure. A "₦1000" in a
   // chip is indistinguishable, to a reader (and to the honesty test), from a
   // price the app is claiming — and the app must never show a number it did
-  // not get from a real report.
+  // not get from a real report. That is why the reference's "petrol under
+  // ₦1000" chip is expressed without the figure.
+  "Stations with the lowest reported petrol price",
   "What should I check before buying fuel?",
 ];
 
@@ -404,7 +406,7 @@ export function FuelIntelligence({
                 />
 
                 {result.recommendations.length > 1 && (
-                  <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
+                  <div className="overflow-hidden rounded-lg border border-hairline bg-surface">
                     <button
                       type="button"
                       onClick={() => setShowRunnerUps((v) => !v)}
@@ -483,7 +485,7 @@ export function FuelIntelligence({
                     setQuery(example);
                     void ask(example);
                   }}
-                  className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1.5 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
+                  className="inline-flex items-center rounded-pill border border-brand-200 bg-brand-50 px-3 py-1.5 text-caption font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-100 pointer-coarse:min-h-touch"
                 >
                   {example}
                 </button>
@@ -515,7 +517,7 @@ export function FuelIntelligence({
             placeholder="Ask anything..."
             maxLength={300}
             enterKeyHint="send"
-            className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             aria-label="Ask Fuel AI"
           />
           <button
@@ -690,7 +692,7 @@ function TopRecommendation({
         </div>
 
         {/* Facts: price → fuels. Never invented. */}
-        <div className="mt-3 rounded-xl bg-brand-50/70 p-3 ring-1 ring-brand-100">
+        <div className="mt-3 rounded-lg bg-brand-50/70 p-3 ring-1 ring-brand-100">
           {top.latest_price != null ? (
             <p className="text-display leading-none text-brand-900" data-testid="ai-price">
               ₦{top.latest_price.toLocaleString()}

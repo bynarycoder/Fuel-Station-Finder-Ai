@@ -21,16 +21,24 @@
  */
 
 import {
+  ArrowLeft,
+  Banknote,
+  Car,
   ChevronDown,
   Clock3,
+  CreditCard,
   Fuel,
   Heart,
   MapPin,
   Navigation,
   Phone,
+  Share2,
+  ShoppingBag,
   Star,
+  Droplets,
   TrendingDown,
   TrendingUp,
+  Wrench,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -66,6 +74,7 @@ import { QUEUE_LENGTH_LABELS, type FuelReport } from "@/types/report";
 import {
   FUEL_TYPE_CODES,
   FUEL_TYPE_LABELS,
+  STATION_SERVICE_LABELS,
   type LatLng,
   type Station,
 } from "@/types/station";
@@ -98,6 +107,7 @@ export function StationDetail({
   onRequireSignIn,
   onClose,
 }: StationDetailProps) {
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const { data, isLoading } = useStationReports(station.id);
   const reports = data?.items ?? [];
   const summary = summariseReports(reports);
@@ -153,8 +163,92 @@ export function StationDetail({
     station.name,
   );
 
+  /**
+   * Share sheet (spec §17). Uses the platform share sheet when the browser
+   * offers one and silently falls back to the clipboard, so the control never
+   * dead-ends. Nothing is sent to a server.
+   */
+  async function handleShare() {
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/?station=${station.id}`
+        : "";
+    const payload = {
+      title: label,
+      text: `${label}${station.city ? ` — ${station.city}` : ""} on FuelFinder AI`,
+      url,
+    };
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share(payload);
+        return;
+      }
+      await navigator?.clipboard?.writeText(url);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2000);
+    } catch {
+      /* User dismissed the share sheet, or the clipboard is unavailable. */
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-canvas">
+      {/* --------------------------------------------------- 0. top bar ---
+           Back · Share · Favourite, exactly as the reference. Back closes the
+           panel (the panel IS the "screen" on mobile). */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface px-2 py-1.5">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to stations"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+        >
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+        </button>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void handleShare()}
+            aria-label={`Share ${label}`}
+            className="flex h-11 w-11 items-center justify-center rounded-md text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+          >
+            <Share2 className="h-5 w-5" aria-hidden="true" />
+          </button>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              aria-pressed={isFavorite}
+              onClick={() => onToggleFavorite(station.id)}
+              aria-label={
+                isFavorite
+                  ? `Remove ${label} from favourites`
+                  : `Add ${label} to favourites`
+              }
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-md transition-colors",
+                isFavorite
+                  ? "text-accent-500 hover:bg-accent-50"
+                  : "text-ink-400 hover:bg-ink-100 hover:text-accent-400",
+              )}
+            >
+              <Heart
+                className={cn("h-5 w-5", isFavorite && "fill-accent-400")}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </div>
+      </div>
+      {shareState === "copied" && (
+        <p
+          role="status"
+          className="shrink-0 bg-success-soft px-4 py-1.5 text-caption font-medium text-success-strong"
+        >
+          Link copied to your clipboard
+        </p>
+      )}
+
       {/* ---------------------------------------------------- 1. identity -- */}
       <div className="shrink-0 border-b border-hairline bg-surface">
         <div className="flex items-start justify-between gap-3 p-4 pb-3">
@@ -197,50 +291,10 @@ export function StationDetail({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
-            {onToggleFavorite && (
-              <button
-                type="button"
-                aria-pressed={isFavorite}
-                onClick={() => onToggleFavorite(station.id)}
-                aria-label={
-                  isFavorite
-                    ? `Remove ${label} from favourites`
-                    : `Add ${label} to favourites`
-                }
-                className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-lg transition-colors",
-                  isFavorite
-                    ? "text-accent-500 hover:bg-accent-50"
-                    : "text-ink-300 hover:bg-ink-100 hover:text-accent-400",
-                )}
-              >
-                <Heart
-                  className={cn("h-5 w-5", isFavorite && "fill-accent-400")}
-                  aria-hidden="true"
-                />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close station details"
-              className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-800"
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
         </div>
 
         {/* ------------------------------------------------- 2. decision -- */}
-        <div className="mx-4 mb-3 rounded-xl border border-hairline bg-ink-50 p-3.5">
+        <div className="mx-4 mb-3 rounded-lg border border-hairline bg-ink-50 p-3.5">
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-7 w-32" />
@@ -285,39 +339,13 @@ export function StationDetail({
           )}
         </div>
 
-        {/* -------------------------------------------------- 3. actions -- */}
-        <div className="flex gap-2 px-4 pb-4">
-          {directions ? (
-            <ButtonLink
-              href={directions}
-              target="_blank"
-              rel="noopener noreferrer"
-              size="lg"
-              className="flex-1"
-              aria-label={`Get driving directions to ${label}`}
-            >
-              <Navigation className="h-4 w-4" aria-hidden="true" />
-              Get directions
-            </ButtonLink>
-          ) : (
-            <div className="flex-1 rounded-lg bg-ink-100 px-3 py-3 text-center text-caption text-ink-500">
-              Directions unavailable for this station
-            </div>
-          )}
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => (isAuthed ? onReportPrice() : onRequireSignIn())}
-          >
-            Report update
-          </Button>
-        </div>
+        <div className="pb-3" />
       </div>
 
       {/* ------------------------------------------------------ scroller --- */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {/* 4. Fuel availability */}
-        <section className="rounded-xl border border-hairline bg-surface p-4">
+        <section className="rounded-lg border border-hairline bg-surface p-4">
           <h3 className="mb-3 flex items-center gap-1.5 text-h3 text-ink-900">
             <Fuel className="h-4 w-4 text-brand-600" aria-hidden="true" /> Fuel Prices
           </h3>
@@ -379,6 +407,48 @@ export function StationDetail({
           </div>
         </section>
 
+        {/* Station services (spec §17) — rendered ONLY from real data. The
+            current API does not serve amenities, so nothing is invented: the
+            section simply does not exist until a station carries them. */}
+        {Array.isArray(station.services) && station.services.length > 0 && (
+          <section className="rounded-lg border border-hairline bg-surface p-4">
+            <h3 className="mb-3 text-h3 text-ink-900">Station Services</h3>
+            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {station.services.map((code) => {
+                const Icon = SERVICE_ICONS[code] ?? ShoppingBag;
+                return (
+                  <li
+                    key={code}
+                    className="flex flex-col items-center gap-1.5 rounded-md border border-hairline bg-ink-50 px-2 py-3 text-center"
+                  >
+                    <Icon className="h-5 w-5 text-brand-600" aria-hidden="true" />
+                    <span className="text-caption text-ink-600">
+                      {STATION_SERVICE_LABELS[code] ?? code}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {/* Opening hours (spec §17) — same rule: real data only. */}
+        {station.opening_hours && (
+          <section className="rounded-lg border border-hairline bg-surface p-4">
+            <h3 className="text-h3 text-ink-900">Opening Hours</h3>
+            <p className="mt-2 flex items-center gap-2">
+              {station.is_open_now != null && (
+                <Badge tone={station.is_open_now ? "success" : "neutral"} size="md">
+                  {station.is_open_now ? "Open now" : "Closed"}
+                </Badge>
+              )}
+              <span className="text-body-sm tabular-nums text-ink-700">
+                {station.opening_hours}
+              </span>
+            </p>
+          </section>
+        )}
+
         {/* Latest report photo */}
         {latest?.photo_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -386,7 +456,7 @@ export function StationDetail({
             src={resolveMediaUrl(latest.photo_url) ?? undefined}
             alt={`Photo from the latest report at ${station.name}`}
             loading="lazy"
-            className="h-40 w-full rounded-xl border border-hairline object-cover"
+            className="h-40 w-full rounded-lg border border-hairline object-cover"
           />
         )}
 
@@ -478,7 +548,7 @@ export function StationDetail({
                           <polyline
                             points={sparklinePoints(series, 110, 36)}
                             fill="none"
-                            stroke="#059669"
+                            stroke="#16A765"
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -552,16 +622,37 @@ export function StationDetail({
         </Disclosure>
       </div>
 
-      {/* Sticky reporting CTA — the discoverable home of "Report fuel price" */}
-      <div className="shrink-0 border-t border-hairline bg-surface p-4 pb-safe">
-        <Button
-          block
-          size="lg"
-          variant="accent"
-          onClick={() => (isAuthed ? onReportPrice() : onRequireSignIn())}
-        >
-          Report fuel price
-        </Button>
+      {/* Sticky actions (spec §17): reporting stays discoverable, but "Get
+          Directions" is the primary green action — it is what the driver came
+          for. */}
+      <div className="shrink-0 border-t border-hairline bg-surface p-3 pb-safe">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="flex-1"
+            onClick={() => (isAuthed ? onReportPrice() : onRequireSignIn())}
+          >
+            Report a Price
+          </Button>
+          {directions ? (
+            <ButtonLink
+              href={directions}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="lg"
+              className="flex-1"
+              aria-label={`Get driving directions to ${label}`}
+            >
+              <Navigation className="h-4 w-4" aria-hidden="true" />
+              Get Directions
+            </ButtonLink>
+          ) : (
+            <span className="flex-1 rounded-md bg-ink-100 px-3 py-3 text-center text-caption text-ink-500">
+              Directions unavailable
+            </span>
+          )}
+        </div>
         <p className="mt-1.5 text-center text-caption text-ink-500">
           {isAuthed
             ? "Your report helps other drivers find fuel faster."
@@ -573,6 +664,17 @@ export function StationDetail({
 }
 
 /* ------------------------------------------------------------- internals */
+
+/** Amenity code → outline icon, for the Station Services tiles. */
+const SERVICE_ICONS: Record<string, typeof Fuel> = {
+  restroom: Droplets,
+  air_pump: Wrench,
+  card_payment: CreditCard,
+  shop: ShoppingBag,
+  atm: Banknote,
+  car_wash: Car,
+  mechanic: Wrench,
+};
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -594,7 +696,7 @@ function Disclosure({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="overflow-hidden rounded-xl border border-hairline bg-surface">
+    <section className="overflow-hidden rounded-lg border border-hairline bg-surface">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

@@ -40,7 +40,7 @@ export function MapControls({
         className,
       )}
     >
-      <div className="flex flex-col overflow-hidden rounded-lg border border-hairline bg-surface shadow-e2">
+      <div className="flex flex-col overflow-hidden rounded-md border border-hairline bg-surface shadow-e2">
         <ControlButton label="Zoom in" onClick={onZoomIn}>
           <Plus className="h-4 w-4" aria-hidden="true" />
         </ControlButton>
@@ -57,7 +57,7 @@ export function MapControls({
         aria-label={tracking ? "Recenter on my location" : "Find my location"}
         aria-pressed={tracking}
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-lg border shadow-e2 transition-colors duration-fast",
+          "flex h-11 w-11 items-center justify-center rounded-md border shadow-e2 transition-colors duration-fast",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2",
           tracking
             ? "border-action bg-action text-action-fg hover:bg-action-hover"

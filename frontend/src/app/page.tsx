@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageSquare, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { AccountPanel } from "@/components/account/AccountPanel";
 import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
@@ -38,8 +38,13 @@ import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
-import { Button } from "@/components/ui/button";
-import { BottomSheet, DialogHeader, Modal, SidePanel, type SheetSnap } from "@/components/ui/Sheet";
+import {
+  BottomSheet,
+  DialogHeader,
+  Modal,
+  SidePanel,
+  type SheetSnap,
+} from "@/components/ui/Sheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -266,9 +271,14 @@ export default function FinderPage() {
   // height the user has dragged it to. A fixed offset (the sheet's "peek"
   // height) left zoom/locate buried under the sheet as soon as it was
   // expanded — on a phone that hid the only way to recentre the map.
+  //
+  // The literals below MUST match `SHEET_SNAP_PERCENT` (the sheet's own snap
+  // heights). They are written out in full rather than interpolated because
+  // Tailwind only generates arbitrary values it can see as static strings —
+  // `page.mobile.test.tsx` asserts the two stay in sync.
   const CONTROLS_OFFSET: Record<SheetSnap, string> = {
-    peek: "bottom-[calc(38%+0.75rem)]",
-    half: "bottom-[calc(62%+0.75rem)]",
+    peek: "bottom-[calc(42%+0.75rem)] shorty:bottom-[calc(34%+0.75rem)]",
+    half: "bottom-[calc(68%+0.75rem)]",
     full: "bottom-[calc(92%+0.75rem)]",
   };
 
@@ -360,7 +370,7 @@ export default function FinderPage() {
               <button
                 type="button"
                 onClick={() => setShowFuelAi(true)}
-                className="flex w-full items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/60 px-3.5 py-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
+                className="flex w-full items-center gap-2.5 rounded-lg border border-brand-200 bg-brand-50/60 px-3.5 py-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-action text-action-fg">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -380,8 +390,13 @@ export default function FinderPage() {
           </div>
         </section>
 
-        {/* ---------------------------------------------- mobile header --- */}
-        <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3 lg:hidden">
+        {/* ---------------------------------------------- mobile header ---
+             MAP-FIRST: this stack is deliberately three compact rows —
+             search, fuel chips, actions — so the map below it owns the rest
+             of the viewport. Horizontal padding drops to 12 px under 375 px
+             (spec §24, Mobile S) and every row scrolls sideways rather than
+             clipping, so CNG and "Filters" stay reachable at 320 px. */}
+        <div className="shrink-0 space-y-2 border-b border-hairline bg-surface px-3 pb-2 pt-2 shorty:space-y-1.5 shorty:pb-1.5 shorty:pt-1.5 sm:px-4 sm:pb-3 lg:hidden">
           <SearchBar
             value={filters.q}
             onSearch={handleSearch}
@@ -408,14 +423,23 @@ export default function FinderPage() {
             title="Nearby stations"
             className="lg:hidden"
           >
-            <div className="space-y-3 pt-1">
+            <div className="space-y-2.5 pt-0.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <h2 className="text-h3 text-ink-900">
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <h2 className="truncate text-h3 text-ink-900">
                     {isNearby ? "Nearby stations" : "All stations"}
                   </h2>
-                  <span className="text-caption text-ink-500" aria-live="polite">
-                    {showLoading ? "Searching…" : `${items.length} found`}
+                  <span
+                    className="shrink-0 rounded-pill bg-brand-50 px-2 py-0.5 text-caption font-semibold text-brand-700"
+                    aria-live="polite"
+                  >
+                    {showLoading ? "Searching…" : items.length}
+                    {!showLoading && (
+                      <span className="sr-only">
+                        {" "}
+                        station{items.length === 1 ? "" : "s"} found
+                      </span>
+                    )}
                   </span>
                 </div>
                 {/* "See all" expands the sheet rather than navigating away —
@@ -431,6 +455,7 @@ export default function FinderPage() {
 
               {needsLocationPrimer && (
                 <LocationPrimer
+                  compact
                   loading={isLocating}
                   onUseLocation={() => void requestLocation()}
                   onSearchManually={handleChooseLocation}

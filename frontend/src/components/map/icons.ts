@@ -26,12 +26,19 @@ export type MarkerState =
   | "closest"
   | "selected";
 
+/**
+ * Marker fills come straight from the brand palette (spec §12):
+ *   green  = an available / verified station
+ *   orange = the nearby / closest alternative
+ * They are literal hex values (not CSS variables) because Leaflet injects
+ * this markup outside React and the SVG is serialised to a string.
+ */
 const COLORS: Record<MarkerState, { fill: string; glyph: string }> = {
-  default: { fill: "#04795a", glyph: "#ffffff" },
-  verified: { fill: "#065f49", glyph: "#ffffff" },
-  unavailable: { fill: "#9aa7b1", glyph: "#ffffff" },
-  closest: { fill: "#f79009", glyph: "#3b1d05" },
-  selected: { fill: "#0a4d3c", glyph: "#ffffff" },
+  default: { fill: "#16A765", glyph: "#ffffff" }, // primary green
+  verified: { fill: "#0D7C4A", glyph: "#ffffff" }, // deeper green = verified
+  unavailable: { fill: "#8D9BA4", glyph: "#ffffff" },
+  closest: { fill: "#F7931E", glyph: "#3B1D05" }, // action orange
+  selected: { fill: "#075E3D", glyph: "#ffffff" }, // dark green
 };
 
 /** Inline glyph paths, drawn inside a 24×24 box centred at (12, 11). */

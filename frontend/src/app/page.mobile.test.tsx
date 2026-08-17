@@ -22,6 +22,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import FinderPage from "@/app/page";
+import { SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
 import type { StationItem } from "@/hooks/useStations";
 import * as api from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
@@ -222,22 +223,28 @@ describe("map controls vs. the bottom sheet (mobile)", () => {
     await screen.findByTestId("station-map-mock");
 
     const atPeek = offsetPercent(mapProbe.controlsClassName.at(-1) ?? "");
-    expect(atPeek).toBe(38); // sheet's peek height
+    expect(atPeek).toBe(SHEET_SNAP_PERCENT.peek); // sheet's peek height
 
     const grabber = screen.getByRole("button", { name: /drag or use arrow keys/i });
     fireEvent.keyDown(grabber, { key: "ArrowUp" }); // peek -> half
     await waitFor(() =>
-      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(62),
+      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(
+        SHEET_SNAP_PERCENT.half,
+      ),
     );
 
     fireEvent.keyDown(grabber, { key: "ArrowUp" }); // half -> full
     await waitFor(() =>
-      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(92),
+      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(
+        SHEET_SNAP_PERCENT.full,
+      ),
     );
 
     fireEvent.keyDown(grabber, { key: "Escape" }); // back to peek
     await waitFor(() =>
-      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(38),
+      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(
+        SHEET_SNAP_PERCENT.peek,
+      ),
     );
   });
 
