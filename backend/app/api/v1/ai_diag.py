@@ -33,6 +33,15 @@ router = APIRouter(prefix="/ai", tags=["AI Diagnostics"])
 
 GROQ_SMOKE_TOKEN = "GROQ_SMOKE_TEST_OK"
 
+# A real 1x1 transparent PNG so the opt-in `live_image_request` probe proves the
+# multimodal (image) path end-to-end, not just text. The bytes are small and
+# static; they are never user content.
+TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+    "890000000a49444154789c6360000002000100ffff03000006000557bfabd400"
+    "00000049454e44ae426082"
+)
+
 
 def _category(exc: BaseException) -> str:
     """Return a short, non-sensitive error category for an exception.
@@ -214,11 +223,14 @@ def _gemini_checks(live: bool) -> dict[str, Any]:
         "model": settings.GEMINI_MODEL,
         "timeout_seconds": settings.AI_TIMEOUT_SECONDS,
         "sdk": None,
+        "model_configuration": "SKIPPED",
+        "image_processing": "SKIPPED",
         "client_initialization": "SKIPPED",
         "live_text_request": "SKIPPED",
         "model_available": "SKIPPED",
         "response_parsing": "SKIPPED",
         "failure_handling": "SKIPPED",
+        "live_image_request": "SKIPPED",
     }
 
     # 1. SDK presence & version (the supported unified SDK).
@@ -231,6 +243,32 @@ def _gemini_checks(live: bool) -> dict[str, Any]:
         result["sdk"] = f"unavailable: {_category(exc)}"
         result["client_initialization"] = "FAIL: SDK_NOT_INSTALLED"
         return result
+
+    # 1b. Model configuration: a model string must actually be configured. This
+    # is distinct from "is the model served to this key" (model_available) and
+    # from "does the image pipeline accept this input" (image_processing).
+    configured_model = (settings.GEMINI_MODEL or "").strip()
+    result["model_configuration"] = (
+        "PASS" if configured_model else "FAIL: MODEL_NOT_CONFIGURED"
+    )
+
+    # 1c. Image processing pipeline (offline — no key, no network). Confirms the
+    # analyzer accepts the app's photographic MIME types and rejects others, so a
+    # broken image pipeline is distinguished from a model/provider outage.
+    try:
+        from app.services.ai import gemini as gemini_svc
+
+        allowlist_ok = all(
+            m in gemini_svc.SUPPORTED_IMAGE_MIME_TYPES
+            for m in ("image/jpeg", "image/png", "image/webp")
+        )
+        rejects_others = "image/gif" not in gemini_svc.SUPPORTED_IMAGE_MIME_TYPES
+        result["image_processing"] = (
+            "PASS" if allowlist_ok and rejects_others else "FAIL: MIME_ALLOWLIST"
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[AI DIAG] Gemini image_processing check failed: %s", exc)
+        result["image_processing"] = f"FAIL: {_category(exc)}"
 
     # 2. Response parser is always available (no key needed).
     try:
@@ -271,6 +309,7 @@ def _gemini_checks(live: bool) -> dict[str, Any]:
         result["client_initialization"] = "SKIPPED: no API key"
         result["live_text_request"] = "SKIPPED: no API key"
         result["model_available"] = "SKIPPED: no API key"
+        result["live_image_request"] = "SKIPPED: no API key"
         return result
 
     # 4. Client construction (no network).
@@ -287,6 +326,7 @@ def _gemini_checks(live: bool) -> dict[str, Any]:
     if not live:
         result["live_text_request"] = "SKIPPED: add ?live=true"
         result["model_available"] = "SKIPPED: add ?live=true"
+        result["live_image_request"] = "SKIPPED: add ?live=true"
         return result
 
     # 5. Is the configured model actually served to this API key? This is the
@@ -314,6 +354,21 @@ def _gemini_checks(live: bool) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[AI DIAG] Gemini live request failed: %s", type(exc).__name__)
         result["live_text_request"] = f"FAIL: {_category(exc)}"
+
+    # 7. Opt-in live IMAGE request: sends a real 1x1 PNG through the exact
+    # analyzer the verify endpoint uses. This is the only check that proves the
+    # multimodal (photo) path reaches Gemini, not just text. Bills a token, so it
+    # is opt-in with ?live=true. Never returns keys/prompts.
+    try:
+        from app.services.ai import gemini as gemini_svc
+
+        res = gemini_svc.analyze_queue_image(TINY_PNG, "image/png")
+        result["live_image_request"] = (
+            "PASS" if res.error is None else f"FAIL: {res.error}"
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[AI DIAG] Gemini live image request failed: %s", type(exc).__name__)
+        result["live_image_request"] = f"FAIL: {_category(exc)}"
 
     return result
 

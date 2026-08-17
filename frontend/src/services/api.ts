@@ -140,7 +140,13 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed (${response.status}).`);
+    // Surface the backend's own `detail` when it supplies one (e.g. the verify
+    // endpoint's "Stored image not found: /media/..." vs "Not Found" for a
+    // stale deploy). This is what lets an operator tell *which* 404 it is
+    // instead of a bare status code.
+    const detail = await readErrorDetail(response);
+    const base = `Request to ${path} failed (${response.status}).`;
+    throw new ApiError(response.status, detail ? `${base} ${detail}` : base);
   }
   if (response.status === 204) {
     return undefined as T;
@@ -417,6 +423,26 @@ export async function submitReport(input: SubmitReportInput): Promise<FuelReport
     throw new ApiError(response.status, await readErrorMessage(response));
   }
   return (await response.json()) as FuelReport;
+}
+
+/**
+ * Extract the backend's error `detail` (string, or FastAPI validation list)
+ * from a non-2xx response, or `null` when none is present. Used by `request`
+ * to surface the exact reason (report/image/route) behind a status code.
+ */
+async function readErrorDetail(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    const detail = body?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: unknown };
+      if (typeof first?.msg === "string" && first.msg.trim()) return first.msg.trim();
+    }
+  } catch {
+    // Non-JSON body — nothing useful to surface.
+  }
+  return null;
 }
 
 /** Extract a human-readable message from an error response body. */
