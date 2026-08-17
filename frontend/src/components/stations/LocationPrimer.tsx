@@ -8,6 +8,18 @@
  * them what they get and what we do with it, then triggers the shared
  * `requestLocation()` lifecycle — the same one "Near me" uses. It never
  * invents a location and always offers the manual path.
+ *
+ * Two densities (spec §15 — "location access must stay compact"):
+ *
+ *   `compact` (default on the mobile bottom sheet)
+ *      one row: icon · headline + one line · "Use my location".
+ *      It costs ~72 px, so it can never eat the map.
+ *
+ *   full (desktop rail, where vertical space is not contested)
+ *      the same content plus the privacy footnote.
+ *
+ * The primer is rendered ONLY while permission has not been granted; once a
+ * location exists the caller drops it and shows nearby stations instead.
  */
 
 import { MapPinned, ShieldCheck } from "lucide-react";
@@ -19,22 +31,64 @@ export function LocationPrimer({
   onUseLocation,
   onSearchManually,
   loading = false,
+  compact = false,
   className,
 }: {
   onUseLocation: () => void;
   onSearchManually: () => void;
   loading?: boolean;
+  /** Single-row treatment for space-constrained surfaces (the sheet). */
+  compact?: boolean;
   className?: string;
 }) {
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50/60 p-2.5",
+          className,
+        )}
+      >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-action text-action-fg"
+          aria-hidden="true"
+        >
+          <MapPinned className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-body-sm font-semibold text-ink-900">
+            Find stations around you
+          </p>
+          <button
+            type="button"
+            onClick={onSearchManually}
+            className="truncate text-caption text-ink-500 underline-offset-2 hover:text-brand-700 hover:underline"
+          >
+            Allow location access — or pick a city instead
+          </button>
+        </div>
+        <Button
+          variant="accent"
+          size="sm"
+          onClick={onUseLocation}
+          disabled={loading}
+          className="shrink-0"
+        >
+          {loading ? "Locating…" : "Allow"}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-brand-200 bg-surface shadow-e1",
+        "overflow-hidden rounded-lg border border-brand-200 bg-surface shadow-e1",
         className,
       )}
     >
       <div className="flex items-start gap-3 p-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
           <MapPinned className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">

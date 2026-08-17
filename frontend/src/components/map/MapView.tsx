@@ -312,10 +312,10 @@ export default function MapView({
                 center={[userLocation.latitude, userLocation.longitude]}
                 radius={radiusMeters}
                 pathOptions={{
-                  color: "#059669",
+                  color: "#16A765",
                   weight: 1.5,
                   dashArray: "5 6",
-                  fillColor: "#12b886",
+                  fillColor: "#16A765",
                   fillOpacity: 0.05,
                 }}
               />

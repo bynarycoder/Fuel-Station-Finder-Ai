@@ -60,7 +60,7 @@ type SearchState = "idle" | "searching" | "done" | "error";
 const LocationMap = dynamic(() => import("./LocationMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-56 w-full items-center justify-center rounded-xl border border-hairline bg-ink-100 text-caption text-ink-500">
+    <div className="flex h-56 w-full items-center justify-center rounded-lg border border-hairline bg-ink-100 text-caption text-ink-500">
       Loading map…
     </div>
   ),
@@ -245,7 +245,7 @@ export function LocationPicker({ open, onClose, onConfirm }: LocationPickerProps
         {searchState === "error" && (
           <div
             role="alert"
-            className="flex items-start gap-2.5 rounded-xl border border-danger-border bg-danger-soft px-3 py-2.5 text-caption leading-relaxed text-danger-strong"
+            className="flex items-start gap-2.5 rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-caption leading-relaxed text-danger-strong"
           >
             <SearchX className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
@@ -259,7 +259,7 @@ export function LocationPicker({ open, onClose, onConfirm }: LocationPickerProps
         {searchState === "done" && (results ?? []).length > 0 && (
           <div>
             <p className="text-label uppercase text-ink-500">Results</p>
-            <ul className="mt-2 divide-y divide-hairline overflow-hidden rounded-xl border border-hairline bg-surface">
+            <ul className="mt-2 divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-surface">
               {results!.map((place) => (
                 <li key={`${place.latitude},${place.longitude}`}>
                   <button

@@ -91,7 +91,7 @@ export function StationCard({
       data-testid="station-card"
       aria-current={isSelected ? "true" : undefined}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border bg-surface transition-all duration-base ease-entrance",
+        "group relative overflow-hidden rounded-lg border bg-surface transition-all duration-base ease-entrance",
         isSelected
           ? "border-brand-500 shadow-e2 ring-1 ring-brand-500"
           : "border-hairline shadow-e1 hover:border-brand-300 hover:shadow-e2",
@@ -105,7 +105,7 @@ export function StationCard({
         </div>
       )}
 
-      <div className="p-3.5">
+      <div className="p-3">
         {/* Row 1 — logo · identity · distance, exactly as the reference. */}
         <div className="flex items-start gap-3">
           <StationBrandMark brand={station.brand} name={station.name} size="md" />
@@ -189,8 +189,11 @@ export function StationCard({
           </div>
         </div>
 
-        {/* Row 2 — What fuel? */}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {/* Row 2 — What fuel? · Can I trust this?
+            Availability and provenance share one wrapping row: on a phone
+            every saved row is a row of map the driver keeps. Source and
+            verification remain two separate, distinct facts. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {offered.length > 0 ? (
             offered.map((fuel) => (
               <FuelAvailabilityBadge
@@ -202,10 +205,6 @@ export function StationCard({
           ) : (
             <span className="text-caption text-ink-500">Fuel types not listed</span>
           )}
-        </div>
-
-        {/* Row 3 — Can I trust this? (source and verification stay distinct) */}
-        <div className="mt-2.5">
           <StationProvenanceBadge
             dataSource={station.data_source}
             verificationStatus={station.verification_status}
@@ -213,8 +212,8 @@ export function StationCard({
           />
         </div>
 
-        {/* Row 4 — Is it current? + actions */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-3">
+        {/* Row 3 — Is it current? + actions */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-2.5">
           <FreshnessLine
             iso={summary.lastReportedAt}
             emptyLabel="No price reports yet"

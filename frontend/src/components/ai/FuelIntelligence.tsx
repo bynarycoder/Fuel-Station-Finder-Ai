@@ -67,13 +67,15 @@ import { FUEL_TYPE_LABELS } from "@/types/station";
  * conversationally with no location involved.
  */
 const EXAMPLE_QUERIES = [
+  "Cheapest diesel near me",
   "Find the cheapest petrol near me",
-  "Which stations are open nearby?",
-  "What fuel stations are close to me?",
+  "Open stations now",
   // NOTE: suggestions deliberately contain NO price figure. A "₦1000" in a
   // chip is indistinguishable, to a reader (and to the honesty test), from a
   // price the app is claiming — and the app must never show a number it did
-  // not get from a real report.
+  // not get from a real report. That is why the reference's "petrol under
+  // ₦1000" chip is expressed without the figure.
+  "Stations with the lowest reported petrol price",
   "What should I check before buying fuel?",
 ];
 
@@ -483,7 +485,7 @@ export function FuelIntelligence({
                     setQuery(example);
                     void ask(example);
                   }}
-                  className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1.5 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
+                  className="inline-flex items-center rounded-pill border border-brand-200 bg-brand-50 px-3 py-1.5 text-caption font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-100 pointer-coarse:min-h-touch"
                 >
                   {example}
                 </button>

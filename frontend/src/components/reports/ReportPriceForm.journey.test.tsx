@@ -155,7 +155,7 @@ describe("the full report journey (spec §44)", () => {
     expect(screen.queryByText(/report submitted/i)).not.toBeInTheDocument();
 
     // 13. Submit.
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     // 14. Exactly ONE request, carrying the SECOND photo.
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
@@ -193,7 +193,7 @@ describe("the full report journey (spec §44)", () => {
     goToEvidenceStep();
     selectFiles(photoInput(), [makeFile("board.png")]);
 
-    const submit = screen.getByRole("button", { name: /submit price report/i });
+    const submit = screen.getByRole("button", { name: /submit report/i });
     // Two taps in the same tick — faster than React can disable the button.
     fireEvent.click(submit);
     fireEvent.click(submit);
@@ -215,14 +215,14 @@ describe("the full report journey (spec §44)", () => {
     expect(screen.queryByTestId("photo-preview")).not.toBeInTheDocument();
 
     // Submitting while the error stands must not send anything.
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
     expect(submitMock).not.toHaveBeenCalled();
 
     // Choosing a valid file clears the error; submit then works.
     selectFiles(photoInput(), [makeFile("ok.png")]);
     expect(screen.queryByTestId("photo-error")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/report submitted/i)).toBeInTheDocument();
   });
@@ -233,7 +233,7 @@ describe("the full report journey (spec §44)", () => {
     renderForm();
     goToEvidenceStep();
     selectFiles(photoInput(), [makeFile("board.png")]);
-    fireEvent.click(screen.getByRole("button", { name: /submit price report/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
 
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/upload failed/i)).toBeInTheDocument();

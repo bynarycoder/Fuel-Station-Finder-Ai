@@ -67,7 +67,9 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "z-header flex h-14 shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface px-2 sm:h-16 sm:px-4",
+        // Compact by design (spec §8): a fixed 56 px bar at every width, so
+        // the map starts as high on the screen as it possibly can.
+        "z-header flex h-14 shrink-0 items-center justify-between gap-1 border-b border-hairline bg-surface px-2 sm:px-4",
         className,
       )}
     >
@@ -89,9 +91,10 @@ export function AppHeader({
         >
           <BrandGlyph />
           <span className="min-w-0">
+            {/* Brand treatment (spec §8): "FuelFinder" in the primary text
+                colour, "AI" in the primary green — same size, same weight. */}
             <span className="block truncate text-h3 leading-tight text-ink-900">
-              FuelFinder
-              <span className="ml-1 text-caption font-semibold text-brand-600">AI</span>
+              FuelFinder<span className="text-brand-600">&nbsp;AI</span>
             </span>
             <span className="hidden truncate text-caption text-ink-500 sm:block">
               {subtitle}

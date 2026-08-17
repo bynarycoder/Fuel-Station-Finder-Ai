@@ -274,9 +274,23 @@ export function SidePanel({
 
 export type SheetSnap = "peek" | "half" | "full";
 
+/**
+ * Snap heights, as a percentage of the map surface the sheet is layered over.
+ *
+ * ONE source of truth: the sheet sizes itself from these, and the page raises
+ * the map's floating controls by the same amount, so zoom/locate can never be
+ * buried under the sheet at any snap point.
+ */
+export const SHEET_SNAP_PERCENT: Record<SheetSnap, number> = {
+  /** Collapsed: the drag handle, the "All stations" row and ~one card. */
+  peek: 42,
+  half: 68,
+  full: 92,
+};
+
 const SNAP_CLASS: Record<SheetSnap, string> = {
-  peek: "h-[38%]",
-  half: "h-[62%]",
+  peek: "h-[42%]",
+  half: "h-[68%]",
   full: "h-[92%]",
 };
 
@@ -319,6 +333,7 @@ export function BottomSheet({
       className={cn(
         "pointer-events-auto absolute inset-x-0 bottom-0 z-sheet flex flex-col",
         "rounded-t-2xl border-t border-hairline bg-surface shadow-e3",
+        "overflow-hidden",
         "transition-[height] duration-slow ease-entrance",
         SNAP_CLASS[snap],
         className,
@@ -329,7 +344,7 @@ export function BottomSheet({
         tabIndex={0}
         aria-label={`${title} — drag or use arrow keys to resize`}
         aria-expanded={snap !== "peek"}
-        className="flex shrink-0 cursor-grab touch-none flex-col items-center gap-1 rounded-t-2xl px-4 pb-1 pt-2 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none flex-col items-center gap-1 rounded-t-2xl px-4 pb-1.5 pt-2.5 active:cursor-grabbing"
         onPointerDown={(e) => {
           startY.current = e.clientY;
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -360,7 +375,7 @@ export function BottomSheet({
           }
         }}
       >
-        <span className="h-1.5 w-10 rounded-pill bg-ink-300" aria-hidden="true" />
+        <span className="h-1 w-10 rounded-pill bg-ink-300" aria-hidden="true" />
         <h2 id={titleId} className="sr-only">
           {title}
         </h2>

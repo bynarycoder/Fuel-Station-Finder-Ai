@@ -119,7 +119,7 @@ export function ReportsFeed({ isAuthed }: { isAuthed: boolean }) {
         {items.map((report) => (
           <article
             key={report.id}
-            className="rounded-xl border border-hairline bg-surface p-4 shadow-e1"
+            className="rounded-lg border border-hairline bg-surface p-4 shadow-e1"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

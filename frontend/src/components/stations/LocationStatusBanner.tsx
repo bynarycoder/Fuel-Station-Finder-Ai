@@ -84,7 +84,7 @@ export function LocationStatusBanner({
       <div
         role="status"
         className={cn(
-          "flex items-start gap-2.5 rounded-xl border border-brand-200 bg-brand-50/70 px-3 py-3 text-caption leading-relaxed text-brand-900",
+          "flex items-start gap-2.5 rounded-lg border border-brand-200 bg-brand-50/70 px-3 py-3 text-caption leading-relaxed text-brand-900",
           className,
         )}
       >
@@ -130,7 +130,7 @@ export function LocationStatusBanner({
         <div
           role="alert"
           className={cn(
-            "flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning-soft px-3 py-3 text-caption leading-relaxed text-warning-strong",
+            "flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning-soft px-3 py-3 text-caption leading-relaxed text-warning-strong",
             className,
           )}
         >
@@ -162,7 +162,7 @@ export function LocationStatusBanner({
       <div
         role="alert"
         className={cn(
-          "flex items-start gap-2.5 rounded-xl border px-3 py-3 text-caption leading-relaxed",
+          "flex items-start gap-2.5 rounded-lg border px-3 py-3 text-caption leading-relaxed",
           status === "permission_denied"
             ? "border-warning-border bg-warning-soft text-warning-strong"
             : "border-danger-border bg-danger-soft text-danger-strong",
@@ -207,7 +207,7 @@ export function LocationStatusBanner({
       <div
         role="status"
         className={cn(
-          "flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning-soft px-3 py-2.5 text-caption leading-relaxed text-warning-strong",
+          "flex items-start gap-2.5 rounded-lg border border-warning-border bg-warning-soft px-3 py-2.5 text-caption leading-relaxed text-warning-strong",
           className,
         )}
       >

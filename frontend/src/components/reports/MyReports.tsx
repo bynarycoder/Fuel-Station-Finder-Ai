@@ -80,7 +80,7 @@ export function MyReports({
         {safeReports.map((report) => (
           <div
             key={report.id}
-            className="rounded-xl border border-hairline bg-surface p-4 shadow-e1"
+            className="rounded-lg border border-hairline bg-surface p-4 shadow-e1"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">

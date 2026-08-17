@@ -20,7 +20,7 @@
  *
  *   1. The <form> never submits. `onSubmit` only calls preventDefault(); it
  *      NEVER creates a report. Implicit submission is therefore inert.
- *   2. The only path to `POST /reports` is tapping "Submit price report"
+ *   2. The only path to `POST /reports` is tapping "Submit Report"
  *      (an explicit type="button" handler).
  *   3. Selecting a photo only moves it to a PENDING state. The file is
  *      uploaded as part of that one multipart submit — never before it, and
@@ -44,6 +44,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  Fuel,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -249,9 +250,9 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
   return (
     <>
       <DialogHeader
-        title="Report fuel price"
+        title="Report Fuel Price"
         titleId="report-form-title"
-        subtitle={stationLabel(station.brand, station.name)}
+        subtitle="Help keep fuel prices updated"
         onClose={onClose}
       />
 
@@ -290,11 +291,32 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
             Step {step + 1} of {STEPS.length}: {STEPS[step]}
           </p>
 
+          {/* Which station this report is about — visible on every step, so
+              the user is never a step away from checking (spec §19). */}
+          <div className="flex items-start gap-3 rounded-lg border border-hairline bg-surface p-3">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-700"
+              aria-hidden="true"
+            >
+              <Fuel className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-body-sm font-semibold text-ink-900">
+                {stationLabel(station.brand, station.name)}
+              </p>
+              {(station.address || station.city) && (
+                <p className="truncate text-caption text-ink-500">
+                  {[station.city, station.address].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* ------------------------------------------ step 1: fuel+price */}
           {step === 0 && (
             <div className="space-y-5 animate-fade-in">
               <Field label="Which fuel did you buy?" required>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   {fuelOptions.map((code) => (
                     <button
                       key={code}
@@ -302,9 +324,9 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                       onClick={() => setFuelType(code)}
                       aria-pressed={fuelType === code}
                       className={cn(
-                        "inline-flex h-11 items-center rounded-lg border px-3.5 text-body-sm font-semibold transition-colors",
+                        "inline-flex min-h-touch items-center justify-center rounded-md border px-3 py-2 text-center text-body-sm font-semibold transition-colors",
                         fuelType === code
-                          ? "border-action bg-action text-action-fg"
+                          ? "border-action bg-action text-action-fg shadow-e1"
                           : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
                       )}
                     >
@@ -398,7 +420,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                 <div className="flex items-stretch gap-3">
                   {photo && (
                     <div
-                      className="relative h-32 w-32 shrink-0 overflow-hidden rounded-xl border border-hairline bg-ink-100"
+                      className="relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-hairline bg-ink-100"
                       data-testid="photo-preview"
                     >
                       {photoPreviewUrl && (
@@ -422,7 +444,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
 
                   <label
                     className={cn(
-                      "flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-6 text-center transition-colors",
+                      "flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-6 text-center transition-colors",
                       photo
                         ? "border-brand-400 bg-brand-50"
                         : "border-ink-200 bg-ink-50 hover:border-brand-300",
@@ -502,7 +524,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
               </Field>
 
               {/* Review summary */}
-              <div className="rounded-xl border border-hairline bg-ink-50 p-3.5">
+              <div className="rounded-lg border border-hairline bg-ink-50 p-3.5">
                 <p className="text-label uppercase text-ink-500">You&apos;re reporting</p>
                 <p className="mt-1.5 text-h2 text-ink-900">
                   ₦{price || "—"}
@@ -576,7 +598,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
                   Submitting…
                 </>
               ) : (
-                "Submit price report"
+                "Submit Report"
               )}
             </Button>
           )}

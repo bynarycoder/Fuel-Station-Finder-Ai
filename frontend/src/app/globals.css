@@ -21,95 +21,104 @@
   /* modifiers (`bg-ink-900/45`). See tailwind.config.ts.                    */
   /* ---------------------------------------------------------------------- */
 
-  /* Fuel Station Green — the brand ramp. 600/700 are the action colours. */
-  --brand-50: 236 253 246;
-  --brand-100: 209 250 233;
-  --brand-200: 166 244 213;
-  --brand-300: 110 231 189;
-  --brand-400: 52 211 160;
-  --brand-500: 0 155 85; /* #009B55 — spec primary */
-  --brand-600: 0 138 76; /* #008A4C — spec primary */
-  --brand-700: 4 121 90;
-  --brand-800: 6 95 73;
-  --brand-900: 10 77 60;
-  --brand-950: 2 44 34;
+  /* ------------------------------------------------------------------ */
+  /* Primary green ramp — anchored on the spec primary #16A765 (500) and  */
+  /* the spec dark green #075E3D (900). Tints/shades are generated around */
+  /* those two so tinted surfaces, borders and icons stay in-family.      */
+  /* ------------------------------------------------------------------ */
+  --brand-50: 232 248 240;  /* #E8F8F0 */
+  --brand-100: 205 239 224; /* #CDEFE0 */
+  --brand-200: 163 227 198; /* #A3E3C6 */
+  --brand-300: 111 211 166; /* #6FD3A6 */
+  --brand-400: 56 190 133;  /* #38BE85 */
+  --brand-500: 22 167 101;  /* #16A765 — SPEC primary green */
+  --brand-600: 18 148 89;   /* #129459 */
+  --brand-700: 13 124 74;   /* #0D7C4A */
+  --brand-800: 10 106 63;   /* #0A6A3F */
+  --brand-900: 7 94 61;     /* #075E3D — SPEC dark green */
+  --brand-950: 4 58 38;     /* #043A26 */
 
-  /* Warm harmattan amber — used sparingly for the single hero action. */
-  --accent-50: 255 250 235;
-  --accent-100: 254 240 199;
-  --accent-200: 254 223 137;
-  --accent-300: 254 200 75;
-  --accent-400: 253 176 34;
-  --accent-500: 247 144 9;
-  --accent-600: 220 104 3;
-  --accent-700: 181 71 8;
-  --accent-800: 147 55 13;
-  --accent-900: 122 46 14;
+  /* Action orange — #F7931E is the spec value and lives at 400, the step
+     the solid `accent` button fill uses. */
+  --accent-50: 255 246 233;  /* #FFF6E9 */
+  --accent-100: 253 233 203; /* #FDE9CB */
+  --accent-200: 251 215 156; /* #FBD79C */
+  --accent-300: 249 188 99;  /* #F9BC63 */
+  --accent-400: 247 147 30;  /* #F7931E — SPEC action orange */
+  --accent-500: 224 127 15;  /* #E07F0F */
+  --accent-600: 192 105 11;  /* #C0690B */
+  --accent-700: 154 83 9;    /* #9A5309 */
+  --accent-800: 122 66 8;    /* #7A4208 */
+  --accent-900: 94 51 6;     /* #5E3306 */
 
   /* Neutral ramp: 50 = lightest fill … 900 = highest-contrast text. */
-  --ink-50: 248 250 251;
-  --ink-100: 241 244 246;
-  --ink-200: 228 232 230; /* #E4E8E6 — spec border */
-  --ink-300: 207 215 221;
-  --ink-400: 124 137 148;
-  --ink-500: 107 116 113; /* #6B7471 — spec secondary text */
-  --ink-600: 77 91 102;
-  --ink-700: 55 67 77;
-  --ink-800: 35 45 53;
-  --ink-900: 16 23 22; /* #101716 — spec primary text */
+  --ink-50: 242 245 246;   /* #F2F5F6 */
+  --ink-100: 237 241 243;  /* #EDF1F3 */
+  --ink-200: 220 228 232;  /* #DCE4E8 — SPEC border */
+  --ink-300: 195 206 213;  /* #C3CED5 */
+  --ink-400: 141 155 164;  /* #8D9BA4 */
+  --ink-500: 104 118 128;  /* #687680 — SPEC muted text */
+  --ink-600: 78 92 102;    /* #4E5C66 */
+  --ink-700: 58 71 82;     /* #3A4752 */
+  --ink-800: 38 51 61;     /* #26333D */
+  --ink-900: 21 33 43;     /* #15212B — SPEC primary text */
 
-  --success-soft: 236 253 243;
-  --success-border: 166 244 197;
-  --success: 3 152 85;
-  --success-strong: 2 122 72;
-  --warning-soft: 255 250 235;
-  --warning-border: 254 223 137;
-  --warning: 220 104 3;
-  --warning-strong: 181 71 8;
-  --danger-soft: 254 243 242;
-  --danger-border: 254 205 202;
-  --danger: 217 45 32;
-  --danger-strong: 180 35 24;
+  --success-soft: 232 248 240;
+  --success-border: 163 227 198;
+  --success: 22 167 101;   /* #16A765 — SPEC success */
+  --success-strong: 13 124 74;
+  --warning-soft: 255 246 233;
+  --warning-border: 251 215 156;
+  --warning: 224 127 15;
+  --warning-strong: 154 83 9;
+  --danger-soft: 253 236 236;
+  --danger-border: 250 197 196;
+  --danger: 229 57 53;     /* #E53935 — SPEC error */
+  --danger-strong: 193 40 37;
   --info-soft: 239 248 255;
   --info-border: 178 221 255;
   --info: 23 92 211;
   --info-strong: 24 73 169;
 
-  /* Solid brand action + its foreground (see tailwind.config role tokens).
-     The spec's #008A4C is 4.43:1 against white — just under WCAG AA for the
-     button labels sitting on it — so the FILL is darkened a touch to #008248
-     (4.9:1). The lighter spec green is retained as `brand-500/600` for tints,
-     chips and icons, so the palette still reads as the same brand. */
-  --action: 0 130 72; /* #008248 */
-  --action-hover: 4 110 62;
+  /* Solid brand action + its foreground. The spec calls for the primary
+     green with white labels on every filled control (buttons, selected
+     filter chips, the send button), so `action` IS #16A765; hover deepens
+     towards #0D7C4A, which also lifts label contrast on press. */
+  --action: 22 167 101;      /* #16A765 */
+  --action-hover: 15 139 84; /* #0F8B54 */
   --action-fg: 255 255 255;
 
-  /* Always-dark brand slab + fixed foregrounds. */
-  --slab: 10 77 60;
+  /* Always-dark brand slab (account header, AI header, secondary actions)
+     + fixed foregrounds: the spec's #075E3D with white text. */
+  --slab: 7 94 61;      /* #075E3D */
   --slab-fg: 255 255 255;
-  --slab-muted: 209 250 233;
+  --slab-muted: 163 227 198;
 
-  --canvas: 247 248 247; /* #F7F8F7 — spec background */
-  --surface: 255 255 255; /* #FFFFFF — spec cards */
+  --canvas: 245 247 248;  /* #F5F7F8 — SPEC light background */
+  --surface: 255 255 255; /* #FFFFFF — SPEC white surface */
   --elevated: 255 255 255;
-  --hairline: 228 232 230; /* #E4E8E6 — spec borders */
+  --hairline: 220 228 232; /* #DCE4E8 — SPEC border */
 
   /* Leaflet tile surface, themed so the map never flashes the wrong shell. */
   --map-shell: 223 230 234;
   /* How much to desaturate/darken the OSM raster tiles in dark mode. */
   --map-tile-filter: none;
 
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.125rem;
+  /* Radius scale — 8 / 12 / 16 / 20 / 24 px (see tailwind.config.ts). */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
 
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-slow: 280ms;
   --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Height of the mobile bottom nav, consumed by map/sheet layout. */
-  --bottom-nav-h: 4.25rem;
+  /* Height of the mobile bottom nav, consumed by map/sheet layout.
+     Compact by design (spec §16) — icon + label, safe-area added on top. */
+  --bottom-nav-h: 4rem;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
 }
@@ -118,89 +127,92 @@
 /* DARK THEME                                                              */
 /*                                                                         */
 /* An intentionally designed palette, not an inversion filter:             */
-/*  - deep desaturated navy surfaces (#0B1118 → #18232C), never pure black */
-/*    (pure black + OLED smearing makes scrolling maps feel cheap, and     */
-/*    kills the sense of elevation the sheet/card stack depends on);       */
+/*  - deep navy surfaces (#081522 → #132331), never pure black (pure black */
+/*    + OLED smearing makes a scrolling map feel cheap and kills the sense */
+/*    of elevation the card/sheet stack depends on);                       */
 /*  - THE INK RAMP IS INVERTED — `ink-900` stays "highest contrast text",  */
 /*    so every existing `text-ink-900` / `text-ink-500` / `bg-ink-100`     */
 /*    usage in the product keeps its MEANING and themes automatically;     */
-/*  - brand green is lifted (#009B55 → a brighter mint at 500/600) because */
-/*    the light-mode green does not clear 4.5:1 on a dark surface;         */
-/*  - status "soft" fills become low-alpha tints of their hue instead of   */
+/*  - the brand ramp keeps #16A765 at 500 (the spec's dark-mode primary)   */
+/*    but INVERTS around it, so `text-brand-700` resolves to a light mint  */
+/*    on a dark surface while `bg-brand-100` stays a deep tint;            */
+/*  - status "soft" fills become deep tints of their hue instead of        */
 /*    near-white pastels, which would glare.                               */
 /* ======================================================================= */
 .dark {
-  /* Brand: lifted for contrast on dark surfaces; 600 is the action colour. */
-  --brand-50: 5 43 33;
-  --brand-100: 6 61 46;
-  --brand-200: 7 82 61;
-  --brand-300: 10 110 79;
-  --brand-400: 13 145 100;
-  --brand-500: 22 176 122;
-  --brand-600: 45 199 143; /* action + selected nav item */
-  --brand-700: 84 216 165;
-  --brand-800: 141 231 194;
-  --brand-900: 190 243 220;
-  --brand-950: 236 253 246;
+  /* Brand: 500 is the spec green; the ramp inverts around it. */
+  --brand-50: 6 40 27;
+  --brand-100: 7 55 36;
+  --brand-200: 8 74 48;
+  --brand-300: 11 100 63;
+  --brand-400: 16 133 82;
+  --brand-500: 22 167 101; /* #16A765 — SPEC primary green (dark mode too) */
+  --brand-600: 38 190 121;
+  --brand-700: 74 212 148;
+  --brand-800: 134 230 183;
+  --brand-900: 190 243 214;
+  --brand-950: 232 250 240;
 
-  --accent-50: 61 33 6;
-  --accent-100: 88 47 8;
-  --accent-200: 122 65 11;
-  --accent-300: 176 96 14;
-  --accent-400: 236 145 32;
-  --accent-500: 247 170 63;
-  --accent-600: 251 195 110;
-  --accent-700: 253 214 152;
-  --accent-800: 254 231 190;
-  --accent-900: 255 243 224;
+  /* Orange keeps the spec #F7931E at 400; the ramp inverts around it. */
+  --accent-50: 58 34 6;
+  --accent-100: 82 48 10;
+  --accent-200: 116 68 14;
+  --accent-300: 166 97 17;
+  --accent-400: 247 147 30; /* #F7931E — SPEC action orange */
+  --accent-500: 249 167 66;
+  --accent-600: 251 189 115;
+  --accent-700: 252 211 162;
+  --accent-800: 253 230 201;
+  --accent-900: 254 244 230;
 
   /* Inverted neutral ramp: 50 = darkest fill … 900 = brightest text. */
-  --ink-50: 22 31 40;
-  --ink-100: 27 38 48;
-  --ink-200: 38 50 58; /* #26323A — spec dark border */
-  --ink-300: 52 67 78;
-  --ink-400: 130 143 138;
-  --ink-500: 170 181 176; /* #AAB5B0 — spec dark secondary text */
-  --ink-600: 193 203 198;
-  --ink-700: 214 222 217;
-  --ink-800: 231 238 233;
-  --ink-900: 244 247 245; /* #F4F7F5 — spec dark primary text */
+  --ink-50: 14 27 39;    /* #0E1B27 */
+  --ink-100: 20 34 48;   /* #142230 */
+  --ink-200: 37 56 71;   /* #253847 — SPEC dark border */
+  --ink-300: 53 73 90;   /* #35495A */
+  --ink-400: 124 139 150; /* #7C8B96 */
+  --ink-500: 169 181 189; /* #A9B5BD — SPEC dark muted text */
+  --ink-600: 194 204 210;
+  --ink-700: 214 222 227;
+  --ink-800: 231 237 241;
+  --ink-900: 244 248 250; /* #F4F8FA — SPEC dark primary text */
 
-  --success-soft: 8 46 32;
-  --success-border: 12 84 56;
-  --success: 52 199 133;
-  --success-strong: 110 224 172;
-  --warning-soft: 56 34 8;
-  --warning-border: 99 60 12;
-  --warning: 240 160 52;
-  --warning-strong: 250 195 116;
-  --danger-soft: 62 24 22;
-  --danger-border: 106 38 34;
-  --danger: 248 113 100;
-  --danger-strong: 252 162 152;
-  --info-soft: 15 36 66;
-  --info-border: 26 62 110;
+  --success-soft: 7 46 31;
+  --success-border: 11 84 54;
+  --success: 45 190 121;
+  --success-strong: 111 219 168;
+  --warning-soft: 58 34 6;
+  --warning-border: 116 68 14;
+  --warning: 247 147 30;
+  --warning-strong: 251 189 115;
+  --danger-soft: 63 24 23;
+  --danger-border: 108 38 36;
+  --danger: 239 83 80;   /* #EF5350 — the spec error, lifted for dark */
+  --danger-strong: 249 154 152;
+  --info-soft: 12 34 63;
+  --info-border: 25 60 106;
   --info: 96 165 250;
   --info-strong: 147 197 253;
 
-  /* Vivid mint fill with a near-black green label — the dark-theme
-     equivalent of "green button, white text", and far more readable than
-     white-on-mint (which is ~2:1 and fails AA). */
-  --action: 45 199 143;
-  --action-hover: 84 216 165;
-  --action-fg: 3 33 24;
+  /* Same spec green fill in both themes, with white labels — dark mode is
+     designed, not inverted, but the PRIMARY ACTION must stay recognisably
+     the same colour across themes. */
+  --action: 22 167 101;
+  --action-hover: 38 190 121;
+  --action-fg: 255 255 255;
 
-  /* The slab stays dark green in BOTH themes, so its foregrounds are fixed. */
-  --slab: 8 58 45;
+  /* The slab stays the spec dark green in BOTH themes, so its foregrounds
+     are fixed and never invert out from under it. */
+  --slab: 7 94 61; /* #075E3D */
   --slab-fg: 255 255 255;
-  --slab-muted: 190 243 220;
+  --slab-muted: 163 227 198;
 
-  --canvas: 11 17 24; /* #0B1118 — spec dark background */
-  --surface: 18 26 34; /* #121A22 — spec dark surface */
-  --elevated: 24 35 44; /* #18232C — spec dark elevated surface */
-  --hairline: 38 50 58; /* #26323A — spec dark border */
+  --canvas: 8 21 34;    /* #081522 — SPEC dark background */
+  --surface: 15 29 40;  /* #0F1D28 — SPEC dark surface */
+  --elevated: 19 35 49; /* #132331 — SPEC secondary dark surface */
+  --hairline: 37 56 71; /* #253847 — SPEC dark border */
 
-  --map-shell: 15 22 30;
+  --map-shell: 10 24 38;
   /* Raster OSM tiles have no dark variant; a measured invert+hue-rotate is
      the standard technique and keeps roads/labels legible without turning
      the map into a negative of itself. */
@@ -213,11 +225,16 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* MANDATORY (spec §25): the page itself never scrolls sideways at any
+       supported width. Chip rails opt back in locally with `overflow-x-auto`
+       on their own container. */
+    overflow-x: hidden;
   }
 
   body {
     color: rgb(var(--ink-900));
     background: rgb(var(--canvas));
+    overflow-x: hidden;
     /* Prevent iOS rubber-banding from fighting the map/bottom sheet. */
     overscroll-behavior-y: none;
   }

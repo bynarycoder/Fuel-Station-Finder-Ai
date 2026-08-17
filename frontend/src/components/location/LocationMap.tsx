@@ -48,7 +48,7 @@ export default function LocationMap({
   onMove: (latitude: number, longitude: number) => void;
 }) {
   return (
-    <div className="relative h-56 w-full overflow-hidden rounded-xl border border-hairline">
+    <div className="relative h-56 w-full overflow-hidden rounded-lg border border-hairline">
       <MapContainer
         center={[latitude, longitude]}
         zoom={13}

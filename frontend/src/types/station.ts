@@ -53,7 +53,30 @@ export interface Station {
   fuel_types: FuelTypeBrief[];
   created_at: string;
   updated_at: string;
+  /**
+   * FORWARD-COMPATIBLE, OPTIONAL station facts.
+   *
+   * The detail screen has designed sections for amenities and opening hours
+   * (spec §17). The current API does NOT return them, and this app never
+   * invents station facts — so these stay optional and the sections render
+   * only when a real payload carries them. Adding them here means the day the
+   * backend serves the fields the UI lights up with no further frontend work.
+   */
+  services?: string[] | null;
+  opening_hours?: string | null;
+  is_open_now?: boolean | null;
 }
+
+/** Amenity codes the detail screen knows how to draw an icon tile for. */
+export const STATION_SERVICE_LABELS: Record<string, string> = {
+  restroom: "Restroom",
+  air_pump: "Air Pump",
+  card_payment: "Card Payment",
+  shop: "Shop",
+  atm: "ATM",
+  car_wash: "Car Wash",
+  mechanic: "Mechanic",
+};
 
 /**
  * User-facing labels for a station's verification status, keyed by the actual
