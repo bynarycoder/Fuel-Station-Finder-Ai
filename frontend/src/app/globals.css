@@ -111,6 +111,8 @@
   /* Height of the mobile bottom nav, consumed by map/sheet layout. */
   --bottom-nav-h: 4.25rem;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Notch / status-bar inset for the app header in standalone PWA mode. */
+  --safe-top: env(safe-area-inset-top, 0px);
   color-scheme: light;
 }
 

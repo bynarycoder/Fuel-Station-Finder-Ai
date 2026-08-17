@@ -350,3 +350,53 @@ describe("resizing the redesigned shell", () => {
     expect(mapProbe.unmounts).toBe(0);
   });
 });
+
+/* ------------------------------------------------------------------------ */
+/* 7. Map-first mobile composition                                           */
+/*    The map is the majority of the screen: the finder controls float over */
+/*    the map area (they must never push it down), and the station sheet's  */
+/*    header is pinned above its scrollable list.                           */
+/* ------------------------------------------------------------------------ */
+describe("map-first mobile composition", () => {
+  it("floats search, fuel chips and map actions INSIDE the map area", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    const overlay = screen.getByTestId("map-overlay");
+    // Search, the fuel chips and the prominent Near me action all live in
+    // the floating stack over the map — not in a block above it.
+    expect(within(overlay).getByRole("searchbox")).toBeInTheDocument();
+    expect(
+      within(overlay).getByRole("group", { name: /filter by fuel type/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(overlay).getByRole("button", { name: /^near me$/i }),
+    ).toBeInTheDocument();
+    // Favorites sits in the SAME compact action row, not a second row.
+    expect(
+      within(overlay).getByRole("button", { name: /^(my )?favorites$/i }),
+    ).toBeInTheDocument();
+    // The overlay is mobile-only and stacks BELOW the bottom sheet, so an
+    // expanded sheet covers it instead of colliding with it.
+    expect(overlay.className).toContain("lg:hidden");
+    expect(overlay.className).toContain("z-mapctl");
+  });
+
+  it("pins the 'All stations' header and live count above the list", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    // Collapsed sheet exposes: drag handle · title · count (see mobile suite
+    // for the snap behaviour itself).
+    expect(screen.getAllByText(/all stations/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/1 found/i)).toBeInTheDocument();
+
+    // "See all" expands the sheet rather than navigating away.
+    fireEvent.click(screen.getByRole("button", { name: /^see all$/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /drag or use arrow keys/i }),
+      ).toHaveAttribute("aria-expanded", "true"),
+    );
+  });
+});

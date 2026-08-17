@@ -189,8 +189,9 @@ export function StationCard({
           </div>
         </div>
 
-        {/* Row 2 — What fuel? */}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {/* Row 2 — What fuel? + Can I trust this? (one compact line; source
+            and verification stay two distinct facts inside the badge) */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {offered.length > 0 ? (
             offered.map((fuel) => (
               <FuelAvailabilityBadge
@@ -202,10 +203,6 @@ export function StationCard({
           ) : (
             <span className="text-caption text-ink-500">Fuel types not listed</span>
           )}
-        </div>
-
-        {/* Row 3 — Can I trust this? (source and verification stay distinct) */}
-        <div className="mt-2.5">
           <StationProvenanceBadge
             dataSource={station.data_source}
             verificationStatus={station.verification_status}
@@ -213,7 +210,7 @@ export function StationCard({
           />
         </div>
 
-        {/* Row 4 — Is it current? + actions */}
+        {/* Row 3 — Is it current? + actions */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-3">
           <FreshnessLine
             iso={summary.lastReportedAt}

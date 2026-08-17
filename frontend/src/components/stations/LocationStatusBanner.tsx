@@ -57,6 +57,13 @@ interface LocationStatusBannerProps {
   onChooseLocation: () => void;
   /** Explicitly re-request the device GPS through the shared lifecycle. */
   onUseDeviceLocation?: () => void;
+  /**
+   * Suppress the healthy one-line status ("Using your current location · live
+   * tracking on"). The floating map overlay passes this — there the Near me
+   * button's own label already reports tracking, and the map shouldn't carry
+   * a permanent strip. Error/manual/paused panels are NEVER hidden by this.
+   */
+  hideHealthy?: boolean;
   className?: string;
 }
 
@@ -73,6 +80,7 @@ export function LocationStatusBanner({
   onSearchByCity,
   onChooseLocation,
   onUseDeviceLocation,
+  hideHealthy = false,
   className,
 }: LocationStatusBannerProps) {
   const hasPosition = userLocation !== null;
@@ -249,6 +257,7 @@ export function LocationStatusBanner({
 
   // Healthy state — device GPS (never shown for manual; that has its own panel).
   if (isNearby && hasPosition) {
+    if (hideHealthy) return null;
     return (
       <p
         className={cn(

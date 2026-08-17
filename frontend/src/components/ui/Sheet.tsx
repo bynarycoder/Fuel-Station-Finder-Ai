@@ -284,17 +284,26 @@ const SNAP_CLASS: Record<SheetSnap, string> = {
  * Non-modal bottom sheet that co-exists with the map (the map stays
  * interactive above it). Drag the grabber, or use the keyboard: ArrowUp /
  * ArrowDown move between snap points, Escape collapses to peek.
+ *
+ * `header` (optional) renders a PINNED, non-scrolling row between the grabber
+ * and the scroll area — the reference design's "All stations · N found · See
+ * all" line, which must stay visible no matter how far the card list is
+ * scrolled. The section's accessible heading stays the sr-only `title` so the
+ * grabber's label and the sheet's label never drift apart.
  */
 export function BottomSheet({
   snap,
   onSnapChange,
   title,
+  header,
   children,
   className,
 }: {
   snap: SheetSnap;
   onSnapChange: (snap: SheetSnap) => void;
   title: string;
+  /** Pinned content under the grabber (title/count/actions). Optional. */
+  header?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -365,6 +374,7 @@ export function BottomSheet({
           {title}
         </h2>
       </div>
+      {header && <div className="shrink-0">{header}</div>}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         {children}
       </div>

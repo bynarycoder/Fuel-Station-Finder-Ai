@@ -61,12 +61,15 @@ const FUEL_SHORT: Record<string, string> = {
   CNG: "CNG",
 };
 
-/** Fuels promoted to the always-visible quick row. */
-const QUICK_FUELS = ["PMS", "AGO", "CNG"] as const;
-
 interface StationFiltersProps {
-  /** Compact layout for the mobile finder header. */
+  /** Compact layout for the mobile finder overlay. */
   compact?: boolean;
+  /**
+   * Whether to render the healthy one-line location status. The floating map
+   * overlay sets this false: there the Near me button's label ("Tracking you")
+   * already reports the healthy state, and a permanent strip would eat map.
+   */
+  showHealthyStatus?: boolean;
   /** Opens the shared LocationPicker (manual city/point selection). */
   onChooseLocation?: () => void;
   className?: string;
@@ -74,6 +77,7 @@ interface StationFiltersProps {
 
 export function StationFilters({
   compact = false,
+  showHealthyStatus = true,
   onChooseLocation,
   className,
 }: StationFiltersProps) {
@@ -261,6 +265,33 @@ export function StationFilters({
           Browse all
         </Button>
 
+        {/* Favourites lives in the SAME row as the other map actions (the
+            reference shows one compact action line) — it is a thin view over
+            the store's `favoritesOnly`, exactly as before. */}
+        <button
+          type="button"
+          onClick={handleFavoritesToggle}
+          aria-pressed={favoritesOnly}
+          title={
+            auth.isAuthed
+              ? "Show only your favorite stations"
+              : "Sign in to use favorites"
+          }
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
+            compact ? "h-9" : "h-11 px-4",
+            favoritesOnly
+              ? "border-accent-300 bg-accent-50 text-accent-700"
+              : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
+          )}
+        >
+          <Heart
+            className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
+            aria-hidden="true"
+          />
+          {favoritesOnly ? "My favorites" : "Favorites"}
+        </button>
+
         {onChooseLocation && (
           <Button
             variant="quiet"
@@ -305,38 +336,6 @@ export function StationFilters({
             </Badge>
           )}
         </Button>
-      </div>
-
-      {/*
-        The fuel chips that used to live here now render as the shared
-        `FuelFilterChips` row directly under the search field (the reference
-        design's placement). Both wrote to the SAME `filters.fuelType`, so
-        keeping both produced a duplicated control — this row keeps only the
-        Favourites toggle, which the chip row does not cover.
-      */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        <button
-          type="button"
-          onClick={handleFavoritesToggle}
-          aria-pressed={favoritesOnly}
-          title={
-            auth.isAuthed
-              ? "Show only your favorite stations"
-              : "Sign in to use favorites"
-          }
-          className={cn(
-            "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
-            favoritesOnly
-              ? "border-accent-300 bg-accent-50 text-accent-700"
-              : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
-          )}
-        >
-          <Heart
-            className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
-            aria-hidden="true"
-          />
-          {favoritesOnly ? "My favorites" : "Favorites"}
-        </button>
       </div>
 
       {/* Always show what is actually filtered. */}
@@ -385,6 +384,7 @@ export function StationFilters({
         onSearchByCity={handleSearchByCity}
         onChooseLocation={onChooseLocation ?? handleSearchByCity}
         onUseDeviceLocation={() => void handleNearMe()}
+        hideHealthy={!showHealthyStatus}
       />
 
       {showFavoritesPrompt && (

@@ -135,4 +135,31 @@ describe("BottomSheet", () => {
     const { grabber } = renderSheet("full");
     expect(grabber).toHaveAttribute("aria-expanded", "true");
   });
+
+  it("renders an optional pinned header above the scroll area", () => {
+    render(
+      <BottomSheet snap="peek" onSnapChange={vi.fn()} title="All stations"
+        header={
+          <div>
+            <p>All stations</p>
+            <span>12 found</span>
+          </div>
+        }
+      >
+        <p>Station list</p>
+      </BottomSheet>,
+    );
+
+    // The pinned header content is present (the sr-only `title` heading
+    // renders the same words, so there are deliberately two matches)…
+    expect(screen.getAllByText("All stations")).toHaveLength(2);
+    expect(screen.getByText("12 found")).toBeInTheDocument();
+    // …and the section is still labelled by the (sr-only) title, keeping the
+    // grabber's instructions attached to a stable name.
+    expect(
+      screen.getByRole("button", { name: /all stations — drag or use arrow keys/i }),
+    ).toBeInTheDocument();
+    // The list itself stays in the scrollable body.
+    expect(screen.getByText("Station list")).toBeInTheDocument();
+  });
 });

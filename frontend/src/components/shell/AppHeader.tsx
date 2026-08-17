@@ -67,7 +67,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "z-header flex h-14 shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface px-2 sm:h-16 sm:px-4",
+        "z-header header-safe flex shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface px-2 sm:px-4",
         className,
       )}
     >
@@ -119,12 +119,14 @@ export function AppHeader({
           </button>
         ) : authReady && isAuthAvailable ? (
           <>
+            {/* Icons drop out below `sm`: on a 320 px screen the menu, brand,
+                theme toggle and two labelled actions already fill the bar. */}
             <Button variant="ghost" size="sm" onClick={onSignIn}>
-              <User className="h-4 w-4" aria-hidden="true" />
+              <User className="hidden h-4 w-4 sm:block" aria-hidden="true" />
               Sign in
             </Button>
             <Button variant="primary" size="sm" onClick={onSignUp}>
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              <UserPlus className="hidden h-4 w-4 sm:block" aria-hidden="true" />
               <span className="hidden sm:inline">Create account</span>
               <span className="sm:hidden">Sign up</span>
             </Button>

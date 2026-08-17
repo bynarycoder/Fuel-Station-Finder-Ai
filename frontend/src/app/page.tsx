@@ -5,7 +5,8 @@
  *
  * ONE screen, two compositions:
  *
- *   mobile (<lg)  full-bleed map + draggable bottom sheet + bottom nav
+ *   mobile (<lg)  full-bleed map, finder controls floating over it,
+ *                 draggable station bottom sheet + bottom nav
  *   desktop (≥lg) results rail on the left, map filling the rest
  *
  * The task the whole screen serves is "where should I buy fuel?", so the
@@ -380,40 +381,60 @@ export default function FinderPage() {
           </div>
         </section>
 
-        {/* ---------------------------------------------- mobile header --- */}
-        <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3 lg:hidden">
-          <SearchBar
-            value={filters.q}
-            onSearch={handleSearch}
-            onAsk={handleAsk}
-            placeholder="Search stations, areas or fuel..."
-          />
-          {/* Reference: one-tap fuel chips directly under the search field. */}
-          <FuelFilterChips />
-          <StationFilters compact onChooseLocation={handleChooseLocation} />
-        </div>
-
-        {/* -------------------------- ONE map surface, at every viewport ---
+        {/* ---------------- ONE map surface, at every viewport ---
              Exactly one <StationMap> is mounted regardless of breakpoint; the
              mobile/desktop differences are pure CSS/layout around it. Two
              simultaneously-mounted Leaflet maps (one hidden in a 0×0
-             container) is what crashed `flyTo` with `(NaN, NaN)`. */}
+             container) is what crashed `flyTo` with `(NaN, NaN)`.
+
+             MOBILE: the map is full-bleed between the header and the bottom
+             nav, and the finder controls (search → fuel chips → map actions)
+             float INSIDE the map area as one compact stack — the reference's
+             map-first hierarchy. The stack is z-mapctl, BELOW the bottom
+             sheet's z-sheet, so an expanded sheet simply covers it instead of
+             colliding; pointer events pass through to the map everywhere
+             except on the controls themselves. */}
         <section aria-label="Station map" className="relative min-h-0 flex-1">
           {mapSurface}
+
+          {/* Floating finder controls (mobile only; desktop keeps its rail). */}
+          <div
+            data-testid="map-overlay"
+            className="pointer-events-none absolute inset-x-0 top-0 z-mapctl flex flex-col gap-2 p-3 lg:hidden"
+          >
+            <div className="pointer-events-auto">
+              <SearchBar
+                value={filters.q}
+                onSearch={handleSearch}
+                onAsk={handleAsk}
+                placeholder="Search stations, areas or fuel..."
+              />
+            </div>
+            {/* One-tap fuel chips directly under the search field. */}
+            <div className="pointer-events-auto">
+              <FuelFilterChips />
+            </div>
+            {/* Compact map actions: Near me (prominent) · Browse all ·
+                Favorites · location · filters. */}
+            <div className="pointer-events-auto">
+              <StationFilters
+                compact
+                showHealthyStatus={false}
+                onChooseLocation={handleChooseLocation}
+              />
+            </div>
+          </div>
 
           {/* Mobile bottom sheet layered over the same map (CSS-only mobile). */}
           <BottomSheet
             snap={snap}
             onSnapChange={setSnap}
-            title="Nearby stations"
+            title="All stations"
             className="lg:hidden"
-          >
-            <div className="space-y-3 pt-1">
-              <div className="flex items-center justify-between gap-2">
+            header={
+              <div className="flex items-center justify-between gap-2 px-4 pb-2">
                 <div className="min-w-0">
-                  <h2 className="text-h3 text-ink-900">
-                    {isNearby ? "Nearby stations" : "All stations"}
-                  </h2>
+                  <p className="truncate text-h3 text-ink-900">All stations</p>
                   <span className="text-caption text-ink-500" aria-live="polite">
                     {showLoading ? "Searching…" : `${items.length} found`}
                   </span>
@@ -428,7 +449,9 @@ export default function FinderPage() {
                   {snap === "full" ? "Show map" : "See all"}
                 </button>
               </div>
-
+            }
+          >
+            <div className="space-y-3">
               {needsLocationPrimer && (
                 <LocationPrimer
                   loading={isLocating}

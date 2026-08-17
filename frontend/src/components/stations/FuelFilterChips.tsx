@@ -19,7 +19,12 @@ import { FUEL_TYPE_LABELS } from "@/types/station";
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/store/useMapStore";
 
-/** Short chip labels; the full product names live in the filter sheet. */
+/**
+ * Short chip labels; the full product names live in the filter sheet.
+ * Horizontally scrollable as a unit: at 320–360 px the row scrolls to CNG
+ * instead of clipping it, and from 375 px up all five chips fit in one line
+ * (px-3.5 + gap-1.5 keeps "All · Petrol · Diesel · LPG · CNG" ≈ 335 px).
+ */
 const CHIPS: Array<{ value: string; label: string }> = [
   { value: "", label: "All" },
   { value: "PMS", label: "Petrol" },
@@ -37,7 +42,7 @@ export function FuelFilterChips({ className }: { className?: string }) {
       role="group"
       aria-label="Filter by fuel type"
       className={cn(
-        "no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5",
+        "no-scrollbar -mx-1 flex items-center gap-1.5 overflow-x-auto px-1 py-0.5 sm:gap-2",
         className,
       )}
     >
@@ -55,7 +60,7 @@ export function FuelFilterChips({ className }: { className?: string }) {
             aria-label={`Show ${fullName}`}
             onClick={() => setFilters({ fuelType: value })}
             className={cn(
-              "flex h-9 shrink-0 items-center rounded-pill border px-4 text-body-sm font-semibold",
+              "flex h-9 shrink-0 items-center rounded-pill border px-3.5 text-body-sm font-semibold sm:px-4",
               "transition-all duration-fast ease-entrance active:scale-[0.97]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
               "pointer-coarse:min-h-touch",
