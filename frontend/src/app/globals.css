@@ -114,28 +114,6 @@
   color-scheme: light;
 }
 
-.dark {
-  --brand-600: #12b886;
-  --brand-700: #34d3a0;
-  --brand-800: #065f49;
-  --brand-900: #052e2a;
-  --ink-50: #162028;
-  --ink-100: #1d2933;
-  --ink-200: #2b3945;
-  --ink-300: #40515f;
-  --ink-400: #8ea0ad;
-  --ink-500: #a7b5bf;
-  --ink-600: #c2ccd3;
-  --ink-700: #d5dde3;
-  --ink-800: #e7edf1;
-  --ink-900: #f8fafb;
-  --canvas: #08111a;
-  --surface: #101922;
-  --elevated: #15212b;
-  --hairline: #263440;
-  color-scheme: dark;
-}
-
 /* ======================================================================= */
 /* DARK THEME                                                              */
 /*                                                                         */
@@ -519,28 +497,23 @@
   font-size: 15px;
 }
 
-
 /* Intentional dark-mode refinements for third-party map chrome and overlays. */
-.dark .leaflet-container {
-  background: #111827;
-}
-.dark .leaflet-tile-pane {
-  filter: brightness(0.62) contrast(1.12) saturate(0.78) hue-rotate(170deg);
-}
-.dark .leaflet-control-attribution,
+/* ---- Dark-mode Leaflet overrides ---------------------------------------
+   NOTE: the base .leaflet-* rules above are already token-driven (they use
+   rgb(var(--surface)) etc.), so dark mode needs NO per-property overrides
+   for the popup, attribution or skeleton — those re-theme automatically.
+
+   PR #38's versions of these rules were removed here because they wrote
+   `color: var(--ink-900)` / `background: var(--surface)` directly. Those
+   variables now hold SPACE-SEPARATED RGB CHANNELS, so the bare form resolves
+   to the invalid `color: 244 247 245` and the declaration is dropped. The
+   only genuinely dark-specific bit is the zoom control, which Leaflet paints
+   white via its own stylesheet. */
 .dark .leaflet-control-zoom a {
-  background: rgba(16, 25, 34, 0.88) !important;
-  color: var(--ink-700) !important;
-  border-color: var(--hairline) !important;
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--ink-700)) !important;
+  border-color: rgb(var(--hairline)) !important;
 }
-.dark .leaflet-popup-content-wrapper {
-  background: var(--surface) !important;
-  color: var(--ink-900) !important;
-  border-color: var(--hairline) !important;
-}
-.dark .leaflet-popup-tip {
-  background: var(--surface) !important;
-}
-.dark .skeleton::after {
-  background-image: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.10), rgba(255,255,255,0));
+.dark .leaflet-control-zoom a:hover {
+  background: rgb(var(--ink-100)) !important;
 }
