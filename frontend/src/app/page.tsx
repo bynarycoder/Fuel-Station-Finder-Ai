@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquare, Sparkles } from "lucide-react";
 
+import { AccountPanel } from "@/components/account/AccountPanel";
 import { FuelIntelligence } from "@/components/ai/FuelIntelligence";
 import { SignInModal } from "@/components/auth/SignInModal";
 import { LocationPicker, type PickedLocation } from "@/components/location/LocationPicker";
@@ -32,6 +33,7 @@ import { ReportsFeed } from "@/components/reports/ReportsFeed";
 import { SearchBar } from "@/components/search/SearchBar";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { MobileBottomNav, type FinderTab } from "@/components/shell/MobileBottomNav";
+import { FuelFilterChips } from "@/components/stations/FuelFilterChips";
 import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
@@ -83,6 +85,7 @@ export default function FinderPage() {
   const [tab, setTab] = useState<FinderTab>("map");
   const [snap, setSnap] = useState<SheetSnap>("peek");
   const [showReports, setShowReports] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const [showFuelAi, setShowFuelAi] = useState(false);
   const [aiQuery, setAiQuery] = useState("");
   const [aiSignal, setAiSignal] = useState(0);
@@ -195,13 +198,32 @@ export default function FinderPage() {
     setFavoritesOnly(false);
   }, [setFilters, setRadiusMeters, setFavoritesOnly]);
 
-  // Mobile tab → surface mapping. Every tab performs a real action.
+  /**
+   * Mobile tab → surface mapping. Every tab performs a real action.
+   *
+   * "Report" is station-scoped (the backend requires a station_id) and
+   * requires auth, so it resolves in this order: signed out → sign-in
+   * (re-opening the form afterwards); no station chosen → expand the sheet so
+   * the user can pick one; otherwise → open the report form.
+   */
   function handleTabChange(next: FinderTab) {
     setTab(next);
     if (next === "map") setSnap("peek");
-    if (next === "list") setSnap("full");
     if (next === "ai") setShowFuelAi(true);
-    if (next === "reports") setShowReports(true);
+    if (next === "account") setShowAccount(true);
+    if (next === "report") {
+      if (!auth.isAuthed) {
+        handleRequireSignIn();
+        return;
+      }
+      if (!selectedStation) {
+        // Nothing to report against yet — surface the list instead of
+        // opening an empty form the user cannot submit.
+        setSnap("full");
+        return;
+      }
+      setShowReportForm(true);
+    }
   }
 
   const recentChips = useMemo(
@@ -287,7 +309,7 @@ export default function FinderPage() {
           setShowSignIn(true);
         }}
         onSignOut={() => auth.signOut()}
-        onOpenReports={() => setShowReports(true)}
+        onOpenAccount={() => setShowAccount(true)}
       />
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -311,6 +333,7 @@ export default function FinderPage() {
               recent={recentChips}
               onClearRecent={clearSearches}
             />
+            <FuelFilterChips />
             <StationFilters onChooseLocation={handleChooseLocation} />
           </div>
 
@@ -339,7 +362,7 @@ export default function FinderPage() {
                 onClick={() => setShowFuelAi(true)}
                 className="flex w-full items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/60 px-3.5 py-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-action text-action-fg">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
@@ -359,13 +382,14 @@ export default function FinderPage() {
 
         {/* ---------------------------------------------- mobile header --- */}
         <div className="shrink-0 space-y-2.5 border-b border-hairline bg-surface px-4 pb-3 pt-3 lg:hidden">
-          <h1 className="text-h2 text-ink-900">Find fuel near you</h1>
           <SearchBar
             value={filters.q}
             onSearch={handleSearch}
             onAsk={handleAsk}
-            placeholder="Search stations or ask AI"
+            placeholder="Search stations, areas or fuel..."
           />
+          {/* Reference: one-tap fuel chips directly under the search field. */}
+          <FuelFilterChips />
           <StationFilters compact onChooseLocation={handleChooseLocation} />
         </div>
 
@@ -386,12 +410,23 @@ export default function FinderPage() {
           >
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-h3 text-ink-900">
-                  {isNearby ? "Nearby stations" : "All stations"}
-                </h2>
-                <span className="text-caption text-ink-500" aria-live="polite">
-                  {showLoading ? "Searching…" : `${items.length} found`}
-                </span>
+                <div className="min-w-0">
+                  <h2 className="text-h3 text-ink-900">
+                    {isNearby ? "Nearby stations" : "All stations"}
+                  </h2>
+                  <span className="text-caption text-ink-500" aria-live="polite">
+                    {showLoading ? "Searching…" : `${items.length} found`}
+                  </span>
+                </div>
+                {/* "See all" expands the sheet rather than navigating away —
+                    the map must stay mounted and behind it. */}
+                <button
+                  type="button"
+                  onClick={() => setSnap(snap === "full" ? "peek" : "full")}
+                  className="shrink-0 rounded-lg px-2 py-2 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:min-h-touch"
+                >
+                  {snap === "full" ? "Show map" : "See all"}
+                </button>
               </div>
 
               {needsLocationPrimer && (
@@ -525,12 +560,64 @@ export default function FinderPage() {
         />
       </Modal>
 
+      {/* Account / profile */}
+      <SidePanel
+        open={showAccount}
+        onClose={() => {
+          setShowAccount(false);
+          if (tab === "account") setTab("map");
+        }}
+        labelledBy="account-panel-title"
+      >
+        <h2 id="account-panel-title" className="sr-only">
+          Account
+        </h2>
+        <AccountPanel
+          user={auth.user}
+          isAuthed={auth.isAuthed}
+          isAuthAvailable={auth.isAuthAvailable}
+          isAdmin={auth.user?.role === "admin"}
+          favoriteCount={favorites.favoriteIds.size}
+          onSignIn={() => {
+            setShowAccount(false);
+            setAuthModalMode("signin");
+            setSignInIntent(null);
+            setShowSignIn(true);
+          }}
+          onSignUp={() => {
+            setShowAccount(false);
+            setAuthModalMode("signup");
+            setSignInIntent(null);
+            setShowSignIn(true);
+          }}
+          onSignOut={() => {
+            void auth.signOut();
+            setShowAccount(false);
+            if (tab === "account") setTab("map");
+          }}
+          onOpenMyReports={() => {
+            setShowAccount(false);
+            setShowReports(true);
+          }}
+          onOpenSavedStations={() => {
+            setShowAccount(false);
+            setFavoritesOnly(true);
+            setSnap("full");
+            if (tab === "account") setTab("map");
+          }}
+          onClose={() => {
+            setShowAccount(false);
+            if (tab === "account") setTab("map");
+          }}
+        />
+      </SidePanel>
+
       {/* Live community reports feed */}
       <SidePanel
         open={showReports}
         onClose={() => {
           setShowReports(false);
-          if (tab === "reports") setTab("map");
+          if (tab !== "map") setTab("map");
         }}
         labelledBy="reports-panel-title"
       >
@@ -540,7 +627,7 @@ export default function FinderPage() {
           subtitle="Live prices and queues from other drivers"
           onClose={() => {
             setShowReports(false);
-            if (tab === "reports") setTab("map");
+            if (tab !== "map") setTab("map");
           }}
         />
         <div className="min-h-0 flex-1 bg-surface">

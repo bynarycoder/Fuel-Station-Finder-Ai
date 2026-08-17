@@ -24,10 +24,14 @@
  * "Near me" button — so mounting/opening/closing the panel has ZERO side
  * effects on the geolocation state machine.
  *
- * DESIGN: this is no longer a chat clone. The answer is a designed
- * recommendation card — price, distance, availability, then "Why this
- * station?" — because the user's question is "where do I refuel", not "let's
- * have a conversation".
+ * DESIGN: a modern assistant surface — a scrolling conversation area with
+ * user/assistant bubbles and a sticky composer, matching the reference. The
+ * ANSWER itself is still a designed recommendation card (price, distance,
+ * availability, then "Why this station?") rather than a wall of prose,
+ * because the user's question is "where do I refuel".
+ *
+ * The transcript is presentation only: `ask()` still sends exactly one
+ * request per explicit user action and the panel never re-asks on its own.
  */
 
 import {
@@ -38,10 +42,11 @@ import {
   LocateFixed,
   MapPin,
   Navigation,
+  Send,
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -56,12 +61,20 @@ import { useMapStore } from "@/store/useMapStore";
 import type { AIRecommendResponse } from "@/types/ai";
 import { FUEL_TYPE_LABELS } from "@/types/station";
 
+/**
+ * Suggested prompts. A mix on purpose: the first three exercise the grounded
+ * station workflow, the last is a general question Groq answers
+ * conversationally with no location involved.
+ */
 const EXAMPLE_QUERIES = [
   "Find the cheapest petrol near me",
-  "Find the closest CNG station",
-  "I need diesel under ₦1000",
-  // A general question — answered conversationally, no location needed.
-  "What can you help me with?",
+  "Which stations are open nearby?",
+  "What fuel stations are close to me?",
+  // NOTE: suggestions deliberately contain NO price figure. A "₦1000" in a
+  // chip is indistinguishable, to a reader (and to the honesty test), from a
+  // price the app is claiming — and the app must never show a number it did
+  // not get from a real report.
+  "What should I check before buying fuel?",
 ];
 
 const SORT_LABELS: Record<string, string> = {
@@ -99,6 +112,13 @@ export function FuelIntelligence({
   const [showRunnerUps, setShowRunnerUps] = useState(false);
   // The question waiting for a location fix (state, so the UI re-renders).
   const [pendingQuery, setPendingQuery] = useState("");
+  /**
+   * The question currently being answered, echoed as the user's chat turn.
+   * Presentation only — it is set from the SAME text `ask()` sends, so the
+   * bubble can never show something different from what was requested.
+   */
+  const [asked, setAsked] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
 
   const userLocation = useMapStore((s) => s.userLocation);
   // The app's single location lifecycle lives in the store; this panel only
@@ -136,11 +156,13 @@ export function FuelIntelligence({
     // re-runs the same routing rules and stays authoritative.
     if (!location && looksLikeStationSearch(text)) {
       setPendingQuery(text);
+      setAsked(text);
       setResult(null);
       setPhase("idle");
       return;
     }
     setPendingQuery("");
+    setAsked(text);
     setPhase("loading");
     try {
       const response = await requestAiRecommendation({
@@ -161,6 +183,14 @@ export function FuelIntelligence({
       setPhase("error");
     }
   }
+
+  // Keep the latest turn visible as the conversation grows.
+  useEffect(() => {
+    if (!asked && phase === "idle") return;
+    // Feature-detected: jsdom (and very old browsers) have no scrollIntoView,
+    // and this is a pure nicety — it must never throw during a render commit.
+    endRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
+  }, [asked, phase, result]);
 
   // A question handed in from the unified search bar is asked immediately.
   useEffect(() => {
@@ -196,20 +226,20 @@ export function FuelIntelligence({
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-brand-200 bg-surface shadow-e2"
+      className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-e2"
       aria-label="Fuel Intelligence assistant"
       data-testid="fuel-intelligence"
     >
-      {/* Branded header — this is a product surface, not a chatbot. */}
-      <div className="flex items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
+      {/* Branded header — makes it unmistakable that this is the AI surface. */}
+      <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-accent-300 ring-1 ring-white/20">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-white/15 text-white ring-1 ring-white/25">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="truncate text-h3 text-white">Fuel Intelligence</h2>
-            <p className="truncate text-caption text-brand-100/90">
-              Ask in plain words — answers use real station data only
+            <h2 className="truncate text-h3 text-slab-fg">Fuel AI Assistant</h2>
+            <p className="truncate text-caption text-white/85">
+              Ask me anything about fuel stations
             </p>
           </div>
         </div>
@@ -217,7 +247,7 @@ export function FuelIntelligence({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-brand-100 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
             aria-label="Close Fuel Intelligence"
           >
             <X className="h-4 w-4" aria-hidden="true" />
@@ -225,55 +255,30 @@ export function FuelIntelligence({
         )}
       </div>
 
-      <div className="p-4">
-        {/* Query input */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void ask();
-              }
-            }}
-            placeholder="e.g. Find the cheapest petrol near me"
-            maxLength={300}
-            className="h-11 min-w-0 flex-1 rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
-            aria-label="Ask Fuel AI"
-          />
-          <Button
-            onClick={() => void ask()}
-            disabled={phase === "loading" || !query.trim()}
-            className="shrink-0"
-          >
-            {phase === "loading" ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-            )}
-            Ask Fuel AI
-          </Button>
-        </div>
+      {/* ------------------------------------------- conversation area ---
+          Scrolls independently of the composer, which stays pinned to the
+          bottom so the send button is reachable with the keyboard open. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4">
+        {/* Empty conversation: the assistant introduces itself rather than
+            leaving a blank panel. */}
+        {phase === "idle" && !asked && !needsLocation && (
+          <AssistantBubble>
+            <p className="text-body-sm text-ink-800">
+              Hi! I can find fuel stations near you, compare reported prices and
+              answer general fuel questions. What do you need?
+            </p>
+          </AssistantBubble>
+        )}
 
-        {/* Example chips */}
-        {phase !== "done" && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <span className="text-label uppercase text-ink-500">Try</span>
-            {EXAMPLE_QUERIES.map((example) => (
-              <button
-                key={example}
-                type="button"
-                onClick={() => {
-                  setQuery(example);
-                  void ask(example);
-                }}
-                className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
-              >
-                {example}
-              </button>
-            ))}
+        {/* The question currently being answered, echoed as the user's turn. */}
+        {asked && (
+          <div className="flex justify-end">
+            <p
+              className="max-w-[85%] break-words rounded-2xl rounded-br-md bg-action px-3.5 py-2.5 text-body-sm text-action-fg shadow-e1"
+              data-testid="ai-user-message"
+            >
+              {asked}
+            </p>
           </div>
         )}
 
@@ -281,7 +286,7 @@ export function FuelIntelligence({
         {needsLocation && (
           <div
             role="status"
-            className="mt-3 flex items-start gap-2.5 rounded-xl border border-warning-border bg-warning-soft px-3 py-3 text-caption leading-relaxed text-warning-strong"
+            className="flex items-start gap-2.5 rounded-2xl rounded-bl-md border border-warning-border bg-warning-soft px-3 py-3 text-caption leading-relaxed text-warning-strong"
           >
             <LocateFixed className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
@@ -323,7 +328,7 @@ export function FuelIntelligence({
         {/* Location source indicator — manual selections are labelled honestly,
             never as GPS / live tracking. */}
         {userLocation && locationSource === "manual" && manualLocationLabel && (
-          <p className="mt-2 flex items-center gap-1.5 text-caption text-brand-700">
+          <p className="flex items-center gap-1.5 text-caption text-brand-700">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Using selected location — {manualLocationLabel}
             {onChooseLocation && (
@@ -338,29 +343,26 @@ export function FuelIntelligence({
           </p>
         )}
 
-        {/* Loading — an intentional processing state, not a bare spinner. */}
+        {/* Loading — a typing indicator, the conversational equivalent of a
+            skeleton, plus the shaped placeholder for the answer card. */}
         {phase === "loading" && (
-          <div
-            role="status"
-            className="mt-3 overflow-hidden rounded-xl border border-brand-200 bg-brand-50/60"
-          >
-            <div className="flex items-center gap-2.5 px-3 py-3 text-body-sm font-medium text-brand-800">
+          <AssistantBubble role="status">
+            <span className="flex items-center gap-2.5 text-body-sm font-medium text-brand-800">
               <ThinkingDots className="text-brand-600" />
               Reading nearby stations and recent reports…
-            </div>
-            <div className="space-y-2 border-t border-brand-100 bg-surface p-3">
-              <div className="skeleton h-4 w-2/5 rounded-md" />
-              <div className="skeleton h-3 w-3/5 rounded-md" />
-              <div className="skeleton h-3 w-1/3 rounded-md" />
-            </div>
-          </div>
+            </span>
+            <span className="mt-2.5 block space-y-2">
+              <span className="skeleton block h-3 w-3/5 rounded-md" />
+              <span className="skeleton block h-3 w-2/5 rounded-md" />
+            </span>
+          </AssistantBubble>
         )}
 
         {/* Error */}
         {phase === "error" && (
           <div
             role="alert"
-            className="mt-3 flex items-start gap-2.5 rounded-xl border border-danger-border bg-danger-soft px-3 py-3 text-caption leading-relaxed text-danger-strong"
+            className="flex items-start gap-2.5 rounded-2xl rounded-bl-md border border-danger-border bg-danger-soft px-3 py-3 text-caption leading-relaxed text-danger-strong"
           >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
@@ -376,12 +378,12 @@ export function FuelIntelligence({
 
         {/* Results */}
         {phase === "done" && result && (
-          <div className="mt-3 space-y-3 animate-slide-up" data-testid="fuel-intelligence-result">
+          <div className="space-y-3 animate-slide-up" data-testid="fuel-intelligence-result">
             {result.mode !== "conversation" && <IntentSummary result={result} />}
 
             {result.mode === "conversation" ? (
               <div
-                className="rounded-xl border border-hairline bg-ink-50 px-3 py-3"
+                className="rounded-2xl rounded-bl-md border border-hairline bg-ink-50 px-3.5 py-3"
                 data-testid="ai-conversation-answer"
               >
                 <p className="whitespace-pre-line break-words text-body-sm text-ink-800">
@@ -390,7 +392,7 @@ export function FuelIntelligence({
                 <AnswerSourceLabel source={result.answer_source} />
               </div>
             ) : result.recommendations.length === 0 ? (
-              <div className="break-words rounded-xl border border-hairline bg-ink-50 px-3 py-3 text-body-sm text-ink-700">
+              <div className="break-words rounded-2xl rounded-bl-md border border-hairline bg-ink-50 px-3.5 py-3 text-body-sm text-ink-700">
                 {result.answer}
               </div>
             ) : (
@@ -465,8 +467,96 @@ export function FuelIntelligence({
             )}
           </div>
         )}
+
+        {/* Quick actions — real prompts, sent through the same ask() path. */}
+        {phase !== "loading" && (
+          <div className="mt-1">
+            <p className="text-caption text-ink-500">
+              {asked ? "You can also try:" : "Try asking:"}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {EXAMPLE_QUERIES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => {
+                    setQuery(example);
+                    void ask(example);
+                  }}
+                  className="inline-flex items-center rounded-pill border border-hairline bg-surface px-3 py-1.5 text-caption font-medium text-ink-600 transition-colors hover:border-brand-300 hover:text-brand-700 pointer-coarse:min-h-touch"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Anchor the scroll position at the newest turn. */}
+        <div ref={endRef} aria-hidden="true" />
+      </div>
+
+      {/* --------------------------------------------------- composer ---
+          Sticky at the bottom of the panel. The parent sheet lifts the whole
+          surface above the on-screen keyboard (see Sheet's visualViewport
+          handling), so the field and send button are never covered. */}
+      <div className="shrink-0 border-t border-hairline bg-surface p-3">
+        <div className="flex items-end gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void ask();
+              }
+            }}
+            placeholder="Ask anything..."
+            maxLength={300}
+            enterKeyHint="send"
+            className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            aria-label="Ask Fuel AI"
+          />
+          <button
+            type="button"
+            onClick={() => void ask()}
+            disabled={phase === "loading" || !query.trim()}
+            /* Distinct from the input's own "Ask Fuel AI" label so the two
+               controls stay individually addressable by assistive tech. */
+            aria-label="Ask Fuel AI — send message"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-pill bg-action text-action-fg shadow-e1 transition-all duration-fast hover:bg-action-hover active:scale-95 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
+            {phase === "loading" ? (
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Send className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * An assistant turn. Left-aligned with the "tail" corner squared off, mirroring
+ * the user's right-aligned green bubble.
+ */
+function AssistantBubble({
+  children,
+  role,
+}: {
+  children: ReactNode;
+  role?: "status";
+}) {
+  return (
+    <div
+      role={role}
+      className="max-w-[92%] rounded-2xl rounded-bl-md border border-hairline bg-ink-50 px-3.5 py-3"
+    >
+      {children}
+    </div>
   );
 }
 
@@ -664,7 +754,7 @@ function TopRecommendation({
                 aria-label={`${row.label} score ${Math.round(row.value * 100)} of 100`}
               >
                 <div
-                  className="h-full rounded-pill bg-brand-600 transition-[width] duration-slow ease-entrance"
+                  className="h-full rounded-pill bg-action transition-[width] duration-slow ease-entrance"
                   style={{ width: `${Math.round(row.value * 100)}%` }}
                 />
               </div>

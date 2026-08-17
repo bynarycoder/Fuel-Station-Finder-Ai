@@ -14,7 +14,7 @@ export function BrandGlyph({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-lg bg-accent-400 shadow-e1",
+        "flex h-9 w-9 items-center justify-center rounded-lg bg-action shadow-e1",
         className,
       )}
       aria-hidden="true"
@@ -22,9 +22,12 @@ export function BrandGlyph({ className }: { className?: string }) {
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
         <path
           d="M12 2.6c3.4 4 5.4 6.8 5.4 9.4A5.4 5.4 0 0 1 12 17.4a5.4 5.4 0 0 1-5.4-5.4c0-2.6 2-5.4 5.4-9.4Z"
-          fill="#0a4d3c"
+          className="fill-action-fg"
         />
-        <path d="M12 8.4l2.9 5.9L12 13l-2.9 1.3L12 8.4Z" fill="#fdb022" />
+        <path
+          d="M12 8.4l2.9 5.9L12 13l-2.9 1.3L12 8.4Z"
+          className="fill-action"
+        />
       </svg>
     </span>
   );

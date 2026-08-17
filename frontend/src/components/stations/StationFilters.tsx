@@ -307,23 +307,14 @@ export function StationFilters({
         </Button>
       </div>
 
-      {/* Quick fuel chips — the filter people actually use. */}
+      {/*
+        The fuel chips that used to live here now render as the shared
+        `FuelFilterChips` row directly under the search field (the reference
+        design's placement). Both wrote to the SAME `filters.fuelType`, so
+        keeping both produced a duplicated control — this row keeps only the
+        Favourites toggle, which the chip row does not cover.
+      */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-        <FuelChip
-          label="All fuel"
-          active={filters.fuelType === ""}
-          onClick={() => setFilters({ fuelType: "" })}
-        />
-        {QUICK_FUELS.map((code) => (
-          <FuelChip
-            key={code}
-            label={FUEL_SHORT[code]}
-            active={filters.fuelType === code}
-            onClick={() =>
-              setFilters({ fuelType: filters.fuelType === code ? "" : code })
-            }
-          />
-        ))}
         <button
           type="button"
           onClick={handleFavoritesToggle}
@@ -561,7 +552,7 @@ function FuelChip({
       className={cn(
         "inline-flex h-9 shrink-0 items-center rounded-pill border px-3.5 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
         active
-          ? "border-brand-700 bg-brand-700 text-white"
+          ? "border-action bg-action text-action-fg"
           : "border-hairline bg-surface text-ink-600 hover:border-brand-300 hover:text-brand-700",
       )}
     >

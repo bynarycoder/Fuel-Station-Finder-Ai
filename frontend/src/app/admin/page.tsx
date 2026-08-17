@@ -106,16 +106,16 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-[100dvh] bg-canvas">
-      <header className="flex h-16 items-center justify-between gap-3 border-b border-brand-800/40 bg-brand-900 px-4 text-white sm:px-6">
+      <header className="flex h-16 items-center justify-between gap-3 border-b border-white/10 bg-slab px-4 text-white sm:px-6">
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-6 w-6 text-accent-300" aria-hidden="true" />
           <div>
             <h1 className="text-h2 text-white">Admin dashboard</h1>
-            <p className="text-caption text-brand-200">Signed in as {me.data.email}</p>
+            <p className="text-caption text-slab-muted">Signed in as {me.data.email}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/" className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-semibold text-brand-100 transition-colors hover:bg-surface/10 hover:text-white">
+          <Link href="/" className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-semibold text-slab-muted transition-colors hover:bg-surface/10 hover:text-white">
             <ArrowLeft className="h-3.5 w-3.5" /> Map
           </Link>
           <button
@@ -221,7 +221,7 @@ function SignInGate({ onSignedIn }: { onSignedIn: (token: string) => void }) {
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-brand-700 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800 disabled:opacity-50"
+          className="inline-flex h-12 w-full items-center justify-center rounded-lg bg-action text-body-sm font-semibold text-action-fg shadow-e1 transition-colors hover:bg-brand-800 disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
@@ -410,7 +410,7 @@ function ReportsSection({
                   <button
                     disabled={busy}
                     onClick={() => onStatus(report.id, "verified")}
-                    className="inline-flex items-center gap-1 rounded-lg bg-brand-700 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-800 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-action px-2 py-1 text-xs font-semibold text-action-fg hover:bg-brand-800 disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                   </button>
@@ -555,7 +555,7 @@ function UsersSection({
               <button
                 disabled={busy}
                 onClick={() => onToggleActive(user.id, !user.is_active)}
-                className={`rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${user.is_active ? "bg-ink-100 text-ink-700 hover:bg-ink-200" : "bg-brand-700 text-white hover:bg-brand-800"}`}
+                className={`rounded-lg px-2 py-1 text-xs font-semibold disabled:opacity-50 ${user.is_active ? "bg-ink-100 text-ink-700 hover:bg-ink-200" : "bg-action text-action-fg hover:bg-brand-800"}`}
               >
                 {user.is_active ? "Disable" : "Enable"}
               </button>

@@ -25,12 +25,19 @@ export function PriceDisplay({
   price,
   fuelCode,
   size = "md",
+  emphasis = false,
   className,
 }: {
   /** Naira per litre, or null when nothing has been reported. */
   price: number | null;
   fuelCode?: string;
   size?: "sm" | "md" | "lg";
+  /**
+   * Renders the figure in brand green. The reference design uses green to
+   * mark the *current price* on station cards and the fuel-price list; it is
+   * never used to imply "cheap" or "verified".
+   */
+  emphasis?: boolean;
   className?: string;
 }) {
   if (price == null) {
@@ -53,7 +60,13 @@ export function PriceDisplay({
 
   return (
     <span className={cn("inline-flex items-baseline gap-1", className)}>
-      <span className={cn(numberClass, "tabular-nums text-ink-900")}>
+      <span
+        className={cn(
+          numberClass,
+          "tabular-nums",
+          emphasis ? "font-bold text-brand-700" : "text-ink-900",
+        )}
+      >
         ₦{price.toLocaleString()}
       </span>
       <span className="text-caption font-medium text-ink-500">

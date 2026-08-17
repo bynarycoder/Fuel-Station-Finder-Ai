@@ -158,13 +158,9 @@ describe("errors are announced and associated with their field", () => {
 
 describe("the primary action is a button, not a form submit", () => {
   it("submits only on click and reports its busy state", async () => {
-    let resolve!: (v: { id: string }) => void;
-    submitMock.mockImplementation(
-      () =>
-        new Promise((r: (v: { id: string }) => void) => {
-          resolve = r;
-        }) as ReturnType<typeof submitMock>,
-    );
+    // Typed to the mock's own resolution type so `tsc --noEmit` is clean.
+    let resolve!: (v: Awaited<ReturnType<typeof api.submitReport>>) => void;
+    submitMock.mockImplementation(() => new Promise((r) => { resolve = r; }));
 
     renderForm();
     toEvidenceStep();
@@ -177,7 +173,7 @@ describe("the primary action is a button, not a form submit", () => {
       expect(screen.getByRole("button", { name: /submitting/i })).toBeDisabled(),
     );
 
-    resolve({ id: "r1" });
+    resolve({ id: "r1" } as Awaited<ReturnType<typeof api.submitReport>>);
     expect(await screen.findByText(/report submitted/i)).toBeInTheDocument();
     expect(submitMock).toHaveBeenCalledTimes(1);
   });

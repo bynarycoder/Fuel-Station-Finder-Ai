@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { StationBrandMark } from "@/components/stations/StationBrandMark";
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import {
   FreshnessLine,
@@ -157,6 +158,12 @@ export function StationDetail({
       {/* ---------------------------------------------------- 1. identity -- */}
       <div className="shrink-0 border-b border-hairline bg-surface">
         <div className="flex items-start justify-between gap-3 p-4 pb-3">
+          <StationBrandMark
+            brand={station.brand}
+            name={station.name}
+            size="lg"
+            className="mt-0.5"
+          />
           <div className="min-w-0 flex-1">
             <h2 id="station-detail-title" className="text-h1 text-ink-900">
               {brandPrefix && (
@@ -246,6 +253,7 @@ export function StationDetail({
                   price={summary.latest.price}
                   fuelCode={summary.latest.fuelCode}
                   size="lg"
+                  emphasis
                 />
                 <Badge tone={STATUS_TONE[summary.latest.status] ?? "neutral"} size="md">
                   {summary.latest.status === "verified"
@@ -310,8 +318,8 @@ export function StationDetail({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {/* 4. Fuel availability */}
         <section className="rounded-xl border border-hairline bg-surface p-4">
-          <h3 className="mb-3 flex items-center gap-1.5 text-label uppercase text-ink-500">
-            <Fuel className="h-3.5 w-3.5" aria-hidden="true" /> Fuel &amp; prices
+          <h3 className="mb-3 flex items-center gap-1.5 text-h3 text-ink-900">
+            <Fuel className="h-4 w-4 text-brand-600" aria-hidden="true" /> Fuel Prices
           </h3>
           <ul className="space-y-2">
             {FUEL_TYPE_CODES.filter(
@@ -350,7 +358,7 @@ export function StationDetail({
                       )}
                     </p>
                   </div>
-                  <PriceDisplay price={fact?.price ?? null} size="sm" />
+                  <PriceDisplay price={fact?.price ?? null} size="sm" emphasis />
                 </li>
               );
             })}

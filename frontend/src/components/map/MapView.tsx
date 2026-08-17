@@ -294,7 +294,7 @@ export default function MapView({
                       e.stopPropagation();
                       onSelect(station.id);
                     }}
-                    className="mt-2.5 inline-flex h-9 w-full items-center justify-center rounded-md bg-brand-700 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-brand-800"
+                    className="mt-2.5 inline-flex h-9 w-full items-center justify-center rounded-md bg-action px-3 text-[13px] font-semibold text-white transition-colors hover:bg-brand-800"
                   >
                     View station
                   </button>

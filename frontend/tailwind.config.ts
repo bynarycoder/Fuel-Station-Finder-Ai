@@ -16,84 +16,124 @@ import type { Config } from "tailwindcss";
  * - `ink`    — slightly warm neutral ramp for text, borders and surfaces.
  * - status   — success / warning / danger / info, each with a tint + a solid.
  */
+/**
+ * Every colour below resolves through a CSS custom property holding SPACE-
+ * SEPARATED RGB CHANNELS (e.g. `--brand-700: 4 121 90`). That form is what
+ * lets Tailwind keep composing opacity modifiers (`bg-ink-900/45`,
+ * `ring-brand-500/20`) while the *value* is swapped at runtime by the theme.
+ *
+ * Consequence: `.dark` in globals.css re-points these variables and the ~130
+ * existing token usages across the product become dark-mode aware without a
+ * single `dark:` class being added to them. The `ink` ramp deliberately
+ * INVERTS in dark mode (ink-900 becomes near-white), so `text-ink-900` keeps
+ * meaning "highest-contrast body text" in both themes.
+ */
+const channel = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  /** Theme is driven by a `.dark` class on <html> (set by ThemeProvider). */
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
         brand: {
-          50: "#ecfdf6",
-          100: "#d1fae9",
-          200: "#a6f4d5",
-          300: "#6ee7bd",
-          400: "#34d3a0",
-          500: "#12b886",
-          600: "#059669",
-          700: "#04795a",
-          800: "#065f49",
-          900: "#0a4d3c",
-          950: "#022c22",
+          50: channel("brand-50"),
+          100: channel("brand-100"),
+          200: channel("brand-200"),
+          300: channel("brand-300"),
+          400: channel("brand-400"),
+          500: channel("brand-500"),
+          600: channel("brand-600"),
+          700: channel("brand-700"),
+          800: channel("brand-800"),
+          900: channel("brand-900"),
+          950: channel("brand-950"),
         },
         accent: {
-          50: "#fffaeb",
-          100: "#fef0c7",
-          200: "#fedf89",
-          300: "#fec84b",
-          400: "#fdb022",
-          500: "#f79009",
-          600: "#dc6803",
-          700: "#b54708",
-          800: "#93370d",
-          900: "#7a2e0e",
+          50: channel("accent-50"),
+          100: channel("accent-100"),
+          200: channel("accent-200"),
+          300: channel("accent-300"),
+          400: channel("accent-400"),
+          500: channel("accent-500"),
+          600: channel("accent-600"),
+          700: channel("accent-700"),
+          800: channel("accent-800"),
+          900: channel("accent-900"),
         },
         ink: {
-          50: "var(--ink-50)",
-          100: "var(--ink-100)",
-          200: "var(--ink-200)",
-          300: "var(--ink-300)",
-          // 400/500 are darkened past the naive "grey" values so muted body
-          // copy and placeholders still clear WCAG AA (4.5:1) on BOTH the
-          // canvas (#f6f8f9) and surface (#ffffff) backgrounds.
-          400: "var(--ink-400)",
-          500: "var(--ink-500)",
-          600: "var(--ink-600)",
-          700: "var(--ink-700)",
-          800: "var(--ink-800)",
-          900: "var(--ink-900)",
+          50: channel("ink-50"),
+          100: channel("ink-100"),
+          200: channel("ink-200"),
+          300: channel("ink-300"),
+          400: channel("ink-400"),
+          500: channel("ink-500"),
+          600: channel("ink-600"),
+          700: channel("ink-700"),
+          800: channel("ink-800"),
+          900: channel("ink-900"),
         },
         success: {
-          soft: "#ecfdf3",
-          border: "#a6f4c5",
-          DEFAULT: "#039855",
-          strong: "#027a48",
+          soft: channel("success-soft"),
+          border: channel("success-border"),
+          DEFAULT: channel("success"),
+          strong: channel("success-strong"),
         },
         warning: {
-          soft: "#fffaeb",
-          border: "#fedf89",
-          DEFAULT: "#dc6803",
-          strong: "#b54708",
+          soft: channel("warning-soft"),
+          border: channel("warning-border"),
+          DEFAULT: channel("warning"),
+          strong: channel("warning-strong"),
         },
         danger: {
-          soft: "#fef3f2",
-          border: "#fecdca",
-          DEFAULT: "#d92d20",
-          strong: "#b42318",
+          soft: channel("danger-soft"),
+          border: channel("danger-border"),
+          DEFAULT: channel("danger"),
+          strong: channel("danger-strong"),
         },
         info: {
-          soft: "#eff8ff",
-          border: "#b2ddff",
-          DEFAULT: "#175cd3",
-          strong: "#1849a9",
+          soft: channel("info-soft"),
+          border: channel("info-border"),
+          DEFAULT: channel("info"),
+          strong: channel("info-strong"),
         },
-        /** Semantic surfaces (light product; no dark mode in scope). */
-        canvas: "var(--canvas)",
-        surface: "var(--surface)",
-        elevated: "var(--elevated)",
-        hairline: "var(--hairline)",
+        /**
+         * ROLE TOKENS — these exist because a single ramp cannot serve two
+         * opposite jobs in dark mode.
+         *
+         * `text-brand-700` must become LIGHT on a dark surface, while
+         * `bg-brand-700 + white text` must stay DARK. Inverting the ramp fixes
+         * the first and breaks the second. So the two roles are split:
+         *
+         *  - `action` / `action-fg`  a SOLID brand fill and the text on it.
+         *    Follows the Material-style primary/on-primary swap: a deep green
+         *    with white text in light mode, a vivid mint with near-black green
+         *    text in dark mode. Both clear AA.
+         *  - `slab` / `slab-fg` / `slab-muted`  a deliberately ALWAYS-DARK
+         *    brand surface (account header, footer, marketing hero). It is
+         *    dark green in both themes by design, so its foregrounds are
+         *    fixed too and never invert out from under it.
+         */
+        action: {
+          DEFAULT: channel("action"),
+          hover: channel("action-hover"),
+          fg: channel("action-fg"),
+        },
+        slab: {
+          DEFAULT: channel("slab"),
+          fg: channel("slab-fg"),
+          muted: channel("slab-muted"),
+        },
+        /** Semantic surfaces — themed. */
+        canvas: channel("canvas"),
+        surface: channel("surface"),
+        elevated: channel("elevated"),
+        hairline: channel("hairline"),
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -186,8 +226,12 @@ const config: Config = {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+        /* Themed: the account header + AI banner follow the brand ramp, so
+           they re-tone in dark mode instead of staying a light-mode slab. */
+        /* Pinned to the always-dark `slab` role so it never inverts into a
+           pale gradient with white text on top of it. */
         "brand-sheen":
-          "linear-gradient(135deg, #04795a 0%, #065f49 45%, #0a4d3c 100%)",
+          "linear-gradient(135deg, rgb(var(--action)) 0%, rgb(var(--slab)) 65%, rgb(var(--slab)) 100%)",
       },
       zIndex: {
         header: "60",

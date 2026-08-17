@@ -84,10 +84,10 @@ export default function AboutPage() {
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-header flex h-14 items-center justify-between gap-3 bg-brand-900 px-4 shadow-e2 sm:px-6">
+    <header className="sticky top-0 z-header flex h-14 items-center justify-between gap-3 bg-slab px-4 shadow-e2 sm:px-6">
       <Link
         href="/"
-        className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
+        className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
       >
         <BrandGlyph />
         <span className="min-w-0">
@@ -95,14 +95,14 @@ function SiteHeader() {
             FuelFinder
             <span className="ml-1 text-caption font-semibold text-accent-300">AI</span>
           </span>
-          <span className="hidden truncate text-caption text-brand-200 sm:block">
+          <span className="hidden truncate text-caption text-slab-muted sm:block">
             Fuel intelligence for Nigerian drivers
           </span>
         </span>
       </Link>
       <Link
         href="/"
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-accent-400 px-3.5 text-body-sm font-semibold text-brand-950 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-accent-400 px-3.5 text-body-sm font-semibold text-brand-950 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
       >
         Open the map <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>
@@ -139,7 +139,7 @@ function Hero() {
             <span className="text-accent-300">Drive with confidence.</span>
           </h1>
 
-          <p className="mt-5 max-w-2xl text-body leading-relaxed text-brand-100 sm:text-[1.0625rem] sm:leading-7">
+          <p className="mt-5 max-w-2xl text-body leading-relaxed text-slab-muted sm:text-[1.0625rem] sm:leading-7">
             FuelFinder AI turns scattered rumours about who has fuel into
             something you can act on: a live map of stations near you, prices
             reported by other drivers, and an AI layer that explains its
@@ -149,14 +149,14 @@ function Hero() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-accent-400 px-5 text-body-sm font-semibold text-brand-950 shadow-e1 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-accent-400 px-5 text-body-sm font-semibold text-brand-950 shadow-e1 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
             >
               <MapPin className="h-4 w-4" aria-hidden="true" />
               Find fuel near you
             </Link>
             <Link
               href="#how-it-works"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-body-sm font-semibold text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white/10 px-5 text-body-sm font-semibold text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
             >
               See how it works
             </Link>
@@ -233,7 +233,7 @@ function Mission() {
             { Icon: Signal, label: "Work on a real phone", desc: "Fast on mid-range Android and patchy data." },
           ].map(({ Icon, label, desc }) => (
             <div key={label} className="flex gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-700 text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-action text-action-fg">
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
               <div className="min-w-0">
@@ -564,7 +564,7 @@ function Creator() {
           <div>
             <h3 className="text-h1 text-white">{CREATOR.name}</h3>
             <p className="mt-1 text-body-sm text-accent-300">{CREATOR.role}</p>
-            <p className="mt-4 max-w-md text-body-sm leading-relaxed text-brand-100">
+            <p className="mt-4 max-w-md text-body-sm leading-relaxed text-slab-muted">
               FuelFinder AI was designed and built end to end — the spatial
               backend, the AI layer, and an interface meant to survive a
               one-handed tap on a bumpy road. The guiding principle throughout:
@@ -574,7 +574,7 @@ function Creator() {
           </div>
 
           <div>
-            <h4 className="text-label uppercase tracking-wide text-brand-300">
+            <h4 className="text-label uppercase tracking-wide text-slab-muted">
               Get in touch
             </h4>
             <ul className="mt-3 space-y-2">
@@ -585,7 +585,7 @@ function Creator() {
                     {...(external
                       ? { target: "_blank", rel: "noopener noreferrer" }
                       : {})}
-                    className="flex min-h-touch items-center gap-3 rounded-lg bg-white/10 px-4 py-2.5 text-body-sm text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900"
+                    className="flex min-h-touch items-center gap-3 rounded-lg bg-white/10 px-4 py-2.5 text-body-sm text-white ring-1 ring-inset ring-white/15 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
                   >
                     <Icon className="h-4 w-4 shrink-0 text-accent-300" aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -651,7 +651,7 @@ function ClosingCta() {
       </p>
       <Link
         href="/"
-        className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-700 px-6 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+        className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-action px-6 text-body-sm font-semibold text-white shadow-e1 transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
       >
         <MapPin className="h-4 w-4" aria-hidden="true" />
         Find fuel near you

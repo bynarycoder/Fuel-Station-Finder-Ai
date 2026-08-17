@@ -195,7 +195,7 @@ describe.each(ALL_WIDTHS)("finder at %s", (_label, width) => {
 
     // Open Fuel Intelligence through whichever affordance this width offers.
     const opener =
-      screen.queryAllByRole("button", { name: /ask ai/i })[0] ??
+      screen.queryAllByRole("button", { name: /ai assistant/i })[0] ??
       screen.queryAllByRole("button", { name: /ask fuel intelligence/i })[0];
     expect(opener, "every width must expose a way to reach the AI").toBeTruthy();
     fireEvent.click(opener!);
@@ -261,7 +261,7 @@ describe("one-handed navigation (390px)", () => {
     const mountsBefore = mapProbe.mounts;
 
     const nav = screen.getByRole("navigation", { name: /main/i });
-    fireEvent.click(within(nav).getByRole("button", { name: /ask ai/i }));
+    fireEvent.click(within(nav).getByRole("button", { name: /ai assistant/i }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByTestId("fuel-intelligence")).toBeInTheDocument();
 
@@ -291,25 +291,27 @@ describe("one-handed navigation (390px)", () => {
     expect(mapProbe.mounts).toBe(mountsBefore);
   });
 
-  it("opens the community reports feed and returns to the map", async () => {
+  it("opens the account surface and returns to the map", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
+    const mountsBefore = mapProbe.mounts;
 
     const nav = screen.getByRole("navigation", { name: /main/i });
-    fireEvent.click(within(nav).getByRole("button", { name: /^reports$/i }));
+    fireEvent.click(within(nav).getByRole("button", { name: /account/i }));
     await screen.findByRole("dialog");
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByTestId("station-map-mock")).toBeInTheDocument();
+    expect(mapProbe.mounts).toBe(mountsBefore);
   });
 
-  it("keeps the station list reachable from the bottom nav", async () => {
+  it("keeps the full station list reachable from the nearby sheet", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
+    const mountsBefore = mapProbe.mounts;
 
-    const nav = screen.getByRole("navigation", { name: /main/i });
-    fireEvent.click(within(nav).getByRole("button", { name: /stations/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^see all$/i }));
     // The sheet expands rather than navigating away from the map.
     await waitFor(() =>
       expect(
@@ -317,6 +319,7 @@ describe("one-handed navigation (390px)", () => {
       ).toHaveAttribute("aria-expanded", "true"),
     );
     expect(screen.getByTestId("station-map-mock")).toBeInTheDocument();
+    expect(mapProbe.mounts).toBe(mountsBefore);
   });
 });
 
