@@ -263,6 +263,89 @@ async def test_gemini_failure_returns_503_and_never_verifies(
     assert row.ai_confidence_score is None
 
 
+async def test_submit_with_photo_auto_verifies_in_background(
+    portable_authed, portable_client, temp_storage, monkeypatch
+) -> None:
+    """User POST /reports with a photo must invoke Gemini without an admin click."""
+    await _seed_catalogue(portable_client)
+
+    monkeypatch.setattr(
+        reports_api, "AsyncSessionLocal", portable_client._portable_factory
+    )
+
+    def _fake_analyze(image_bytes: bytes, mime_type: str) -> VerificationResult:
+        assert image_bytes == PNG_BYTES
+        assert mime_type == "image/png"
+        return VerificationResult(
+            score=0.88,
+            is_plausible=True,
+            summary="Queue at a filling station.",
+            detected_attributes=["fuel pumps"],
+        )
+
+    monkeypatch.setattr(reports_api, "analyze_queue_image", _fake_analyze)
+
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    report = await _submit_report_with_photo(driver)
+
+    # Response is immediate PENDING; background persists the score after.
+    assert report["status"] == "pending"
+
+    row = await _report_row(portable_client, report["id"])
+    assert float(row.ai_confidence_score) == pytest.approx(0.88)
+    assert row.status == ReportStatus.VERIFIED
+
+
+async def test_second_auto_verify_does_not_call_gemini_again(
+    portable_authed, portable_client, temp_storage, monkeypatch
+) -> None:
+    """After a successful auto-verify the atomic claim must skip a second Gemini call."""
+    await _seed_catalogue(portable_client)
+    monkeypatch.setattr(
+        reports_api, "AsyncSessionLocal", portable_client._portable_factory
+    )
+    calls: list[int] = []
+
+    def _fake_analyze(image_bytes: bytes, mime_type: str) -> VerificationResult:
+        calls.append(1)
+        return VerificationResult(
+            score=0.9, is_plausible=True, summary="ok", detected_attributes=[]
+        )
+
+    monkeypatch.setattr(reports_api, "analyze_queue_image", _fake_analyze)
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    report = await _submit_report_with_photo(driver)
+    assert len(calls) == 1
+
+    await reports_api.verify_submitted_report_photo(
+        uuid.UUID(report["id"]), temp_storage
+    )
+    assert len(calls) == 1
+
+
+async def test_submit_without_photo_does_not_call_gemini(
+    portable_authed, portable_client, temp_storage, monkeypatch
+) -> None:
+    await _seed_catalogue(portable_client)
+    calls: list[object] = []
+    monkeypatch.setattr(
+        reports_api,
+        "analyze_queue_image",
+        lambda *a, **k: calls.append(1) or VerificationResult(0, False, ""),
+    )
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    response = await driver.post(
+        "/api/v1/reports",
+        data={
+            "station_id": str(STATION_ID),
+            "fuel_type_code": "PMS",
+            "price_per_litre": "915.00",
+        },
+    )
+    assert response.status_code == 201
+    assert calls == []
+
+
 async def test_verify_requires_admin(
     portable_authed, portable_client, temp_storage
 ) -> None:
