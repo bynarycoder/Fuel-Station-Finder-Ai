@@ -43,6 +43,8 @@ MAX_ANSWER_CHARS = 1200
 # --------------------------------------------------------------------------- #
 # Tier 1 — phrases that can only mean "search near a place". They win over
 # everything else ("where can I find cheap petrol?" is a search, not a chat).
+SUPPORTED_LOCALES = ("en", "ha", "yo", "ig")
+
 _STRONG_FINDER_PATTERNS = (
     r"\bnear me\b",
     r"\bnear by\b",
@@ -56,6 +58,19 @@ _STRONG_FINDER_PATTERNS = (
     r"\bwhere can i\b",
     r"\bwhere do i\b",
     r"\bwhere to\b",
+    # Additive Hausa / Yoruba / Igbo finder phrases (English patterns unchanged).
+    r"\bkusa da ni\b",
+    r"\bkusa da\b",
+    r"\bmafi kusa\b",
+    r"\bgidan mai\b",
+    r"\bnitosi\b",
+    r"\bnítòsí\b",
+    r"\bsunmo\b",
+    r"\bsúnmọ́\b",
+    r"\bnso m\b",
+    r"\bebee ka\b",
+    r"\bebee\b",
+    r"\bkacha nso\b",
 )
 
 # Tier 2 — fuel / station vocabulary. Any message about fuel that is not an
@@ -81,13 +96,20 @@ _DOMAIN_PATTERNS = (
     r"\boando\b",
     r"\bconoil\b",
     r"\bardova\b",
+    r"\bmai\b",
+    r"\bfetur\b",
+    r"\bepo\b",
+    r"\bmmanụ\b",
+    r"\bmmanu\b",
+    r"\bọdụ mmanụ\b",
+    r"\btasha\b",
 )
 
 # Tier 3 — explanatory / conversational questions. These stay conversational
 # even when they mention fuel ("why should I verify a price?", "what is PMS?"),
 # unless a tier-1 phrase already proved the user wants nearby stations.
 _EXPLAINER_PATTERNS = (
-    r"^\s*(?:hi|hello|hey|yo|good (?:morning|afternoon|evening))\b",
+    r"^\s*(?:hi|hello|hey|yo|sannu|bawo|ndewo|kedu|good (?:morning|afternoon|evening))\b",
     r"\bwhat can you\b",
     r"\bwhat do you\b",
     r"\bwho are you\b",
@@ -113,6 +135,16 @@ _EXPLAINER_PATTERNS = (
 _STRONG_FINDER_RE = re.compile("|".join(_STRONG_FINDER_PATTERNS), re.IGNORECASE)
 _DOMAIN_RE = re.compile("|".join(_DOMAIN_PATTERNS), re.IGNORECASE)
 _EXPLAINER_RE = re.compile("|".join(_EXPLAINER_PATTERNS), re.IGNORECASE)
+
+
+def normalize_locale(locale: str | None) -> str:
+    """Return a supported locale code. Missing/unknown values are English."""
+    if not locale:
+        return "en"
+    value = locale.strip().lower()
+    if value in SUPPORTED_LOCALES:
+        return value
+    return "en"
 
 
 def classify_query(text: str | None) -> str:
@@ -183,7 +215,24 @@ than three items, no emoji spam.
 """
 
 
-def build_chat_system_prompt() -> str:
+_LANGUAGE_ANSWER_LINE = {
+    "en": "Answer the user's message in plain, friendly English.",
+    "ha": (
+        "Answer the user's message in plain, friendly Hausa (Latin script). "
+        "Keep English product terms (Fuel Intelligence, PMS, verified) when needed."
+    ),
+    "yo": (
+        "Answer the user's message in plain, friendly Yoruba (Latin script). "
+        "Keep English product terms (Fuel Intelligence, PMS, verified) when needed."
+    ),
+    "ig": (
+        "Answer the user's message in plain, friendly Igbo (Latin script). "
+        "Keep English product terms (Fuel Intelligence, PMS, verified) when needed."
+    ),
+}
+
+
+def build_chat_system_prompt(locale: str | None = None) -> str:
     """The system prompt for conversational answers (pure, no I/O)."""
     # Names come from the canonical seed reference rows so the assistant's
     # vocabulary cannot drift from the database's own fuel catalogue.
@@ -196,9 +245,16 @@ def build_chat_system_prompt() -> str:
     )
     queues = ", ".join(member.value for member in QueueLength)
     statuses = ", ".join(member.value for member in ReportStatus)
-    return _CAPABILITY_TEMPLATE.format(
+    prompt = _CAPABILITY_TEMPLATE.format(
         fuel_types=fuel_types, queues=queues, statuses=statuses
     )
+    resolved = normalize_locale(locale)
+    if resolved != "en":
+        prompt = prompt.replace(
+            _LANGUAGE_ANSWER_LINE["en"],
+            _LANGUAGE_ANSWER_LINE[resolved],
+        )
+    return prompt
 
 
 # --------------------------------------------------------------------------- #
@@ -212,20 +268,43 @@ _FALLBACK_ANSWER = (
     "a price you paid from any station's page."
 )
 
+_FALLBACK_BY_LOCALE = {
+    "en": _FALLBACK_ANSWER,
+    "ha": (
+        "Zan iya taimaka muku neman gidajen mai kusa da ku, kwatanta farashin "
+        "da direbobi suka ruwaito, da kuma bayyana yadda aka zaɓi tasha. "
+        "Gwada tambayar \"gidan mai mafi kusa\" (raba wurin ku). "
+        "Kuna iya kuma ruwaito farashin da kuka biya."
+    ),
+    "yo": (
+        "Mo le ran yín lọ́wọ́ láti wá ibùdó epo tó súnmọ́ yín, ṣe àfiwé àwọn "
+        "owó tí àwọn awakọ̀ ti ròyìn, kí n sì ṣàlàyé bí a ṣe yan ibùdó. "
+        "Béèrè \"ibùdó epo tó súnmọ́ mi\" (pín ibi tí ẹ wà). "
+        "Ẹ tún le ròyìn owó tí ẹ san."
+    ),
+    "ig": (
+        "Enwere m ike inyere gị aka ịchọta ọdụ mmanụ dị nso, tụnyere ọnụahịa "
+        "ndị ọkwọ ụgbọala kọrọ, ma kọwaa otú e si họrọ ọdụ. "
+        "Jụọ \"ọdụ mmanụ kacha nso\" (kekọrịta ebe ị nọ). "
+        "Ị nwekwara ike ịkọ ọnụahịa ị kwụrụ."
+    ),
+}
 
-def fallback_answer(_text: str | None = None) -> str:
+
+def fallback_answer(_text: str | None = None, locale: str | None = None) -> str:
     """Deterministic help text used when Groq is unavailable.
 
     Deliberately generic and never presented as an AI answer: the API marks it
     ``answer_source="fallback"`` so the UI can label it honestly.
+    English text is unchanged when locale is omitted.
     """
-    return _FALLBACK_ANSWER
+    return _FALLBACK_BY_LOCALE[normalize_locale(locale)]
 
 
 # --------------------------------------------------------------------------- #
 # Groq call
 # --------------------------------------------------------------------------- #
-def generate_chat_answer(text: str) -> str:
+def generate_chat_answer(text: str, locale: str | None = None) -> str:
     """Ask Groq to answer a general question about the app.
 
     Raises ``AINotConfiguredError`` when no key is configured and
@@ -234,7 +313,7 @@ def generate_chat_answer(text: str) -> str:
     """
     content = groq_chat(
         [
-            {"role": "system", "content": build_chat_system_prompt()},
+            {"role": "system", "content": build_chat_system_prompt(locale)},
             {"role": "user", "content": text.strip()},
         ],
         feature="chat",
@@ -244,7 +323,7 @@ def generate_chat_answer(text: str) -> str:
     return content.strip()[:MAX_ANSWER_CHARS]
 
 
-def answer_question(text: str | None) -> tuple[str, str]:
+def answer_question(text: str | None, locale: str | None = None) -> tuple[str, str]:
     """Answer ``text`` conversationally, returning ``(answer, source)``.
 
     ``source`` is ``"groq"`` when the model actually produced the answer and
@@ -261,6 +340,6 @@ def answer_question(text: str | None) -> tuple[str, str]:
         )
 
     try:
-        return generate_chat_answer(query), "groq"
+        return generate_chat_answer(query, locale=locale), "groq"
     except Exception:  # noqa: BLE001 - already logged + classified by provider
-        return fallback_answer(query), "fallback"
+        return fallback_answer(query, locale=locale), "fallback"

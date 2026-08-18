@@ -3,9 +3,11 @@
 import React, { Component, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { LocaleProvider } from "@/components/i18n/LocaleProvider";
 import { Button } from "@/components/ui/button";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ErrorState } from "@/components/ui/states";
+import i18n from "@/i18n/config";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -53,13 +55,13 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
       return (
         <div className="flex min-h-screen items-center justify-center bg-canvas p-4">
           <ErrorState
-            title="Something went wrong"
-            description="An unexpected error occurred. You can try again or reload the app."
+            title={i18n.t("errors.somethingWentWrong")}
+            description={i18n.t("errors.unexpected")}
             onRetry={this.handleReset}
-            retryLabel="Try again"
+            retryLabel={i18n.t("errors.tryAgain")}
             secondaryAction={
               <Button variant="secondary" size="sm" onClick={this.handleReload}>
-                Reload app
+                {i18n.t("errors.reloadApp")}
               </Button>
             }
             className="max-w-md"
@@ -90,7 +92,9 @@ export default function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppErrorBoundary>{children}</AppErrorBoundary>
+        <LocaleProvider>
+          <AppErrorBoundary>{children}</AppErrorBoundary>
+        </LocaleProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

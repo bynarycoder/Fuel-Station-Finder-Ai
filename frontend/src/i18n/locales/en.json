@@ -1,0 +1,66 @@
+{
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ha": "Hausa",
+    "yo": "Yoruba",
+    "ig": "Igbo"
+  },
+  "nav": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "createAccount": "Create account",
+    "about": "About",
+    "openMenu": "Open menu",
+    "subtitle": "Find fuel across Nigeria",
+    "map": "Map",
+    "ai": "AI Assistant",
+    "report": "Report",
+    "account": "Account",
+    "main": "Main"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "colourTheme": "Colour theme",
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "unexpected": "An unexpected error occurred. You can try again or reload the app.",
+    "tryAgain": "Try again",
+    "reloadApp": "Reload app",
+    "checkConnection": "Please check your connection and try again."
+  },
+  "account": {
+    "appearance": "Appearance",
+    "appearanceHint": "Choose a theme, or follow your device setting.",
+    "languageHint": "Choose the language for buttons, menus and messages.",
+    "signOut": "Sign Out",
+    "welcome": "Welcome",
+    "signInHint": "Sign in to report prices and save stations.",
+    "yourAccount": "Your account",
+    "hello": "Hello, {{name}}",
+    "admin": "Administrator",
+    "verifiedUser": "Verified User",
+    "myReports": "My Reports",
+    "myReportsSub": "View your submitted reports",
+    "saved": "Saved Stations",
+    "favourites": "{{count}} favourites",
+    "favouriteOne": "{{count}} favourite",
+    "yourFavourites": "Your favourite stations",
+    "notifications": "Notification Settings",
+    "notificationsSub": "Manage your notifications",
+    "help": "Help & Support",
+    "helpSub": "FAQs and contact us",
+    "aboutApp": "About Fuel Station Finder",
+    "aboutSub": "App info and how it works",
+    "adminDash": "Admin dashboard",
+    "adminSub": "Moderate reports and users"
+  },
+  "offline": {
+    "banner": "You are offline. Some features may be unavailable."
+  }
+}

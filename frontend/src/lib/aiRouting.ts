@@ -14,15 +14,15 @@
 
 /** Phrases that can only mean "find stations near a place". */
 const STRONG_FINDER =
-  /\bnear me\b|\bnear by\b|\bnearby\b|\bnearest\b|\bclosest\b|\baround me\b|\baround here\b|\bclose to me\b|\bwithin\s+\d+(\.\d+)?\s*(km|kilomet|m\b|metre|meter)|\bwhere can i\b|\bwhere do i\b|\bwhere to\b/i;
+  /\bnear me\b|\bnear by\b|\bnearby\b|\bnearest\b|\bclosest\b|\baround me\b|\baround here\b|\bclose to me\b|\bwithin\s+\d+(\.\d+)?\s*(km|kilomet|m\b|metre|meter)|\bwhere can i\b|\bwhere do i\b|\bwhere to\b|\bkusa da ni\b|\bkusa da\b|\bmafi kusa\b|\bgidan mai\b|\bnitosi\b|\bnítòsí\b|\bsunmo\b|\bsúnmọ́\b|\bnso m\b|\bebee ka\b|\bebee\b|\bkacha nso\b/i;
 
 /** Fuel / station vocabulary. */
 const DOMAIN =
-  /\bstations?\b|\bpetrol\b|\bfuel\b|\bdiesel\b|\bkerosene\b|\bpms\b|\bago\b|\bdpk\b|\blpg\b|\bcng\b|\bcooking gas\b|\bpumps?\b|\bfilling\b|\bnnpc\b|\bmobil\b|\btotal(energies)?\b|\boando\b|\bconoil\b|\bardova\b/i;
+  /\bstations?\b|\bpetrol\b|\bfuel\b|\bdiesel\b|\bkerosene\b|\bpms\b|\bago\b|\bdpk\b|\blpg\b|\bcng\b|\bcooking gas\b|\bpumps?\b|\bfilling\b|\bnnpc\b|\bmobil\b|\btotal(energies)?\b|\boando\b|\bconoil\b|\bardova\b|\bmai\b|\bfetur\b|\bepo\b|\bmmanụ\b|\bmmanu\b|\btasha\b/i;
 
 /** Explanatory / conversational questions and greetings. */
 const EXPLAINER =
-  /^\s*(hi|hello|hey|yo|good (morning|afternoon|evening))\b|\bwhat can you\b|\bwhat do you\b|\bwho are you\b|\bwhat are you\b|\bwhat is\b|\bwhat's\b|\bwhat does\b|\bwhat happens\b|\bhow (do|does|can|is|are|long|often|accurate|reliable)\b|\bwhy\b|\bwhen (do|does|is|are|will|should)\b|\bcan i\b|\bcan you (explain|tell)\b|\bdo you\b|\bshould i\b|\bis it (safe|true|possible|accurate)\b|\bexplain\b|\btell me about\b|\bhelp\b|\bthank/i;
+  /^\s*(hi|hello|hey|yo|sannu|bawo|ndewo|kedu|good (morning|afternoon|evening))\b|\bwhat can you\b|\bwhat do you\b|\bwho are you\b|\bwhat are you\b|\bwhat is\b|\bwhat's\b|\bwhat does\b|\bwhat happens\b|\bhow (do|does|can|is|are|long|often|accurate|reliable)\b|\bwhy\b|\bwhen (do|does|is|are|will|should)\b|\bcan i\b|\bcan you (explain|tell)\b|\bdo you\b|\bshould i\b|\bis it (safe|true|possible|accurate)\b|\bexplain\b|\btell me about\b|\bhelp\b|\bthank/i;
 
 /**
  * True when the message should run a real station search (and therefore needs

@@ -1,0 +1,66 @@
+{
+  "language": {
+    "label": "Èdè",
+    "en": "Gẹ̀ẹ́sì",
+    "ha": "Hausa",
+    "yo": "Yorùbá",
+    "ig": "Igbo"
+  },
+  "nav": {
+    "signIn": "Wọlé",
+    "signUp": "Forúkọsílẹ̀",
+    "createAccount": "Ṣẹ̀dá àkántì",
+    "about": "Nípa wa",
+    "openMenu": "Ṣí àkójọ",
+    "subtitle": "Wá epo ní gbogbo Nàìjíríà",
+    "map": "Máàpù",
+    "ai": "Olùrànlọ́wọ́ AI",
+    "report": "Ìròyìn",
+    "account": "Àkántì",
+    "main": "Àkọ́kọ́"
+  },
+  "theme": {
+    "light": "Ìmọ́lẹ̀",
+    "dark": "Òkùnkùn",
+    "system": "Ẹ̀rọ",
+    "colourTheme": "Àwọ̀",
+    "switchToLight": "Yí sí ìmọ́lẹ̀",
+    "switchToDark": "Yí sí òkùnkùn"
+  },
+  "errors": {
+    "somethingWentWrong": "Ǹkan ò lọ dáadáa",
+    "unexpected": "Àṣìṣe kan ṣẹlẹ̀. Ẹ gbìyànjú lẹ́ẹ̀kan sí i tàbí ẹ tún àpp náà kó.",
+    "tryAgain": "Gbìyànjú lẹ́ẹ̀kan sí i",
+    "reloadApp": "Tún àpp kó",
+    "checkConnection": "Ẹ ṣàyẹ̀wò àsopọ̀ yín kí ẹ sì gbìyànjú lẹ́ẹ̀kan sí i."
+  },
+  "account": {
+    "appearance": "Ìrísí",
+    "appearanceHint": "Yan àwọ̀, tàbí tẹ̀lé ètò ẹ̀rọ yín.",
+    "languageHint": "Yan èdè fún àwọn bọ́tìnì, àkójọ àti ìfiránṣẹ́.",
+    "signOut": "Jáde",
+    "welcome": "Ẹ kú àbọ̀",
+    "signInHint": "Wọlé láti ròyìn owó kí ẹ sì fi ibùdó pamọ́.",
+    "yourAccount": "Àkántì yín",
+    "hello": "Báwo, {{name}}",
+    "admin": "Alábòójútó",
+    "verifiedUser": "Olùmúlò tí a jẹ́rìí sí",
+    "myReports": "Àwọn ìròyìn mi",
+    "myReportsSub": "Wo àwọn ìròyìn tí ẹ fi ránṣẹ́",
+    "saved": "Ibùdó tí a fi pamọ́",
+    "favourites": "Àyànfẹ́ {{count}}",
+    "favouriteOne": "Àyànfẹ́ {{count}}",
+    "yourFavourites": "Àwọn ibùdó àyànfẹ́ yín",
+    "notifications": "Ètò ìfitónilétí",
+    "notificationsSub": "Ṣàkóso àwọn ìfitónilétí",
+    "help": "Ìrànlọ́wọ́",
+    "helpSub": "Ìbéèrè àti ìbánisọ̀rọ̀",
+    "aboutApp": "Nípa Fuel Station Finder",
+    "aboutSub": "Àlàyé àpp àti bí ó ṣe ń ṣiṣẹ́",
+    "adminDash": "Ojú-iṣẹ́ alábòójútó",
+    "adminSub": "Ṣàkóso ìròyìn àti olùmúlò"
+  },
+  "offline": {
+    "banner": "Ẹ kò sí lórí ayélujára. Díẹ̀ lára àwọn iṣẹ́ lè má ṣiṣẹ́."
+  }
+}

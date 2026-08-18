@@ -199,6 +199,9 @@ Rules:
 - "best station"/"best combination of price and distance" -> sort_preference "best_overall".
 - "under ₦900"/"below 1000" -> max_price with the number only.
 - If the query is not about fuel stations, return all null/false values.
+- The user may write in English, Hausa, Yoruba, or Igbo. Enum fields stay English
+  codes only. Synonyms: mai/fetur/epo/mmanu -> PMS; kusa da ni/nitosi/nso m -> distance;
+  mafi arha / to poju / kacha onu ala -> price.
 """
 
 
@@ -287,6 +290,11 @@ _FUEL_KEYWORDS: list[tuple[str, str]] = [
     ("ago", "AGO"),
     ("petrol", "PMS"),
     ("pms", "PMS"),
+    ("gidan mai", "PMS"),
+    ("fetur", "PMS"),
+    ("epo", "PMS"),
+    ("mmanu", "PMS"),
+    ("mmanụ", "PMS"),
 ]
 
 _MAX_PRICE_PATTERNS = [
@@ -318,7 +326,10 @@ def parse_intent_fallback(text: str) -> FuelSearchIntent:
         sort_preference = "reliability"
     elif re.search(r"\bbest\b", lowered):
         sort_preference = "best_overall"
-    elif re.search(r"\b(clos(?:est|er)|nearest|near(?:by| me)?)\b", lowered):
+    elif re.search(
+        r"\b(clos(?:est|er)|nearest|near(?:by| me)?|kusa da|mafi kusa|nitosi|nítòsí|sunmo|nso m|kacha nso)\b",
+        lowered,
+    ):
         sort_preference = "distance"
 
     max_price: float | None = None
@@ -372,7 +383,7 @@ def parse_recommend_intent(text: str) -> FuelSearchIntent:
     return to_fuel_intent(extract_json_object(content), text)
 
 
-def extract_intent(text: str) -> tuple[FuelSearchIntent, str]:
+def extract_intent(text: str, locale: str | None = None) -> tuple[FuelSearchIntent, str]:  # noqa: ARG001
     """Intent extraction with graceful degradation.
 
     Returns ``(intent, source)`` where source is ``"groq"`` or ``"fallback"``.
@@ -749,7 +760,9 @@ _EXPLANATION_PROMPT = """\
 You explain fuel-station recommendations for a Nigerian drivers' app. \
 You are given the ranked stations and the exact facts we know about them. \
 Explain to the user, in 2-3 short friendly sentences, why the top station was \
-recommended. STRICT JSON only: {"answer": "<your explanation>"}.
+recommended. STRICT JSON only: {"answer": "<your explanation>"}. \
+If the user language is not English, write the answer text in that language \
+but keep JSON keys, station names, Naira prices and verification_status as given.
 
 Hard rules — violating any of them is worse than saying less:
 - Use ONLY the supplied facts. Never invent names, prices, distances, fuels or
@@ -764,11 +777,13 @@ Hard rules — violating any of them is worse than saying less:
 """
 
 
-def build_explanation_prompt(intent: FuelSearchIntent, top: list[ScoredCandidate]) -> str:
+def build_explanation_prompt(intent: FuelSearchIntent, top: list[ScoredCandidate], locale: str | None = None) -> str:
     """The facts-only prompt for the explanation call."""
     facts = build_facts_payload(intent, top)
     return (
         _EXPLANATION_PROMPT
+        + "\n\nResponse language: "
+        + chat_service.normalize_locale(locale)
         + "\n\nUser request: "
         + (intent.raw or "")
         + "\nRequested fuel: "
@@ -787,7 +802,7 @@ def parse_explanation_response(text: str | None, max_chars: int = 1000) -> str:
     return answer.strip()[:max_chars]
 
 
-def generate_explanation(intent: FuelSearchIntent, top: list[ScoredCandidate]) -> str:
+def generate_explanation(intent: FuelSearchIntent, top: list[ScoredCandidate], locale: str | None = None) -> str:
     """Ask Groq to explain the ranked recommendation using supplied facts only.
 
     Raises ``AINotConfiguredError`` when Groq is not configured and
@@ -797,7 +812,7 @@ def generate_explanation(intent: FuelSearchIntent, top: list[ScoredCandidate]) -
     """
     content = groq_chat(
         [
-            {"role": "system", "content": build_explanation_prompt(intent, top)},
+            {"role": "system", "content": build_explanation_prompt(intent, top, locale)},
             {
                 "role": "user",
                 "content": "Explain the recommendation using only the supplied facts.",
@@ -822,6 +837,7 @@ async def recommend_stations(
     longitude: float | None,
     *,
     use_cache: bool = True,
+    locale: str | None = None,
 ) -> dict[str, Any]:
     """Run the full pipeline and return the API response dict.
 
@@ -845,7 +861,7 @@ async def recommend_stations(
     # Conversational branch (Groq answers; the database is not consulted).
     # ------------------------------------------------------------------ #
     if chat_service.classify_query(query) == chat_service.MODE_CONVERSATION:
-        answer, answer_source = chat_service.answer_question(query)
+        answer, answer_source = chat_service.answer_question(query, locale=locale)
         return {
             "query": query,
             "mode": "conversation",
@@ -875,7 +891,7 @@ async def recommend_stations(
             "Please allow location access (use \"Near me\") and ask again.",
         }
 
-    cache_key = (query.strip(), round(float(latitude), 3), round(float(longitude), 3))
+    cache_key = (query.strip(), chat_service.normalize_locale(locale), round(float(latitude), 3), round(float(longitude), 3))
     if use_cache:
         with _recommend_cache_lock:
             cached = _recommend_cache.get(cache_key)
@@ -886,7 +902,7 @@ async def recommend_stations(
             with _recommend_cache_lock:
                 _recommend_cache.pop(cache_key, None)
 
-    intent, intent_source = extract_intent(query)
+    intent, intent_source = extract_intent(query, locale=locale)
 
     radius = intent.radius_meters or station_service.DEFAULT_RADIUS_M
     radius = max(0.0, min(float(radius), station_service.MAX_RADIUS_M))
@@ -914,7 +930,7 @@ async def recommend_stations(
     answer_source: str
     try:
         if top:
-            answer = generate_explanation(intent, top)
+            answer = generate_explanation(intent, top, locale=locale)
             answer_source = "groq"
         else:
             answer = build_deterministic_answer(intent, ranked, len(candidates))

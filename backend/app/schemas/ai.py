@@ -75,6 +75,7 @@ class AIRecommendRequest(BaseModel):
     query: str = Field(min_length=1, max_length=300)
     latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    locale: str | None = Field(default=None, max_length=8)
 
 
 class ScoreBreakdown(BaseModel):
@@ -138,6 +139,7 @@ class AIChatRequest(BaseModel):
     """Request body for ``POST /api/v1/ai/chat`` (general Groq Q&A)."""
 
     message: str = Field(min_length=1, max_length=1000)
+    locale: str | None = Field(default=None, max_length=8)
 
 
 class AIChatResponse(BaseModel):

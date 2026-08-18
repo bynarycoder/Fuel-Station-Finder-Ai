@@ -33,6 +33,8 @@ using exactly these keys:
 Only populate a field when the user clearly expressed it. Map casual terms: \
 "petrol"->PMS, "diesel"->AGO, "kerosene"->DPK, "gas/cooking gas"->LPG. \
 Treat neighbourhoods (e.g. Ikeja, Lekki) as the city.
+The user may write in English, Hausa, Yoruba, or Igbo. JSON keys and enum
+values stay English codes only (PMS, AGO, DPK, LPG, none, short, medium, long).
 """
 
 

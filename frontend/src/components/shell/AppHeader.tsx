@@ -23,6 +23,7 @@
 
 import Link from "next/link";
 import { Info, Menu, User, UserPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { BrandGlyph } from "@/components/shell/BrandGlyph";
 import { ThemeToggleButton } from "@/components/theme/ThemeSelector";
@@ -59,9 +60,11 @@ export function AppHeader({
   onSignIn,
   onSignUp,
   onOpenAccount,
-  subtitle = "Find fuel across Nigeria",
+  subtitle,
   className,
 }: AppHeaderProps) {
+  const { t } = useTranslation();
+  const resolvedSubtitle = subtitle ?? t("nav.subtitle");
   const initial = (email ?? "?").charAt(0).toUpperCase();
 
   return (
@@ -78,7 +81,7 @@ export function AppHeader({
           <button
             type="button"
             onClick={onOpenAccount}
-            aria-label="Open menu"
+            aria-label={t("nav.openMenu")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:hidden"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
@@ -97,7 +100,7 @@ export function AppHeader({
               FuelFinder<span className="text-brand-700">&nbsp;AI</span>
             </span>
             <span className="hidden truncate text-caption text-ink-500 sm:block">
-              {subtitle}
+              {resolvedSubtitle}
             </span>
           </span>
         </Link>
@@ -124,12 +127,12 @@ export function AppHeader({
           <>
             <Button variant="ghost" size="sm" onClick={onSignIn}>
               <User className="h-4 w-4" aria-hidden="true" />
-              Sign in
+              {t("nav.signIn")}
             </Button>
             <Button variant="primary" size="sm" onClick={onSignUp}>
               <UserPlus className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Create account</span>
-              <span className="sm:hidden">Sign up</span>
+              <span className="hidden sm:inline">{t("nav.createAccount")}</span>
+              <span className="sm:hidden">{t("nav.signUp")}</span>
             </Button>
           </>
         ) : (
@@ -138,7 +141,7 @@ export function AppHeader({
             className="inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-body-sm font-semibold text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
-            About
+            {t("nav.about")}
           </Link>
         )}
       </div>

@@ -56,6 +56,7 @@ import { looksLikeStationSearch } from "@/lib/aiRouting";
 import { directionsUrl, formatDistance } from "@/lib/format";
 import { stationLabel, stationNameParts } from "@/lib/stationName";
 import { cn } from "@/lib/utils";
+import { getStoredLocale } from "@/i18n/config";
 import { requestAiRecommendation } from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
 import type { AIRecommendResponse } from "@/types/ai";
@@ -167,11 +168,13 @@ export function FuelIntelligence({
     setAsked(text);
     setPhase("loading");
     try {
+      const locale = getStoredLocale();
       const response = await requestAiRecommendation({
         query: text,
         ...(location
           ? { latitude: location.latitude, longitude: location.longitude }
           : {}),
+        ...(locale !== "en" ? { locale } : {}),
       });
       setResult(response);
       setPhase("done");
