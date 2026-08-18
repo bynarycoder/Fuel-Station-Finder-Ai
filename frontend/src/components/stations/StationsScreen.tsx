@@ -10,14 +10,13 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Heart } from "lucide-react";
+import { ArrowUpDown, Fuel, Heart, X } from "lucide-react";
 
 import { FuelFilterChips } from "@/components/stations/FuelFilterChips";
 import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
 import { SearchBar } from "@/components/search/SearchBar";
-import { DialogHeader } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import type { StationItem } from "@/hooks/useStations";
@@ -117,16 +116,31 @@ export function StationsScreen({
       className="flex h-full min-h-0 flex-1 flex-col bg-canvas"
       data-testid="stations-screen"
     >
-      <DialogHeader
-        title={isNearby ? "Nearby stations" : "All stations"}
-        titleId="stations-screen-title"
-        subtitle={
-          showLoading
-            ? "Searching…"
-            : `${items.length} station${items.length === 1 ? "" : "s"}`
-        }
-        onClose={onClose}
-      />
+      <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-white/15 text-white ring-1 ring-white/25">
+            <Fuel className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 id="stations-screen-title" className="truncate text-h3 text-slab-fg">
+              {isNearby ? "Nearby stations" : "All stations"}
+            </h2>
+            <p className="truncate text-caption text-white/85">
+              {showLoading
+                ? "Searching…"
+                : `${items.length} station${items.length === 1 ? "" : "s"}`}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
 
       <div className="shrink-0 space-y-2 border-b border-hairline bg-surface px-3 py-2.5">
         <SearchBar

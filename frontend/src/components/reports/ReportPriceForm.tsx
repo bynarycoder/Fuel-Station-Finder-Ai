@@ -649,14 +649,19 @@ function PageHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
-      <div className="min-w-0">
-        <h2 id={titleId} className="truncate text-h3 text-slab-fg">
-          {title}
-        </h2>
-        {subtitle && (
-          <p className="truncate text-caption text-white/85">{subtitle}</p>
-        )}
+    <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-white/15 text-white ring-1 ring-white/25">
+          <Fuel className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h2 id={titleId} className="truncate text-h3 text-slab-fg">
+            {title}
+          </h2>
+          {subtitle && (
+            <p className="truncate text-caption text-white/85">{subtitle}</p>
+          )}
+        </div>
       </div>
       <button
         type="button"

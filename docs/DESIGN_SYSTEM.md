@@ -155,7 +155,7 @@ MAP  ← owns the remaining viewport (~65–75 %+); search/chips overlay it
   ├── floating right: + / − / Locate me      (right: 16px, bottom: 120px)
   └── station bottom sheet, collapsed 80–120 px
       (half / full still 52 % / 92 % — only when the user drags)
-Bottom navigation (64 px + safe area)
+Bottom navigation (64 px + safe area) — Map · Stations · AI · Report · Account
 ```
 
 Peek height lives in `SHEET_PEEK_PX` (`components/ui/Sheet.tsx`); half/full

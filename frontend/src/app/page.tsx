@@ -219,8 +219,20 @@ export default function FinderPage() {
       setSnap("peek");
       setShowStations(false);
     }
-    if (next === "ai") setShowFuelAi(true);
-    if (next === "account") setShowAccount(true);
+    if (next === "stations") {
+      setShowStations(true);
+      setSnap("peek");
+      setShowFuelAi(false);
+      setShowAccount(false);
+    }
+    if (next === "ai") {
+      setShowFuelAi(true);
+      setShowStations(false);
+    }
+    if (next === "account") {
+      setShowAccount(true);
+      setShowStations(false);
+    }
     if (next === "report") {
       if (!auth.isAuthed) {
         handleRequireSignIn();
@@ -229,10 +241,16 @@ export default function FinderPage() {
       if (!selectedStation) {
         // Nothing to report against yet — open the stations screen so the
         // user can pick one, instead of an empty form they cannot submit.
+        setTab("stations");
         setShowStations(true);
-        setSnap("full");
+        setSnap("peek");
+        setShowFuelAi(false);
+        setShowAccount(false);
         return;
       }
+      setShowStations(false);
+      setShowFuelAi(false);
+      setShowAccount(false);
       setShowReportForm(true);
     }
   }
@@ -287,6 +305,7 @@ export default function FinderPage() {
   };
 
   const openStationsScreen = useCallback(() => {
+    setTab("stations");
     setShowStations(true);
     setSnap("peek");
   }, []);
@@ -406,7 +425,7 @@ export default function FinderPage() {
              OVERLAY: search + chips sit ON the map (map is the background).
              Document order stays search → chips → Near me → map. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-mapctl lg:hidden">
-          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-55% via-canvas/80 to-transparent px-2.5 pb-3 pt-2">
+          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-55% via-canvas/75 to-transparent px-3 pb-2.5 pt-2">
             <SearchBar
               compact
               value={filters.q}
@@ -522,7 +541,10 @@ export default function FinderPage() {
       {/* Stations screen — station-focused browsing, map stays mounted. */}
       <FullPage
         open={showStations && !isDesktop}
-        onClose={() => setShowStations(false)}
+        onClose={() => {
+          setShowStations(false);
+          if (tab === "stations") setTab("map");
+        }}
         labelledBy="stations-screen-title"
       >
         <StationsScreen
@@ -544,6 +566,7 @@ export default function FinderPage() {
           }}
           onSelect={(id) => {
             setShowStations(false);
+            setTab("map");
             handleSelect(id);
           }}
           onRetry={() => void refetch()}
@@ -552,7 +575,10 @@ export default function FinderPage() {
           onClearFilters={handleClearFilters}
           onChooseLocation={handleChooseLocation}
           onUseLocation={() => void requestLocation()}
-          onClose={() => setShowStations(false)}
+          onClose={() => {
+            setShowStations(false);
+            if (tab === "stations") setTab("map");
+          }}
         />
       </FullPage>
 
@@ -705,7 +731,7 @@ export default function FinderPage() {
                 setFavoritesOnly(true);
                 setShowStations(true);
                 setSnap("peek");
-                if (tab === "account") setTab("map");
+                setTab("stations");
               }}
               onClose={() => {
                 setShowAccount(false);
