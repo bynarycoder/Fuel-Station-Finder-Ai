@@ -18,6 +18,9 @@ describe("looksLikeStationSearch", () => {
     "only verified petrol stations",
     "Where can I find cheap petrol?",
     "Find me a nearby station with cheap petrol.",
+    "Ina gidan mai mafi kusa?",
+    "Nibo ni epo to sunmo mi?",
+    "Ebee ka mmanu ugboala di nso?",
   ])("treats %j as a station search (location required)", (query) => {
     expect(looksLikeStationSearch(query)).toBe(true);
   });

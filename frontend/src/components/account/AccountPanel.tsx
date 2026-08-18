@@ -30,10 +30,12 @@ import {
   UserPlus,
   User as UserIcon,
 } from "lucide-react";
+import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { ThemeSelector } from "@/components/theme/ThemeSelector";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/user";
+import { useTranslation } from "react-i18next";
 
 interface AccountPanelProps {
   user: User | null;
@@ -74,6 +76,7 @@ export function AccountPanel({
   onOpenSavedStations,
   onClose,
 }: AccountPanelProps) {
+  const { t } = useTranslation();
   const name = greetingNameFor(user);
   const initial = (user?.email ?? "?").charAt(0).toUpperCase();
 
@@ -92,21 +95,21 @@ export function AccountPanel({
             {isAuthed ? (
               <>
                 <p className="truncate text-h1 text-white">
-                  {name ? `Hello, ${name}` : "Your account"}
+                  {name ? t("account.hello", { name }) : t("account.yourAccount")}
                 </p>
                 <p className="mt-0.5 truncate text-body-sm text-white/85">
                   {user?.email}
                 </p>
                 <span className="mt-2 inline-flex items-center gap-1.5 rounded-pill bg-white/15 px-2.5 py-1 text-caption font-semibold text-white ring-1 ring-white/25">
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                  {isAdmin ? "Administrator" : "Verified User"}
+                  {isAdmin ? t("account.admin") : t("account.verifiedUser")}
                 </span>
               </>
             ) : (
               <>
-                <p className="text-h1 text-white">Welcome</p>
+                <p className="text-h1 text-white">{t("account.welcome")}</p>
                 <p className="mt-0.5 text-body-sm text-white/85">
-                  Sign in to report prices and save stations.
+                  {t("account.signInHint")}
                 </p>
               </>
             )}
@@ -117,7 +120,7 @@ export function AccountPanel({
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="accent" onClick={onSignIn}>
               <UserIcon className="h-4 w-4" aria-hidden="true" />
-              Sign in
+              {t("nav.signIn")}
             </Button>
             <Button
               variant="secondary"
@@ -125,7 +128,7 @@ export function AccountPanel({
               className="border-white/30 bg-white/10 text-white hover:bg-white/20"
             >
               <UserPlus className="h-4 w-4" aria-hidden="true" />
-              Create account
+              {t("nav.createAccount")}
             </Button>
           </div>
         )}
@@ -141,17 +144,19 @@ export function AccountPanel({
             <>
               <AccountRow
                 icon={FileText}
-                title="My Reports"
-                subtitle="View your submitted reports"
+                title={t("account.myReports")}
+                subtitle={t("account.myReportsSub")}
                 onClick={onOpenMyReports}
               />
               <AccountRow
                 icon={Heart}
-                title="Saved Stations"
+                title={t("account.saved")}
                 subtitle={
                   typeof favoriteCount === "number" && favoriteCount > 0
-                    ? `${favoriteCount} favourite${favoriteCount === 1 ? "" : "s"}`
-                    : "Your favourite stations"
+                    ? favoriteCount === 1
+                      ? t("account.favouriteOne", { count: favoriteCount })
+                      : t("account.favourites", { count: favoriteCount })
+                    : t("account.yourFavourites")
                 }
                 onClick={onOpenSavedStations}
               />
@@ -160,30 +165,30 @@ export function AccountPanel({
 
           <AccountRow
             icon={Bell}
-            title="Notification Settings"
-            subtitle="Manage your notifications"
+            title={t("account.notifications")}
+            subtitle={t("account.notificationsSub")}
             href="/about#notifications"
             onNavigate={onClose}
           />
           <AccountRow
             icon={HelpCircle}
-            title="Help & Support"
-            subtitle="FAQs and contact us"
+            title={t("account.help")}
+            subtitle={t("account.helpSub")}
             href="/about#support"
             onNavigate={onClose}
           />
           <AccountRow
             icon={Info}
-            title="About Fuel Station Finder"
-            subtitle="App info and how it works"
+            title={t("account.aboutApp")}
+            subtitle={t("account.aboutSub")}
             href="/about"
             onNavigate={onClose}
           />
           {isAdmin && (
             <AccountRow
               icon={ShieldCheck}
-              title="Admin dashboard"
-              subtitle="Moderate reports and users"
+              title={t("account.adminDash")}
+              subtitle={t("account.adminSub")}
               href="/admin"
               onNavigate={onClose}
             />
@@ -196,12 +201,17 @@ export function AccountPanel({
           className="rounded-2xl border border-hairline bg-surface p-4 shadow-e1"
         >
           <h3 id="account-appearance" className="text-h3 text-ink-900">
-            Appearance
+            {t("account.appearance")}
           </h3>
           <p className="mt-0.5 text-caption text-ink-500">
-            Choose a theme, or follow your device setting.
+            {t("account.appearanceHint")}
           </p>
           <ThemeSelector className="mt-3" />
+          <h3 className="mt-4 text-h3 text-ink-900">{t("language.label")}</h3>
+          <p className="mt-0.5 text-caption text-ink-500">
+            {t("account.languageHint")}
+          </p>
+          <LanguageSelector className="mt-3" />
         </section>
 
         {isAuthed && (
@@ -211,7 +221,7 @@ export function AccountPanel({
             className="flex min-h-touch w-full items-center justify-center gap-2 rounded-2xl border border-danger-border bg-danger-soft px-4 py-3 text-body-sm font-semibold text-danger-strong transition-colors hover:bg-danger-soft/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
-            Sign Out
+            {t("account.signOut")}
           </button>
         )}
       </div>

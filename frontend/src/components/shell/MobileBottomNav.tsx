@@ -20,6 +20,7 @@
  */
 
 import { Map as MapIcon, MessageSquarePlus, Sparkles, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -33,11 +34,11 @@ interface MobileBottomNavProps {
   className?: string;
 }
 
-const TABS: Array<{ id: FinderTab; label: string; Icon: typeof MapIcon }> = [
-  { id: "map", label: "Map", Icon: MapIcon },
-  { id: "ai", label: "AI Assistant", Icon: Sparkles },
-  { id: "report", label: "Report", Icon: MessageSquarePlus },
-  { id: "account", label: "Account", Icon: User },
+const TABS: Array<{ id: FinderTab; labelKey: string; Icon: typeof MapIcon }> = [
+  { id: "map", labelKey: "nav.map", Icon: MapIcon },
+  { id: "ai", labelKey: "nav.ai", Icon: Sparkles },
+  { id: "report", labelKey: "nav.report", Icon: MessageSquarePlus },
+  { id: "account", labelKey: "nav.account", Icon: User },
 ];
 
 export function MobileBottomNav({
@@ -46,16 +47,18 @@ export function MobileBottomNav({
   stationCount,
   className,
 }: MobileBottomNavProps) {
+  const { t } = useTranslation();
   return (
     <nav
-      aria-label="Main"
+      aria-label={t("nav.main")}
       className={cn(
         "z-nav flex h-nav shrink-0 items-stretch border-t border-hairline bg-surface pb-safe",
         "shadow-[0_-2px_12px_-4px_rgb(0_0_0_/_0.10)]",
         className,
       )}
     >
-      {TABS.map(({ id, label, Icon }) => {
+      {TABS.map(({ id, labelKey, Icon }) => {
+        const label = t(labelKey);
         const isActive = active === id;
         return (
           <button

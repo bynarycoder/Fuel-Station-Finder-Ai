@@ -1,0 +1,66 @@
+{
+  "language": {
+    "label": "Harshe",
+    "en": "Turanci",
+    "ha": "Hausa",
+    "yo": "Yarbanci",
+    "ig": "Igbo"
+  },
+  "nav": {
+    "signIn": "Shiga",
+    "signUp": "Yi rajista",
+    "createAccount": "Buɗe asusu",
+    "about": "Game da mu",
+    "openMenu": "Buɗe menu",
+    "subtitle": "Nemo mai a duk Najeriya",
+    "map": "Taswira",
+    "ai": "Mataimakin AI",
+    "report": "Rahoto",
+    "account": "Asusu",
+    "main": "Babban"
+  },
+  "theme": {
+    "light": "Haske",
+    "dark": "Duhu",
+    "system": "Na'ura",
+    "colourTheme": "Jigon launi",
+    "switchToLight": "Canza zuwa haske",
+    "switchToDark": "Canza zuwa duhu"
+  },
+  "errors": {
+    "somethingWentWrong": "Wani kuskure ya faru",
+    "unexpected": "Wani kuskure da ba a zata ba ya faru. Sake gwadawa ko sake loda manhajar.",
+    "tryAgain": "Sake gwadawa",
+    "reloadApp": "Sake loda manhaja",
+    "checkConnection": "Duba haɗin ku kuma sake gwadawa."
+  },
+  "account": {
+    "appearance": "Bayyanar",
+    "appearanceHint": "Zaɓi jigo, ko bi saitin na'urarku.",
+    "languageHint": "Zaɓi harshen maɓallai, menu da saƙonni.",
+    "signOut": "Fita",
+    "welcome": "Barka da zuwa",
+    "signInHint": "Shiga don ruwaito farashi da ajiye tashoshi.",
+    "yourAccount": "Asusun ku",
+    "hello": "Sannu, {{name}}",
+    "admin": "Mai gudanarwa",
+    "verifiedUser": "An tabbatar da mai amfani",
+    "myReports": "Rahotannina",
+    "myReportsSub": "Duba rahotannin da kuka aika",
+    "saved": "Tashoshin da aka ajiye",
+    "favourites": "Abubuwan so {{count}}",
+    "favouriteOne": "Abin so {{count}}",
+    "yourFavourites": "Tashoshin da kuka fi so",
+    "notifications": "Saitunan sanarwa",
+    "notificationsSub": "Sarrafa sanarwar ku",
+    "help": "Taimako",
+    "helpSub": "Tambayoyi da tuntuɓa",
+    "aboutApp": "Game da Fuel Station Finder",
+    "aboutSub": "Bayanin manhaja da yadda take aiki",
+    "adminDash": "Allon mai gudanarwa",
+    "adminSub": "Duba rahotanni da masu amfani"
+  },
+  "offline": {
+    "banner": "Ba ku da intanet. Wasu ayyuka ƙila ba za su yi aiki ba."
+  }
+}

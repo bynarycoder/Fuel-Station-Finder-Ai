@@ -94,10 +94,22 @@ def install_fake_groq(
         ("Which nearby station is most reliable?", chat_service.MODE_SEARCH),
         ("only verified petrol stations", chat_service.MODE_SEARCH),
         ("Where can I find cheap petrol?", chat_service.MODE_SEARCH),
+        # Additive multilingual finder phrases (English fixtures above stay identical).
+        ("Ina gidan mai mafi kusa?", chat_service.MODE_SEARCH),
+        ("Nibo ni epo to sunmo mi?", chat_service.MODE_SEARCH),
+        ("Ebee ka mmanu ugboala di nso?", chat_service.MODE_SEARCH),
     ],
 )
 def test_router_classification(message: str, expected: str) -> None:
     assert chat_service.classify_query(message) == expected
+
+
+def test_chat_prompt_stays_english_by_default() -> None:
+    prompt = chat_service.build_chat_system_prompt()
+    assert "plain, friendly English" in prompt
+    ha = chat_service.build_chat_system_prompt("ha")
+    assert "Hausa" in ha
+    assert chat_service.fallback_answer() == chat_service.fallback_answer(locale="en")
 
 
 # --------------------------------------------------------------------------- #

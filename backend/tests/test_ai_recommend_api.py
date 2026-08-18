@@ -248,7 +248,7 @@ async def test_recommend_uses_groq_when_configured(portable_client, monkeypatch)
     monkeypatch.setattr(
         recommend,
         "generate_explanation",
-        lambda intent, top: "Solo Co is recommended because of its reported price.",
+        lambda intent, top, locale=None: "Solo Co is recommended because of its reported price.",
     )
 
     response = await portable_client.post(

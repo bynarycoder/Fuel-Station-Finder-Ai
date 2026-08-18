@@ -70,7 +70,9 @@ async def chat(payload: AIChatRequest, response: Response) -> AIChatResponse:
     response.headers["Cache-Control"] = "no-store"
 
     mode = chat_service.classify_query(payload.message)
-    answer, source = chat_service.answer_question(payload.message)
+    answer, source = chat_service.answer_question(
+        payload.message, locale=payload.locale
+    )
     return AIChatResponse(
         message=payload.message,
         answer=answer,
@@ -105,6 +107,7 @@ async def recommend(
             query=payload.query,
             latitude=payload.latitude,
             longitude=payload.longitude,
+            locale=payload.locale,
         )
     except HTTPException:
         raise

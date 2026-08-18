@@ -64,6 +64,9 @@ Respond with STRICT JSON only (no markdown, no prose) using exactly this shape:
 }
 If the image is unrelated, blurry, or looks fake, give a low score and set \
 is_plausible to false.
+Fuel station signs may appear in English, Hausa, Yoruba, or Igbo; do not lower
+the score because of the language of visible text. Keep summary and
+detected_attributes in English for moderators.
 """
 
 

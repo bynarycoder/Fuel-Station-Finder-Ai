@@ -1,0 +1,66 @@
+{
+  "language": {
+    "label": "Asụsụ",
+    "en": "Bekee",
+    "ha": "Hausa",
+    "yo": "Yoruba",
+    "ig": "Igbo"
+  },
+  "nav": {
+    "signIn": "Banye",
+    "signUp": "Debanye aha",
+    "createAccount": "Mepụta akaụntụ",
+    "about": "Maka anyị",
+    "openMenu": "Meghee menu",
+    "subtitle": "Chọta mmanụ na Naịjirịa niile",
+    "map": "Maapụ",
+    "ai": "Onye enyemaka AI",
+    "report": "Mkpesa",
+    "account": "Akaụntụ",
+    "main": "Isi"
+  },
+  "theme": {
+    "light": "Ìhè",
+    "dark": "Ọchịchịrị",
+    "system": "Ngwaọrụ",
+    "colourTheme": "Agba",
+    "switchToLight": "Gbanwee gaa n'ìhè",
+    "switchToDark": "Gbanwee gaa n'ọchịchịrị"
+  },
+  "errors": {
+    "somethingWentWrong": "Ihe adịghị mma",
+    "unexpected": "Njehie a na-atụghị anya ya mere. Nwaa ọzọ ma ọ bụ budata ngwa ọzọ.",
+    "tryAgain": "Nwaa ọzọ",
+    "reloadApp": "Budata ngwa ọzọ",
+    "checkConnection": "Lelee njikọ gị ma nwaa ọzọ."
+  },
+  "account": {
+    "appearance": "Ọdịdị",
+    "appearanceHint": "Họrọ ụdị, ma ọ bụ soro ntọala ngwaọrụ gị.",
+    "languageHint": "Họrọ asụsụ maka bọtịnụ, menu na ozi.",
+    "signOut": "Pụọ",
+    "welcome": "Nnọọ",
+    "signInHint": "Banye iji kọọ ọnụahịa ma chekwaa ọdụ.",
+    "yourAccount": "Akaụntụ gị",
+    "hello": "Ndewo, {{name}}",
+    "admin": "Onye nchịkwa",
+    "verifiedUser": "Onye ọrụ e mere nkwenye",
+    "myReports": "Mkpesa m",
+    "myReportsSub": "Lee mkpesa ị zipụrụ",
+    "saved": "Ọdụ echedoro",
+    "favourites": "Ọkacha mmasị {{count}}",
+    "favouriteOne": "Ọkacha mmasị {{count}}",
+    "yourFavourites": "Ọdụ ị hụrụ n'anya",
+    "notifications": "Ntọala ọkwa",
+    "notificationsSub": "Jikwaa ọkwa gị",
+    "help": "Enyemaka",
+    "helpSub": "Ajụjụ na kọntaktị",
+    "aboutApp": "Maka Fuel Station Finder",
+    "aboutSub": "Ozi ngwa na otú ọ si arụ ọrụ",
+    "adminDash": "Dashboard nchịkwa",
+    "adminSub": "Lezie mkpesa na ndị ọrụ"
+  },
+  "offline": {
+    "banner": "Ị nọghị n'ịntanetị. Ụfọdụ atụmatụ nwere ike ọ gaghị arụ ọrụ."
+  }
+}

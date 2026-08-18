@@ -70,6 +70,8 @@ export interface AIRecommendRequest {
   /** Omitted for a conversational question — the app never invents a position. */
   latitude?: number;
   longitude?: number;
+  /** Optional UI language. Omitted for English (current production clients). */
+  locale?: "en" | "ha" | "yo" | "ig";
 }
 
 /** Response of `POST /api/v1/ai/chat` (conversational Groq). */

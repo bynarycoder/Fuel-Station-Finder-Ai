@@ -20,29 +20,32 @@
  */
 
 import { Monitor, Moon, Sun } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useTheme, type Theme } from "@/components/theme/ThemeProvider";
 import { cn } from "@/lib/utils";
 
-const OPTIONS: Array<{ value: Theme; label: string; Icon: typeof Sun }> = [
-  { value: "light", label: "Light", Icon: Sun },
-  { value: "dark", label: "Dark", Icon: Moon },
-  { value: "system", label: "System", Icon: Monitor },
+const OPTIONS: Array<{ value: Theme; labelKey: string; Icon: typeof Sun }> = [
+  { value: "light", labelKey: "theme.light", Icon: Sun },
+  { value: "dark", labelKey: "theme.dark", Icon: Moon },
+  { value: "system", labelKey: "theme.system", Icon: Monitor },
 ];
 
 export function ThemeSelector({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <div
       role="radiogroup"
-      aria-label="Colour theme"
+      aria-label={t("theme.colourTheme")}
       className={cn(
         "flex items-center gap-1 rounded-pill border border-hairline bg-canvas p-1",
         className,
       )}
     >
-      {OPTIONS.map(({ value, label, Icon }) => {
+      {OPTIONS.map(({ value, labelKey, Icon }) => {
+        const label = t(labelKey);
         const isActive = theme === value;
         return (
           <button
@@ -76,8 +79,9 @@ export function ThemeSelector({ className }: { className?: string }) {
  */
 export function ThemeToggleButton({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
+  const { t } = useTranslation();
   const isDark = resolvedTheme === "dark";
-  const label = isDark ? "Switch to light theme" : "Switch to dark theme";
+  const label = isDark ? t("theme.switchToLight") : t("theme.switchToDark");
 
   return (
     <button
