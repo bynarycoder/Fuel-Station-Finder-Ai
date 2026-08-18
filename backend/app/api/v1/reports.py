@@ -6,18 +6,22 @@ Fuel Reports API (Phase 6) — submit and browse crowd-sourced reports.
 * `GET /reports` and `GET /reports/{id}` list/fetch reports; rejected reports are
   hidden from non-admins.
 
-Report *verification* (status transitions, AI scoring) is a later phase — here we
-only capture submissions (status defaults to PENDING).
+When a photo is attached, Gemini verification is scheduled as a FastAPI
+BackgroundTask after the report is committed (same code path as admin
+``POST /reports/{id}/verify``). The submit response stays 201 PENDING so the
+user is not blocked on the model.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -30,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import CurrentUser, require_roles
-from app.core.database import get_db
+from app.core.database import AsyncSessionLocal, get_db
 from app.models import QueueLength, ReportStatus, UserRole
 from app.schemas import FuelReportPublic, PaginatedReports, VerificationResultPublic
 from app.services import reports as report_service
@@ -38,6 +42,7 @@ from app.services.ai import AINotConfiguredError
 from app.services.ai.gemini import (
     VERIFICATION_THRESHOLD,
     GeminiVerificationError,
+    VerificationResult,
     analyze_queue_image,
 )
 from app.services.storage import (
@@ -46,7 +51,67 @@ from app.services.storage import (
     get_image_storage,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/reports", tags=["Fuel Reports"])
+
+
+async def persist_verification_score(
+    db: AsyncSession,
+    report,
+    result: VerificationResult,
+) -> None:
+    """Write Gemini score / auto-promote — shared by admin and auto-verify."""
+    if result.score >= VERIFICATION_THRESHOLD:
+        await report_service.mark_report_verified(db, report, result.score)
+    else:
+        report.ai_confidence_score = result.score
+        await db.commit()
+
+
+async def verify_submitted_report_photo(
+    report_id: uuid.UUID, storage: ImageStorage
+) -> None:
+    """Background Gemini pass after a user submits a photo report.
+
+    Opens a fresh session so the request session is not reused after the
+    response is sent. Failures are logged and never raised: the report stays
+    PENDING for the existing admin ``Verify with AI`` button.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            report = await report_service.get_report_for_verification(db, report_id)
+            if report is None or not report.photo_url:
+                return
+            try:
+                image_bytes, mime_type = await run_in_threadpool(
+                    storage.read_image, report.photo_url
+                )
+            except (FileNotFoundError, StorageUnavailableError) as exc:
+                logger.warning(
+                    "auto-verify skipped for %s: cannot read photo (%s)",
+                    report_id,
+                    exc,
+                )
+                return
+
+            try:
+                result = analyze_queue_image(image_bytes, mime_type)
+            except (AINotConfiguredError, GeminiVerificationError) as exc:
+                logger.warning("auto-verify skipped for %s: %s", report_id, exc)
+                return
+
+            if result.error:
+                logger.warning(
+                    "auto-verify skipped for %s: Gemini error %s",
+                    report_id,
+                    result.error,
+                )
+                return
+
+            await persist_verification_score(db, report, result)
+    except Exception:
+        logger.exception("auto-verify failed for report %s", report_id)
 
 
 @router.post(
@@ -59,6 +124,7 @@ async def create_report(
     current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
     storage: Annotated[ImageStorage, Depends(get_image_storage)],
+    background_tasks: BackgroundTasks,
     station_id: Annotated[uuid.UUID, Form(description="The station being reported")],
     fuel_type_code: Annotated[str, Form(max_length=8, description="PMS/AGO/DPK/LPG")],
     price_per_litre: Annotated[Optional[Decimal], Form(description="Naira per litre")] = None,
@@ -75,7 +141,7 @@ async def create_report(
     )
 
     try:
-        return await report_service.create_report(
+        created = await report_service.create_report(
             db,
             current_user,
             station_id=station_id,
@@ -93,6 +159,12 @@ async def create_report(
         if photo_url:
             await run_in_threadpool(storage.delete, photo_url)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    if created.get("photo_url"):
+        background_tasks.add_task(
+            verify_submitted_report_photo, created["id"], storage
+        )
+    return created
 
 
 @router.get("", response_model=PaginatedReports, summary="List reports (public feed)")
@@ -217,15 +289,7 @@ async def verify_report(
             f"Gemini verification unavailable ({result.error}). Please try again shortly.",
         )
 
-    # Persist the numeric AI confidence so it can be surfaced anywhere the
-    # report appears (station detail, admin, feeds) without re-running the model.
-    if result.score >= VERIFICATION_THRESHOLD:
-        await report_service.mark_report_verified(db, report, result.score)
-    else:
-        # Score below threshold: keep the report pending but still store the
-        # measured confidence for audit/UI purposes.
-        report.ai_confidence_score = result.score
-        await db.commit()
+    await persist_verification_score(db, report, result)
 
     return VerificationResultPublic(
         score=result.score,
