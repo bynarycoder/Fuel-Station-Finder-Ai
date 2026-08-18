@@ -5,11 +5,9 @@
  *
  * ONE screen, two compositions:
  *
- *   mobile (<lg)  full-bleed map + draggable bottom sheet + bottom nav
+ *   mobile (<lg)  header → search → fuel chips → MAP (majority) → nav
+ *                 with floating Near me / Browse all / zoom / locate
  *   desktop (≥lg) results rail on the left, map filling the rest
- *
- * The task the whole screen serves is "where should I buy fuel?", so the
- * hierarchy is: intent line → one search field → Near me → map + station cards.
  *
  * Behaviour preserved from the previous implementation:
  * - selecting a station (list, map, or AI) opens the detail panel;
@@ -17,6 +15,7 @@
  * - the `nearby-refresh-requested` event refetches the active query;
  * - placeholder (previous-location) nearby data never presents as current, and
  *   never crowns a "closest" station.
+ * - Near me / Browse all still drive the same store actions.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -101,6 +100,7 @@ export default function FinderPage() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
+  const [showStations, setShowStations] = useState(false);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
   // Never crown a "closest" station from placeholder (previous-location) data.
@@ -214,7 +214,10 @@ export default function FinderPage() {
    */
   function handleTabChange(next: FinderTab) {
     setTab(next);
-    if (next === "map") setSnap("peek");
+    if (next === "map") {
+      setSnap("peek");
+      setShowStations(false);
+    }
     if (next === "ai") setShowFuelAi(true);
     if (next === "account") setShowAccount(true);
     if (next === "report") {
@@ -223,8 +226,9 @@ export default function FinderPage() {
         return;
       }
       if (!selectedStation) {
-        // Nothing to report against yet — surface the list instead of
-        // opening an empty form the user cannot submit.
+        // Nothing to report against yet — open the stations screen so the
+        // user can pick one, instead of an empty form they cannot submit.
+        setShowStations(true);
         setSnap("full");
         return;
       }
@@ -268,20 +272,23 @@ export default function FinderPage() {
     />
   );
 
-  // The map's floating controls must sit ABOVE the bottom sheet at whatever
-  // height the user has dragged it to. A fixed offset (the sheet's "peek"
-  // height) left zoom/locate buried under the sheet as soon as it was
-  // expanded — on a phone that hid the only way to recentre the map.
+  // Floating map actions (zoom / locate / Near me / Browse all) sit ABOVE
+  // the bottom sheet at whatever height the user has dragged it to.
   //
-  // The literals below MUST match `SHEET_SNAP_PERCENT` (the sheet's own snap
-  // heights). They are written out in full rather than interpolated because
-  // Tailwind only generates arbitrary values it can see as static strings —
-  // `page.mobile.test.tsx` asserts the two stay in sync.
-  const CONTROLS_OFFSET: Record<SheetSnap, string> = {
-    peek: "bottom-[calc(16%+0.75rem)] shorty:bottom-[calc(14%+0.75rem)]",
+  // Peek uses a fixed 120 px offset (spec: right/left 16 px, bottom 120 px)
+  // so the collapsed 80–120 px sheet never covers the controls. Half / full
+  // still track SHEET_SNAP_PERCENT. Literals are written out in full —
+  // Tailwind only emits arbitrary values it can see as static strings.
+  const FLOATING_OFFSET: Record<SheetSnap, string> = {
+    peek: "bottom-[120px]",
     half: "bottom-[calc(52%+0.75rem)]",
     full: "bottom-[calc(92%+0.75rem)]",
   };
+
+  const openStationsScreen = useCallback(() => {
+    setShowStations(true);
+    setSnap("peek");
+  }, []);
 
   const mapSurface = (
     <StationMap
@@ -291,7 +298,7 @@ export default function FinderPage() {
       isNearby={isNearby}
       closestStationId={closestStationId}
       onSelect={handleSelect}
-      controlsClassName={`${CONTROLS_OFFSET[snap]} lg:bottom-4`}
+      controlsClassName={`${FLOATING_OFFSET[snap]} lg:bottom-4`}
     />
   );
 
@@ -345,7 +352,10 @@ export default function FinderPage() {
               onClearRecent={clearSearches}
             />
             <FuelFilterChips />
-            <StationFilters onChooseLocation={handleChooseLocation} />
+            <StationFilters
+              onChooseLocation={handleChooseLocation}
+              onBrowseAll={openStationsScreen}
+            />
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
@@ -392,22 +402,19 @@ export default function FinderPage() {
         </section>
 
         {/* ---------------------------------------------- mobile chrome ---
-             MAP-FIRST: this stack is out of document flow so it OVERLAYS
-             the map instead of pushing it down. Document order is still
-             search → chips → actions → map (locked by page.map-first).
-             A light fade keeps the controls readable over tiles. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-mapctl lg:hidden">
-          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-40% via-canvas/85 to-transparent px-2.5 pb-3 pt-2 shorty:space-y-1 shorty:pb-2 shorty:pt-1.5">
-            <SearchBar
-              compact
-              value={filters.q}
-              onSearch={handleSearch}
-              onAsk={handleAsk}
-              placeholder="Search stations, areas or fuel..."
-            />
-            <FuelFilterChips compact />
-            <StationFilters compact onChooseLocation={handleChooseLocation} />
-          </div>
+             IN FLOW, not overlaid: Header → Search (48 px) → Fuel chips
+             (≤60 px) → MAP. Document order stays search → chips → Near me
+             → map (locked by page.map-first). The map then owns the rest
+             of the viewport (~70–80 %). */}
+        <div className="shrink-0 space-y-1.5 border-b border-hairline bg-surface px-2.5 pb-1.5 pt-2 lg:hidden">
+          <SearchBar
+            compact
+            value={filters.q}
+            onSearch={handleSearch}
+            onAsk={handleAsk}
+            placeholder="Search stations, areas or fuel..."
+          />
+          <FuelFilterChips compact />
         </div>
 
         {/* -------------------------- ONE map surface, at every viewport ---
@@ -416,6 +423,17 @@ export default function FinderPage() {
              simultaneously-mounted Leaflet maps (one hidden in a 0×0
              container) is what crashed `flyTo` with `(NaN, NaN)`. */}
         <section aria-label="Station map" className="relative min-h-0 flex-1">
+          {/* Floating Near me / Browse all — BEFORE the map in the DOM so
+              the map-first order contract holds, but absolutely positioned
+              so they never push the map down. */}
+          <StationFilters
+            floating
+            className="lg:hidden"
+            onChooseLocation={handleChooseLocation}
+            onBrowseAll={openStationsScreen}
+            actionsClassName={FLOATING_OFFSET[snap]}
+          />
+
           {mapSurface}
 
           {/* Mobile bottom sheet layered over the same map (CSS-only mobile). */}
@@ -444,18 +462,21 @@ export default function FinderPage() {
                     )}
                   </span>
                 </div>
-                {/* "See all" expands the sheet rather than navigating away —
-                    the map must stay mounted and behind it. */}
+                {/* Peek stays a summary. "See all" opens the stations screen
+                    (map stays mounted underneath). "Show map" only appears
+                    after the user has dragged the sheet up. */}
                 <button
                   type="button"
-                  onClick={() => setSnap(snap === "full" ? "peek" : "full")}
+                  onClick={() =>
+                    snap === "peek" ? openStationsScreen() : setSnap("peek")
+                  }
                   className="shrink-0 rounded-lg px-2 py-1.5 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:min-h-touch"
                 >
-                  {snap === "full" ? "Show map" : "See all"}
+                  {snap === "peek" ? "See all" : "Show map"}
                 </button>
               </div>
 
-              {needsLocationPrimer && (
+              {needsLocationPrimer && snap !== "peek" && (
                 <LocationPrimer
                   compact
                   loading={isLocating}
@@ -464,8 +485,8 @@ export default function FinderPage() {
                 />
               )}
 
-              {/* Collapsed peek is a summary only — the list overlays the
-                  map once the user drags or taps "See all". */}
+              {/* Collapsed peek is a summary only — the list appears if the
+                  user drags the sheet up. "See all" opens the stations screen. */}
               {snap !== "peek" && (
                 <StationList
                   items={items}
@@ -496,6 +517,53 @@ export default function FinderPage() {
       />
 
       {/* --------------------------------------------------- overlays ------ */}
+
+      {/* Stations screen — station-focused browsing, map stays mounted. */}
+      <FullPage
+        open={showStations && !isDesktop}
+        onClose={() => setShowStations(false)}
+        labelledBy="stations-screen-title"
+      >
+        <DialogHeader
+          title={isNearby ? "Nearby stations" : "All stations"}
+          titleId="stations-screen-title"
+          subtitle={
+            showLoading
+              ? "Searching…"
+              : `${items.length} station${items.length === 1 ? "" : "s"}`
+          }
+          onClose={() => setShowStations(false)}
+        />
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {needsLocationPrimer && (
+            <div className="mb-3">
+              <LocationPrimer
+                loading={isLocating}
+                onUseLocation={() => void requestLocation()}
+                onSearchManually={handleChooseLocation}
+              />
+            </div>
+          )}
+          <StationList
+            items={items}
+            isLoading={showLoading}
+            isError={isError}
+            isNearby={isNearby}
+            selectedId={selectedStationId}
+            userLocation={userLocation}
+            onSelect={(id) => {
+              setShowStations(false);
+              handleSelect(id);
+            }}
+            onRetry={() => void refetch()}
+            favoriteIds={favorites.favoriteIds}
+            onToggleFavorite={handleToggleFavorite}
+            onExpandRadius={handleExpandRadius}
+            onClearFilters={handleClearFilters}
+            hideCount
+          />
+        </div>
+      </FullPage>
 
       {/* Fuel Intelligence — full-viewport page on mobile, inline on desktop */}
       <FullPage
@@ -643,7 +711,8 @@ export default function FinderPage() {
               onOpenSavedStations={() => {
                 setShowAccount(false);
                 setFavoritesOnly(true);
-                setSnap("full");
+                setShowStations(true);
+                setSnap("peek");
                 if (tab === "account") setTab("map");
               }}
               onClose={() => {

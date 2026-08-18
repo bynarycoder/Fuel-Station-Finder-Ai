@@ -322,27 +322,36 @@ export function FullPage({
 export type SheetSnap = "peek" | "half" | "full";
 
 /**
- * Snap heights, as a percentage of the map surface the sheet is layered over.
+ * Snap heights for the map-overlay sheet.
  *
- * ONE source of truth: the sheet sizes itself from these, and the page raises
- * the map's floating controls by the same amount, so zoom/locate can never be
- * buried under the sheet at any snap point.
+ * Peek is a FIXED pixel height (80–120 px) so a collapsed sheet can never
+ * cover the majority of the map. Half / full stay percentages of the map
+ * surface. The page raises floating controls by the matching offset so
+ * zoom / locate / Near me are never buried under the sheet.
  */
 export const SHEET_SNAP_PERCENT: Record<SheetSnap, number> = {
-  /** Collapsed: handle + nearby-count summary. The list lives in half/full. */
+  /** Unused for sizing — peek is pixel-based. Kept so half/full stay aligned. */
   peek: 16,
   /** Mid snap — a few station cards over the still-visible map. */
   half: 52,
   full: 92,
 };
 
+/** Collapsed height (handle + "Nearby stations (N)" summary). */
+export const SHEET_PEEK_PX = 100;
 /** Collapsed height on short (≤700 px) viewports. */
+export const SHEET_PEEK_SHORT_PX = 80;
+/** How far above the map's bottom edge the floating actions sit at peek. */
+export const SHEET_FAB_OFFSET_PX = 120;
+
+/** @deprecated Use SHEET_PEEK_SHORT_PX — kept so older imports keep type-checking. */
 export const SHEET_PEEK_SHORT_PERCENT = 14;
 
 const SNAP_CLASS: Record<SheetSnap, string> = {
-  // `shorty:` (≤700 px tall) hands a little more map back — see
-  // tailwind.config.ts. CONTROLS_OFFSET in app/page.tsx mirrors these.
-  peek: "h-[16%] shorty:h-[14%]",
+  // Pixel peek (max 120 px) + percentage half/full. FLOATING_OFFSET in
+  // app/page.tsx mirrors these literals — Tailwind only emits classes it
+  // can see as static strings.
+  peek: "h-[100px] max-h-[120px] shorty:h-[80px]",
   half: "h-[52%]",
   full: "h-[92%]",
 };

@@ -44,8 +44,8 @@ export function FuelFilterChips({
       role="group"
       aria-label="Filter by fuel type"
       className={cn(
-        "no-scrollbar -mx-1 flex items-center overflow-x-auto px-1",
-        compact ? "gap-1.5 py-0" : "gap-2 py-0.5",
+        "no-scrollbar -mx-1 flex max-h-[60px] flex-nowrap items-center overflow-x-auto overflow-y-hidden px-1",
+        compact ? "h-10 gap-1.5 py-0" : "gap-2 py-0.5",
         className,
       )}
     >

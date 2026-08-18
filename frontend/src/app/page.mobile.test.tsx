@@ -22,7 +22,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import FinderPage from "@/app/page";
-import { SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
+import { SHEET_FAB_OFFSET_PX, SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
 import type { StationItem } from "@/hooks/useStations";
 import * as api from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
@@ -222,8 +222,9 @@ describe("map controls vs. the bottom sheet (mobile)", () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
 
-    const atPeek = offsetPercent(mapProbe.controlsClassName.at(-1) ?? "");
-    expect(atPeek).toBe(SHEET_SNAP_PERCENT.peek); // sheet's peek height
+    expect(mapProbe.controlsClassName.at(-1)).toContain(
+      `bottom-[${SHEET_FAB_OFFSET_PX}px]`,
+    );
 
     const grabber = screen.getByRole("button", { name: /drag or use arrow keys/i });
     fireEvent.keyDown(grabber, { key: "ArrowUp" }); // peek -> half
@@ -242,8 +243,8 @@ describe("map controls vs. the bottom sheet (mobile)", () => {
 
     fireEvent.keyDown(grabber, { key: "Escape" }); // back to peek
     await waitFor(() =>
-      expect(offsetPercent(mapProbe.controlsClassName.at(-1) ?? "")).toBe(
-        SHEET_SNAP_PERCENT.peek,
+      expect(mapProbe.controlsClassName.at(-1)).toContain(
+        `bottom-[${SHEET_FAB_OFFSET_PX}px]`,
       ),
     );
   });
@@ -319,12 +320,11 @@ describe("one-handed navigation (390px)", () => {
     const mountsBefore = mapProbe.mounts;
 
     fireEvent.click(screen.getByRole("button", { name: /^see all$/i }));
-    // The sheet expands rather than navigating away from the map.
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /drag or use arrow keys/i }),
-      ).toHaveAttribute("aria-expanded", "true"),
-    );
+    // Stations screen opens; the map stays mounted underneath.
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /^all stations$/i }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("station-map-mock")).toBeInTheDocument();
     expect(mapProbe.mounts).toBe(mountsBefore);
   });

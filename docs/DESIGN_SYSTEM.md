@@ -149,17 +149,22 @@ shadows.
 
 ```
 Header (48 px on mobile / 56 px on ≥sm)
-MAP  ← owns the remaining viewport (search, chips and actions overlay it)
-  ├── floating chrome: compact search + fuel chips + Near me / Browse all
-  └── station bottom sheet, snapped at 16 % / 52 % / 92 % of the map
-      (14 % collapsed on ≤700 px-tall viewports)
+Search bar (48 px, single row, in flow)
+Fuel filters (one chip row, ≤60 px, in flow)
+MAP  ← owns the remaining viewport (~70–80 %)
+  ├── floating left:  Near me / Browse all   (left: 16px, bottom: 120px)
+  ├── floating right: + / − / Locate me      (right: 16px, bottom: 120px)
+  └── station bottom sheet, collapsed 80–120 px
+      (half / full still 52 % / 92 % — only when the user drags)
 Bottom navigation (64 px + safe area)
 ```
 
-Snap heights live in `SHEET_SNAP_PERCENT` (`components/ui/Sheet.tsx`); the map's
-floating controls are lifted by the same percentages so zoom/locate is never
-buried. `page.map-first.test.tsx` locks the order, the overlay relationship and
-the offsets.
+Peek height lives in `SHEET_PEEK_PX` (`components/ui/Sheet.tsx`); half/full
+snaps stay in `SHEET_SNAP_PERCENT`. The map's floating controls are lifted by
+the matching offset so zoom/locate/Near me are never buried.
+`page.map-first.test.tsx` locks the order, the overlay relationship and the
+offsets. Browse all / See all open the stations screen instead of expanding
+the sheet.
 
 ## 8. Tooling trap: `cn()` and the custom type scale
 

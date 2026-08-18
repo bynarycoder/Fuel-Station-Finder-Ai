@@ -27,7 +27,12 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import FinderPage from "@/app/page";
-import { SHEET_PEEK_SHORT_PERCENT, SHEET_SNAP_PERCENT } from "@/components/ui/Sheet";
+import {
+  SHEET_FAB_OFFSET_PX,
+  SHEET_PEEK_PX,
+  SHEET_PEEK_SHORT_PX,
+  SHEET_SNAP_PERCENT,
+} from "@/components/ui/Sheet";
 import type { StationItem } from "@/hooks/useStations";
 import * as api from "@/services/api";
 import { useMapStore } from "@/store/useMapStore";
@@ -225,49 +230,54 @@ describe("station bottom sheet", () => {
     expect(sheet.getByRole("button", { name: /see all/i })).toBeInTheDocument();
   });
 
-  it("swaps 'See all' for 'Show map' once expanded, so the map is one tap away", async () => {
+  it("opens the stations screen from See all without remounting the map", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
     const mapSection = screen.getByRole("region", { name: /station map/i });
+    const mountsBefore = mapProbe.mounts;
 
     fireEvent.click(within(mapSection).getByRole("button", { name: /see all/i }));
 
-    const showMap = await within(mapSection).findByRole("button", {
-      name: /show map/i,
-    });
-    fireEvent.click(showMap);
-    await waitFor(() =>
-      expect(
-        within(mapSection).getByRole("button", { name: /see all/i }),
-      ).toBeInTheDocument(),
-    );
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /all stations/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("station-map-mock")).toBeInTheDocument();
+    expect(mapProbe.mounts).toBe(mountsBefore);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /close/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      within(mapSection).getByRole("button", { name: /see all/i }),
+    ).toBeInTheDocument();
   });
 
   it("gives a short viewport more map by shrinking the collapsed sheet", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
 
-    // A 320x640 phone: the chrome is fixed (44 px touch targets), so the
-    // collapsed sheet is what has to give. Both the sheet and the control
-    // offset carry the `shorty:` variant, and they must agree.
+    // Collapsed sheet is a fixed 80–120 px band so it can never cover the
+    // majority of the map. Short viewports get the 80 px peek.
     const sheet = screen
       .getByRole("button", { name: /drag or use arrow keys/i })
       .closest("section")!;
-    expect(sheet.className).toContain(`h-[${SHEET_SNAP_PERCENT.peek}%]`);
-    expect(sheet.className).toContain(`shorty:h-[${SHEET_PEEK_SHORT_PERCENT}%]`);
+    expect(sheet.className).toContain(`h-[${SHEET_PEEK_PX}px]`);
+    expect(sheet.className).toContain(`shorty:h-[${SHEET_PEEK_SHORT_PX}px]`);
     expect(mapProbe.controlsClassName.at(-1)).toContain(
-      `shorty:bottom-[calc(${SHEET_PEEK_SHORT_PERCENT}%+0.75rem)]`,
+      `bottom-[${SHEET_FAB_OFFSET_PX}px]`,
     );
   });
 
-  it("lifts the map controls by exactly the sheet's own snap heights", async () => {
+  it("lifts the map controls as the sheet is dragged up", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
 
     const offset = () =>
       /bottom-\[calc\((\d+)%/.exec(mapProbe.controlsClassName.at(-1) ?? "")?.[1];
 
-    expect(Number(offset())).toBe(SHEET_SNAP_PERCENT.peek);
+    expect(mapProbe.controlsClassName.at(-1)).toContain(
+      `bottom-[${SHEET_FAB_OFFSET_PX}px]`,
+    );
 
     const grabber = screen.getByRole("button", { name: /drag or use arrow keys/i });
     fireEvent.keyDown(grabber, { key: "ArrowUp" });
@@ -321,5 +331,33 @@ describe("map actions", () => {
 
     expect(nearMe.className).toContain("bg-accent-400");
     expect(browseAll.className).toContain("bg-slab");
+  });
+
+  it("floats Near me / Browse all above the map at the spec offset", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    const fabs = screen.getByTestId("map-fabs");
+    expect(fabs.className).toContain("absolute");
+    expect(fabs.className).toContain("left-4");
+    expect(fabs.className).toContain(`bottom-[${SHEET_FAB_OFFSET_PX}px]`);
+
+    const mapSection = screen.getByRole("region", { name: /station map/i });
+    expect(mapSection).toContainElement(fabs);
+  });
+
+  it("opens the stations screen from Browse all without remounting the map", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+    const mountsBefore = mapProbe.mounts;
+
+    fireEvent.click(screen.getAllByRole("button", { name: /browse all/i }).at(-1)!);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: /all stations/i }),
+    ).toBeInTheDocument();
+    expect(mapProbe.mounts).toBe(mountsBefore);
+    expect(useMapStore.getState().mode).toBe("browse");
   });
 });
