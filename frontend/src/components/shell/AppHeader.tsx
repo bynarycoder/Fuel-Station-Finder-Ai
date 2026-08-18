@@ -72,17 +72,17 @@ export function AppHeader({
       className={cn(
         // Compact by design (spec §8): a fixed 56 px bar at every width, so
         // the map starts as high on the screen as it possibly can.
-        "z-header flex h-14 shrink-0 items-center justify-between gap-1 border-b border-hairline bg-surface px-2 sm:px-4",
+        "z-header flex h-12 shrink-0 items-center justify-between gap-1 border-b border-hairline bg-surface px-1.5 sm:h-14 sm:px-4",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 items-center gap-0.5">
         {onOpenAccount && (
           <button
             type="button"
             onClick={onOpenAccount}
             aria-label={t("nav.openMenu")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:hidden"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:hidden"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -90,33 +90,33 @@ export function AppHeader({
 
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+          className="flex items-center gap-2 rounded-lg px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
         >
-          <BrandGlyph />
-          <span className="min-w-0">
-            {/* Brand treatment (spec §8): "FuelFinder" in the primary text
-                colour, "AI" in the primary green — same size, same weight. */}
-            <span className="block truncate text-h3 leading-tight text-ink-900">
+          <BrandGlyph className="h-8 w-8" />
+          <span>
+            {/* Brand never truncates — icon-only auth on the right frees the
+                width so "FuelFinder AI" stays fully visible at 360 px. */}
+            <span className="block whitespace-nowrap text-body font-bold leading-tight text-ink-900 sm:text-h3">
               FuelFinder<span className="text-brand-700">&nbsp;AI</span>
             </span>
-            <span className="hidden truncate text-caption text-ink-500 sm:block">
+            <span className="hidden text-caption text-ink-500 sm:block">
               {resolvedSubtitle}
             </span>
           </span>
         </Link>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <ThemeToggleButton />
+      <div className="flex shrink-0 items-center gap-0.5">
+        <ThemeToggleButton className="h-10 w-10" />
 
         {authReady && isAuthed ? (
           <button
             type="button"
             onClick={onOpenAccount}
             aria-label={`Account — signed in as ${email ?? "your account"}`}
-            className="flex h-11 items-center gap-2 rounded-pill px-1 transition-colors hover:bg-ink-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+            className="flex h-10 items-center gap-2 rounded-pill px-1 transition-colors hover:bg-ink-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-action text-body-sm font-bold text-action-fg">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-action text-body-sm font-bold text-action-fg">
               {initial}
             </span>
             <span className="hidden max-w-[120px] truncate pr-2 text-body-sm font-semibold text-ink-800 sm:inline">
@@ -125,12 +125,24 @@ export function AppHeader({
           </button>
         ) : authReady && isAuthAvailable ? (
           <>
-            <Button variant="ghost" size="sm" onClick={onSignIn}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSignIn}
+              aria-label={t("nav.signIn")}
+              className="px-2"
+            >
               <User className="h-4 w-4" aria-hidden="true" />
-              {t("nav.signIn")}
+              <span className="hidden sm:inline">{t("nav.signIn")}</span>
             </Button>
-            <Button variant="primary" size="sm" onClick={onSignUp}>
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onSignUp}
+              aria-label={t("nav.signUp")}
+              className="px-2.5"
+            >
+              <UserPlus className="hidden h-4 w-4 sm:inline" aria-hidden="true" />
               <span className="hidden sm:inline">{t("nav.createAccount")}</span>
               <span className="sm:hidden">{t("nav.signUp")}</span>
             </Button>
@@ -138,7 +150,7 @@ export function AppHeader({
         ) : (
           <Link
             href="/about"
-            className="inline-flex h-11 items-center gap-1.5 rounded-lg px-3 text-body-sm font-semibold text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-semibold text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
           >
             <Info className="h-4 w-4" aria-hidden="true" />
             {t("nav.about")}

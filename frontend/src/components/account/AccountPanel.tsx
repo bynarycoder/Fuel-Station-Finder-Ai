@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   UserPlus,
   User as UserIcon,
+  X,
 } from "lucide-react";
 import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { ThemeSelector } from "@/components/theme/ThemeSelector";
@@ -83,8 +84,16 @@ export function AccountPanel({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain bg-canvas pb-safe">
       {/* ------------------------------------------------ profile header --- */}
-      <div className="relative shrink-0 bg-brand-sheen px-5 pb-8 pt-6 text-slab-fg">
-        <div className="flex items-center gap-4">
+      <div className="relative shrink-0 bg-brand-sheen px-5 pb-7 pt-5 text-slab-fg">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+        <div className="flex items-center gap-4 pr-10">
           <span
             aria-hidden="true"
             className="flex h-16 w-16 shrink-0 items-center justify-center rounded-pill bg-white/15 text-2xl font-bold ring-2 ring-white/25"
@@ -94,10 +103,10 @@ export function AccountPanel({
           <div className="min-w-0 flex-1">
             {isAuthed ? (
               <>
-                <p className="truncate text-h1 text-white">
+                <p className="break-words text-h1 text-white">
                   {name ? t("account.hello", { name }) : t("account.yourAccount")}
                 </p>
-                <p className="mt-0.5 truncate text-body-sm text-white/85">
+                <p className="mt-0.5 break-all text-body-sm text-white/85">
                   {user?.email}
                 </p>
                 <span className="mt-2 inline-flex items-center gap-1.5 rounded-pill bg-white/15 px-2.5 py-1 text-caption font-semibold text-white ring-1 ring-white/25">
@@ -135,7 +144,7 @@ export function AccountPanel({
       </div>
 
       {/* ---------------------------------------------------- menu card --- */}
-      <div className="-mt-4 flex-1 space-y-4 px-4 pb-6">
+      <div className="-mt-4 flex-1 space-y-5 px-4 pb-8">
         <nav
           aria-label="Account"
           className="overflow-hidden rounded-2xl border border-hairline bg-surface shadow-e1"

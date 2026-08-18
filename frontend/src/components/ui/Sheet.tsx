@@ -160,11 +160,11 @@ export function DialogHeader({
       )}
     >
       <div className="min-w-0">
-        <h2 id={titleId} className="truncate text-h2 text-ink-900">
+        <h2 id={titleId} className="text-h2 text-ink-900">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-0.5 truncate text-caption text-ink-500">{subtitle}</p>
+          <p className="mt-0.5 text-caption text-ink-500">{subtitle}</p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -270,6 +270,53 @@ export function SidePanel({
   );
 }
 
+/* ----------------------------------------------------------- FullPage ---- */
+
+/**
+ * Full-viewport mobile page used for AI, Report and Account.
+ *
+ * Same accessibility contract as Modal (role=dialog, focus trap, Escape,
+ * keyboard inset) but it occupies the entire dynamic viewport — no card
+ * chrome, no max-height, no rounded sheet. Behaviour is a page, not a
+ * partial-screen modal. Desktop callers keep using Modal / SidePanel.
+ */
+export function FullPage({
+  open,
+  onClose,
+  children,
+  labelledBy,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  labelledBy?: string;
+  className?: string;
+}) {
+  const ref = useDialogBehaviour(open, onClose);
+  const keyboardInset = useKeyboardInset(open);
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-modal flex flex-col bg-canvas"
+      style={keyboardInset ? { paddingBottom: keyboardInset } : undefined}
+    >
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        className={cn(
+          "relative z-10 flex h-page min-h-0 w-full flex-1 flex-col overflow-hidden bg-canvas",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------- BottomSheet --- */
 
 export type SheetSnap = "peek" | "half" | "full";
@@ -282,21 +329,21 @@ export type SheetSnap = "peek" | "half" | "full";
  * buried under the sheet at any snap point.
  */
 export const SHEET_SNAP_PERCENT: Record<SheetSnap, number> = {
-  /** Collapsed: the drag handle, the "All stations" row and ~one card. */
-  peek: 42,
-  /** Collapsed on a ≤700 px-tall viewport (see `shorty:` in the config). */
-  half: 68,
+  /** Collapsed: handle + nearby-count summary. The list lives in half/full. */
+  peek: 16,
+  /** Mid snap — a few station cards over the still-visible map. */
+  half: 52,
   full: 92,
 };
 
 /** Collapsed height on short (≤700 px) viewports. */
-export const SHEET_PEEK_SHORT_PERCENT = 34;
+export const SHEET_PEEK_SHORT_PERCENT = 14;
 
 const SNAP_CLASS: Record<SheetSnap, string> = {
-  // `shorty:` (≤700 px tall) hands ~8 % of the map back to the map — see
+  // `shorty:` (≤700 px tall) hands a little more map back — see
   // tailwind.config.ts. CONTROLS_OFFSET in app/page.tsx mirrors these.
-  peek: "h-[42%] shorty:h-[34%]",
-  half: "h-[68%]",
+  peek: "h-[16%] shorty:h-[14%]",
+  half: "h-[52%]",
   full: "h-[92%]",
 };
 
@@ -386,7 +433,7 @@ export function BottomSheet({
           {title}
         </h2>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
         {children}
       </div>
     </section>

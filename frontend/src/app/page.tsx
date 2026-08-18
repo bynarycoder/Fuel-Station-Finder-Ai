@@ -41,6 +41,7 @@ import { StationList } from "@/components/stations/StationList";
 import {
   BottomSheet,
   DialogHeader,
+  FullPage,
   Modal,
   SidePanel,
   type SheetSnap,
@@ -277,8 +278,8 @@ export default function FinderPage() {
   // Tailwind only generates arbitrary values it can see as static strings —
   // `page.mobile.test.tsx` asserts the two stay in sync.
   const CONTROLS_OFFSET: Record<SheetSnap, string> = {
-    peek: "bottom-[calc(42%+0.75rem)] shorty:bottom-[calc(34%+0.75rem)]",
-    half: "bottom-[calc(68%+0.75rem)]",
+    peek: "bottom-[calc(16%+0.75rem)] shorty:bottom-[calc(14%+0.75rem)]",
+    half: "bottom-[calc(52%+0.75rem)]",
     full: "bottom-[calc(92%+0.75rem)]",
   };
 
@@ -322,7 +323,7 @@ export default function FinderPage() {
         onOpenAccount={() => setShowAccount(true)}
       />
 
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <main className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ------------------------------------------------ desktop rail --- */}
         <section
           id="stations"
@@ -390,22 +391,23 @@ export default function FinderPage() {
           </div>
         </section>
 
-        {/* ---------------------------------------------- mobile header ---
-             MAP-FIRST: this stack is deliberately three compact rows —
-             search, fuel chips, actions — so the map below it owns the rest
-             of the viewport. Horizontal padding drops to 12 px under 375 px
-             (spec §24, Mobile S) and every row scrolls sideways rather than
-             clipping, so CNG and "Filters" stay reachable at 320 px. */}
-        <div className="shrink-0 space-y-2 border-b border-hairline bg-surface px-3 pb-2 pt-2 shorty:space-y-1.5 shorty:pb-1.5 shorty:pt-1.5 sm:px-4 sm:pb-3 lg:hidden">
-          <SearchBar
-            value={filters.q}
-            onSearch={handleSearch}
-            onAsk={handleAsk}
-            placeholder="Search stations, areas or fuel..."
-          />
-          {/* Reference: one-tap fuel chips directly under the search field. */}
-          <FuelFilterChips />
-          <StationFilters compact onChooseLocation={handleChooseLocation} />
+        {/* ---------------------------------------------- mobile chrome ---
+             MAP-FIRST: this stack is out of document flow so it OVERLAYS
+             the map instead of pushing it down. Document order is still
+             search → chips → actions → map (locked by page.map-first).
+             A light fade keeps the controls readable over tiles. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-mapctl lg:hidden">
+          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-40% via-canvas/85 to-transparent px-2.5 pb-3 pt-2 shorty:space-y-1 shorty:pb-2 shorty:pt-1.5">
+            <SearchBar
+              compact
+              value={filters.q}
+              onSearch={handleSearch}
+              onAsk={handleAsk}
+              placeholder="Search stations, areas or fuel..."
+            />
+            <FuelFilterChips compact />
+            <StationFilters compact onChooseLocation={handleChooseLocation} />
+          </div>
         </div>
 
         {/* -------------------------- ONE map surface, at every viewport ---
@@ -423,10 +425,10 @@ export default function FinderPage() {
             title="Nearby stations"
             className="lg:hidden"
           >
-            <div className="space-y-2.5 pt-0.5">
+            <div className="space-y-2 pt-0.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-baseline gap-2">
-                  <h2 className="truncate text-h3 text-ink-900">
+                  <h2 className="text-body-sm font-bold text-ink-900 sm:text-h3">
                     {isNearby ? "Nearby stations" : "All stations"}
                   </h2>
                   <span
@@ -447,7 +449,7 @@ export default function FinderPage() {
                 <button
                   type="button"
                   onClick={() => setSnap(snap === "full" ? "peek" : "full")}
-                  className="shrink-0 rounded-lg px-2 py-2 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:min-h-touch"
+                  className="shrink-0 rounded-lg px-2 py-1.5 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:min-h-touch"
                 >
                   {snap === "full" ? "Show map" : "See all"}
                 </button>
@@ -462,21 +464,25 @@ export default function FinderPage() {
                 />
               )}
 
-              <StationList
-                items={items}
-                isLoading={showLoading}
-                isError={isError}
-                isNearby={isNearby}
-                selectedId={selectedStationId}
-                userLocation={userLocation}
-                onSelect={handleSelect}
-                onRetry={() => void refetch()}
-                favoriteIds={favorites.favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
-                onExpandRadius={handleExpandRadius}
-                onClearFilters={handleClearFilters}
-                hideCount
-              />
+              {/* Collapsed peek is a summary only — the list overlays the
+                  map once the user drags or taps "See all". */}
+              {snap !== "peek" && (
+                <StationList
+                  items={items}
+                  isLoading={showLoading}
+                  isError={isError}
+                  isNearby={isNearby}
+                  selectedId={selectedStationId}
+                  userLocation={userLocation}
+                  onSelect={handleSelect}
+                  onRetry={() => void refetch()}
+                  favoriteIds={favorites.favoriteIds}
+                  onToggleFavorite={handleToggleFavorite}
+                  onExpandRadius={handleExpandRadius}
+                  onClearFilters={handleClearFilters}
+                  hideCount
+                />
+              )}
             </div>
           </BottomSheet>
         </section>
@@ -491,8 +497,8 @@ export default function FinderPage() {
 
       {/* --------------------------------------------------- overlays ------ */}
 
-      {/* Fuel Intelligence (mobile presents it as a sheet) */}
-      <Modal
+      {/* Fuel Intelligence — full-viewport page on mobile, inline on desktop */}
+      <FullPage
         open={showFuelAi && !isDesktop}
         onClose={() => {
           setShowFuelAi(false);
@@ -503,23 +509,22 @@ export default function FinderPage() {
         <h2 id="ai-sheet-title" className="sr-only">
           Fuel Intelligence
         </h2>
-        <div className="min-h-0 overflow-y-auto">
-          <FuelIntelligence
-            onViewStation={(id) => {
-              setShowFuelAi(false);
-              if (tab === "ai") setTab("map");
-              handleSelect(id);
-            }}
-            onClose={() => {
-              setShowFuelAi(false);
-              if (tab === "ai") setTab("map");
-            }}
-            initialQuery={aiQuery}
-            querySignal={aiSignal}
-            onChooseLocation={handleChooseLocation}
-          />
-        </div>
-      </Modal>
+        <FuelIntelligence
+          fullScreen
+          onViewStation={(id) => {
+            setShowFuelAi(false);
+            if (tab === "ai") setTab("map");
+            handleSelect(id);
+          }}
+          onClose={() => {
+            setShowFuelAi(false);
+            if (tab === "ai") setTab("map");
+          }}
+          initialQuery={aiQuery}
+          querySignal={aiSignal}
+          onChooseLocation={handleChooseLocation}
+        />
+      </FullPage>
 
       {/* Location picker — manual fallback (page-level, never nested in a
           modal so its own focus trap stays clean). */}
@@ -549,20 +554,36 @@ export default function FinderPage() {
         )}
       </SidePanel>
 
-      {/* Report price form */}
-      <Modal
-        open={showReportForm && !!selectedStation}
-        onClose={() => setShowReportForm(false)}
-        labelledBy="report-form-title"
-      >
-        {selectedStation && (
-          <ReportPriceForm
-            station={selectedStation}
-            onClose={() => setShowReportForm(false)}
-            onSuccess={() => setShowReportForm(false)}
-          />
-        )}
-      </Modal>
+      {/* Report price form — full page on mobile, modal card on desktop */}
+      {isDesktop ? (
+        <Modal
+          open={showReportForm && !!selectedStation}
+          onClose={() => setShowReportForm(false)}
+          labelledBy="report-form-title"
+        >
+          {selectedStation && (
+            <ReportPriceForm
+              station={selectedStation}
+              onClose={() => setShowReportForm(false)}
+              onSuccess={() => setShowReportForm(false)}
+            />
+          )}
+        </Modal>
+      ) : (
+        <FullPage
+          open={showReportForm && !!selectedStation}
+          onClose={() => setShowReportForm(false)}
+          labelledBy="report-form-title"
+        >
+          {selectedStation && (
+            <ReportPriceForm
+              station={selectedStation}
+              onClose={() => setShowReportForm(false)}
+              onSuccess={() => setShowReportForm(false)}
+            />
+          )}
+        </FullPage>
+      )}
 
       {/* Sign-in / Sign-up */}
       <Modal
@@ -585,57 +606,67 @@ export default function FinderPage() {
         />
       </Modal>
 
-      {/* Account / profile */}
-      <SidePanel
-        open={showAccount}
-        onClose={() => {
+      {/* Account / profile — full page on mobile, drawer on desktop */}
+      {(() => {
+        const account = (
+          <>
+            <h2 id="account-panel-title" className="sr-only">
+              Account
+            </h2>
+            <AccountPanel
+              user={auth.user}
+              isAuthed={auth.isAuthed}
+              isAuthAvailable={auth.isAuthAvailable}
+              isAdmin={auth.user?.role === "admin"}
+              favoriteCount={favorites.favoriteIds.size}
+              onSignIn={() => {
+                setShowAccount(false);
+                setAuthModalMode("signin");
+                setSignInIntent(null);
+                setShowSignIn(true);
+              }}
+              onSignUp={() => {
+                setShowAccount(false);
+                setAuthModalMode("signup");
+                setSignInIntent(null);
+                setShowSignIn(true);
+              }}
+              onSignOut={() => {
+                void auth.signOut();
+                setShowAccount(false);
+                if (tab === "account") setTab("map");
+              }}
+              onOpenMyReports={() => {
+                setShowAccount(false);
+                setShowReports(true);
+              }}
+              onOpenSavedStations={() => {
+                setShowAccount(false);
+                setFavoritesOnly(true);
+                setSnap("full");
+                if (tab === "account") setTab("map");
+              }}
+              onClose={() => {
+                setShowAccount(false);
+                if (tab === "account") setTab("map");
+              }}
+            />
+          </>
+        );
+        const closeAccount = () => {
           setShowAccount(false);
           if (tab === "account") setTab("map");
-        }}
-        labelledBy="account-panel-title"
-      >
-        <h2 id="account-panel-title" className="sr-only">
-          Account
-        </h2>
-        <AccountPanel
-          user={auth.user}
-          isAuthed={auth.isAuthed}
-          isAuthAvailable={auth.isAuthAvailable}
-          isAdmin={auth.user?.role === "admin"}
-          favoriteCount={favorites.favoriteIds.size}
-          onSignIn={() => {
-            setShowAccount(false);
-            setAuthModalMode("signin");
-            setSignInIntent(null);
-            setShowSignIn(true);
-          }}
-          onSignUp={() => {
-            setShowAccount(false);
-            setAuthModalMode("signup");
-            setSignInIntent(null);
-            setShowSignIn(true);
-          }}
-          onSignOut={() => {
-            void auth.signOut();
-            setShowAccount(false);
-            if (tab === "account") setTab("map");
-          }}
-          onOpenMyReports={() => {
-            setShowAccount(false);
-            setShowReports(true);
-          }}
-          onOpenSavedStations={() => {
-            setShowAccount(false);
-            setFavoritesOnly(true);
-            setSnap("full");
-            if (tab === "account") setTab("map");
-          }}
-          onClose={() => {
-            setShowAccount(false);
-            if (tab === "account") setTab("map");
-          }}
-        />
-      </SidePanel>
+        };
+        return isDesktop ? (
+          <SidePanel open={showAccount} onClose={closeAccount} labelledBy="account-panel-title">
+            {account}
+          </SidePanel>
+        ) : (
+          <FullPage open={showAccount} onClose={closeAccount} labelledBy="account-panel-title">
+            {account}
+          </FullPage>
+        );
+      })()}
 
       {/* Live community reports feed */}
       <SidePanel
