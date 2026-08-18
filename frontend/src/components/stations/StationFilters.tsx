@@ -64,14 +64,37 @@ const FUEL_SHORT: Record<string, string> = {
 interface StationFiltersProps {
   /** Compact layout for the mobile finder header. */
   compact?: boolean;
+  /**
+   * Map-first floating layout: Near me / Browse all sit as FABs on the map
+   * (out of document flow) instead of in a chrome row that eats map height.
+   * Filters / choose-location stay as small icon buttons on the map.
+   */
+  floating?: boolean;
   /** Opens the shared LocationPicker (manual city/point selection). */
   onChooseLocation?: () => void;
+  /**
+   * Extra work after the existing Browse-all store transition (switch to
+   * browse mode, stop the watcher). The map page uses this to open the
+   * stations screen — the action itself is unchanged.
+   */
+  onBrowseAll?: () => void;
+  /** Positions the FAB stack (must stay above the bottom sheet). */
+  actionsClassName?: string;
+  /**
+   * Stations-screen chrome: only the Filters trigger + its modal. Near me /
+   * Browse all stay on the map as FABs.
+   */
+  filtersOnly?: boolean;
   className?: string;
 }
 
 export function StationFilters({
   compact = false,
+  floating = false,
   onChooseLocation,
+  onBrowseAll,
+  actionsClassName,
+  filtersOnly = false,
   className,
 }: StationFiltersProps) {
   const {
@@ -145,7 +168,7 @@ export function StationFilters({
     await requestLocation();
   }
 
-  function handleBrowseAll() {
+  function applyBrowseAll() {
     stopLocationWatch();
     setMode("browse");
     setSelectedStationId(null);
@@ -156,19 +179,30 @@ export function StationFilters({
     setLocationStatus(next.status, next.message);
   }
 
+  function handleBrowseAll() {
+    applyBrowseAll();
+    onBrowseAll?.();
+  }
+
   /** Failed geolocation → stay in browse and let the user type a city. */
   function handleSearchByCity() {
-    handleBrowseAll();
+    applyBrowseAll();
     setFocusCity(true);
     setSheetOpen(true);
   }
 
   // Leaving nearby mode stops continuous tracking (battery).
+  // A filters-only instance (stations screen) must NEVER own the watcher —
+  // unmounting that screen would otherwise kill live tracking on the map.
   useEffect(() => {
+    if (filtersOnly) return;
     if (!isNearby) stopLocationWatch();
-  }, [isNearby, stopLocationWatch]);
+  }, [filtersOnly, isNearby, stopLocationWatch]);
 
-  useEffect(() => () => stopLocationWatch(), [stopLocationWatch]);
+  useEffect(() => {
+    if (filtersOnly) return;
+    return () => stopLocationWatch();
+  }, [filtersOnly, stopLocationWatch]);
 
   function handleFavoritesToggle() {
     if (!auth.isAuthed) {
@@ -228,157 +262,42 @@ export function StationFilters({
 
   const filterCount = activeChips.length;
 
-  return (
-    <div className={cn(compact ? "space-y-1.5" : "space-y-2.5", className)}>
-      {/* Primary controls (spec §11) — "Near me" is the orange proximity
-          action, "Browse all" the dark-green supporting one. One compact,
-          horizontally scrollable row so nothing is ever clipped at 320 px
-          and the map keeps the vertical space. */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <Button
-          variant="accent"
-          size={compact ? "xs" : "md"}
-          onClick={() => void handleNearMe()}
-          disabled={loading}
-          className={cn(
-            "shrink-0",
-            isNearby && "ring-2 ring-accent-500/40 ring-offset-1 ring-offset-canvas",
-          )}
-          title={isWatching ? "Live location tracking is active" : undefined}
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <LocateFixed className="h-4 w-4" aria-hidden="true" />
-          )}
-          {nearMeLabel}
-        </Button>
-
-        <Button
-          variant={isNearby ? "secondary" : "deep"}
-          size={compact ? "xs" : "md"}
-          onClick={handleBrowseAll}
-          className="shrink-0"
-        >
-          <MapIcon className="h-4 w-4" aria-hidden="true" />
-          Browse all
-        </Button>
-
-        {onChooseLocation && (
-          <Button
-            variant="quiet"
-            size={compact ? "icon-sm" : "md"}
-            onClick={onChooseLocation}
-            className="shrink-0"
-            title="Search a city or pick a point on the map"
-          >
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>Choose location</span>
-          </Button>
-        )}
-
-        {isNearby && hasPosition && (
-          <Button
-            variant="secondary"
-            size={compact ? "icon-sm" : "md"}
-            onClick={() => recenterLocation()}
-            className="shrink-0"
-            title="Center the map on your current location"
-          >
-            <Navigation className="h-4 w-4" aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>Recenter on Me</span>
-          </Button>
-        )}
-
-        {compact && (
-          <Button
-            variant="secondary"
-            size="icon-sm"
-            onClick={handleFavoritesToggle}
-            aria-pressed={favoritesOnly}
-            // Icon-only on the compact bar: the name lives on aria-label, NOT
-            // in an sr-only <span> — an absolutely-positioned sr-only box
-            // inside a horizontal scroll rail is measured against the page and
-            // silently widened the document to 342 px at a 320 px viewport.
-            aria-label={favoritesOnly ? "Showing favourites only" : "Show favourites only"}
-            className={cn(
-              "shrink-0",
-              favoritesOnly && "border-accent-300 bg-accent-50 text-accent-700",
-            )}
-            title={
-              auth.isAuthed
-                ? "Show only your favorite stations"
-                : "Sign in to use favorites"
-            }
-          >
-            <Heart
-              className={cn(
-                "h-4 w-4",
-                favoritesOnly && "fill-accent-400 text-accent-500",
-              )}
-              aria-hidden="true"
-            />
-          </Button>
-        )}
-
-        <Button
-          variant="secondary"
-          size={compact ? "xs" : "md"}
-          onClick={() => {
-            setFocusCity(false);
-            setSheetOpen(true);
-          }}
-          className="ml-auto shrink-0"
-          aria-haspopup="dialog"
-        >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          Filters
-          {filterCount > 0 && (
-            <Badge tone="solid" className="ml-0.5 px-1.5">
-              {filterCount}
-            </Badge>
-          )}
-        </Button>
-      </div>
-
-      {/*
-        The fuel chips that used to live here now render as the shared
-        `FuelFilterChips` row directly under the search field (the reference
-        design's placement). Both wrote to the SAME `filters.fuelType`, so
-        keeping both produced a duplicated control — this row keeps only the
-        Favourites toggle, which the chip row does not cover.
-
-        On the compact (mobile) bar the toggle is folded into the action row
-        above instead of costing the map another 36 px of height.
-      */}
-      {!compact && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-          <button
-            type="button"
-            onClick={handleFavoritesToggle}
-            aria-pressed={favoritesOnly}
-            title={
-              auth.isAuthed
-                ? "Show only your favorite stations"
-                : "Sign in to use favorites"
-            }
-            className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
-              favoritesOnly
-                ? "border-accent-300 bg-accent-50 text-accent-700"
-                : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
-            )}
-          >
-            <Heart
-              className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
-              aria-hidden="true"
-            />
-            {favoritesOnly ? "My favorites" : "Favorites"}
-          </button>
-        </div>
+  const nearMeButton = (
+    <Button
+      variant="accent"
+      size={floating ? "md" : compact ? "xs" : "md"}
+      onClick={() => void handleNearMe()}
+      disabled={loading}
+      className={cn(
+        "shrink-0",
+        floating && "shadow-e2",
+        isNearby && "ring-2 ring-accent-500/40 ring-offset-1 ring-offset-canvas",
       )}
+      title={isWatching ? "Live location tracking is active" : undefined}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : (
+        <LocateFixed className="h-4 w-4" aria-hidden="true" />
+      )}
+      {nearMeLabel}
+    </Button>
+  );
 
-      {/* Always show what is actually filtered. */}
+  const browseAllButton = (
+    <Button
+      variant={isNearby ? "secondary" : "deep"}
+      size={floating ? "md" : compact ? "xs" : "md"}
+      onClick={handleBrowseAll}
+      className={cn("shrink-0", floating && "shadow-e2")}
+    >
+      <MapIcon className="h-4 w-4" aria-hidden="true" />
+      Browse all
+    </Button>
+  );
+
+  const statusBlock = (
+    <>
       {activeChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {activeChips.map((chip) => (
@@ -449,6 +368,213 @@ export function StationFilters({
           </button>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <div
+      className={cn(
+        floating || filtersOnly
+          ? "contents"
+          : compact
+            ? "space-y-1.5"
+            : "space-y-2.5",
+        className,
+      )}
+    >
+      {filtersOnly ? (
+        <button
+          type="button"
+          onClick={() => {
+            setFocusCity(false);
+            setSheetOpen(true);
+          }}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-hairline bg-surface px-2.5 text-caption font-semibold text-ink-600 transition-colors hover:border-ink-300"
+          aria-haspopup="dialog"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+          Filters
+          {filterCount > 0 && (
+            <Badge tone="solid" className="ml-0.5 px-1.5">
+              {filterCount}
+            </Badge>
+          )}
+        </button>
+      ) : floating ? (
+        <>
+          {/* Bottom-left FABs — out of flow, never push the map down. */}
+          <div
+            data-testid="map-fabs"
+            className={cn(
+              "pointer-events-auto absolute left-4 z-mapctl flex flex-col items-stretch gap-2",
+              actionsClassName ?? "bottom-[120px]",
+            )}
+          >
+            {nearMeButton}
+            {browseAllButton}
+          </div>
+
+          {/* Status banners sit under the overlay chrome and keep clear of
+              the top-right icon cluster so they never cover Filters. */}
+          <div className="pointer-events-none absolute inset-x-3 top-[7.5rem] z-mapctl space-y-1.5 pr-[4.75rem]">
+            <div className="pointer-events-auto">{statusBlock}</div>
+          </div>
+
+          {/* Choose-location + Filters — painted after banners so they stay tappable. */}
+          <div className="pointer-events-auto absolute right-4 top-[7.25rem] z-mapctl flex items-center gap-1.5">
+            {onChooseLocation && (
+              <Button
+                variant="secondary"
+                size="icon-sm"
+                onClick={onChooseLocation}
+                className="shadow-e2"
+                aria-label="Choose location"
+                title="Search a city or pick a point on the map"
+              >
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              onClick={() => {
+                setFocusCity(false);
+                setSheetOpen(true);
+              }}
+              className="relative shadow-e2"
+              aria-haspopup="dialog"
+              aria-label="Filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              {filterCount > 0 && (
+                <Badge tone="solid" className="absolute -right-1.5 -top-1.5 px-1.5">
+                  {filterCount}
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          {nearMeButton}
+          {browseAllButton}
+
+          {onChooseLocation && (
+            <Button
+              variant="quiet"
+              size={compact ? "icon-sm" : "md"}
+              onClick={onChooseLocation}
+              className="shrink-0"
+              title="Search a city or pick a point on the map"
+            >
+              <MapPin className="h-4 w-4" aria-hidden="true" />
+              <span className={compact ? "sr-only" : undefined}>Choose location</span>
+            </Button>
+          )}
+
+          {isNearby && hasPosition && (
+            <Button
+              variant="secondary"
+              size={compact ? "icon-sm" : "md"}
+              onClick={() => recenterLocation()}
+              className="shrink-0"
+              title="Center the map on your current location"
+            >
+              <Navigation className="h-4 w-4" aria-hidden="true" />
+              <span className={compact ? "sr-only" : undefined}>Recenter on Me</span>
+            </Button>
+          )}
+
+          {compact && (
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              onClick={handleFavoritesToggle}
+              aria-pressed={favoritesOnly}
+              // Icon-only on the compact bar: the name lives on aria-label, NOT
+              // in an sr-only <span> — an absolutely-positioned sr-only box
+              // inside a horizontal scroll rail is measured against the page and
+              // silently widened the document to 342 px at a 320 px viewport.
+              aria-label={favoritesOnly ? "Showing favourites only" : "Show favourites only"}
+              className={cn(
+                "shrink-0",
+                favoritesOnly && "border-accent-300 bg-accent-50 text-accent-700",
+              )}
+              title={
+                auth.isAuthed
+                  ? "Show only your favorite stations"
+                  : "Sign in to use favorites"
+              }
+            >
+              <Heart
+                className={cn(
+                  "h-4 w-4",
+                  favoritesOnly && "fill-accent-400 text-accent-500",
+                )}
+                aria-hidden="true"
+              />
+            </Button>
+          )}
+
+          <Button
+            variant="secondary"
+            size={compact ? "xs" : "md"}
+            onClick={() => {
+              setFocusCity(false);
+              setSheetOpen(true);
+            }}
+            className="ml-auto shrink-0"
+            aria-haspopup="dialog"
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            Filters
+            {filterCount > 0 && (
+              <Badge tone="solid" className="ml-0.5 px-1.5">
+                {filterCount}
+              </Badge>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/*
+        The fuel chips that used to live here now render as the shared
+        `FuelFilterChips` row directly under the search field (the reference
+        design's placement). Both wrote to the SAME `filters.fuelType`, so
+        keeping both produced a duplicated control — this row keeps only the
+        Favourites toggle, which the chip row does not cover.
+
+        On the compact (mobile) bar the toggle is folded into the action row
+        above instead of costing the map another 36 px of height.
+      */}
+      {!compact && !floating && !filtersOnly && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <button
+            type="button"
+            onClick={handleFavoritesToggle}
+            aria-pressed={favoritesOnly}
+            title={
+              auth.isAuthed
+                ? "Show only your favorite stations"
+                : "Sign in to use favorites"
+            }
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
+              favoritesOnly
+                ? "border-accent-300 bg-accent-50 text-accent-700"
+                : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
+            )}
+          >
+            <Heart
+              className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
+              aria-hidden="true"
+            />
+            {favoritesOnly ? "My favorites" : "Favorites"}
+          </button>
+        </div>
+      )}
+
+      {filtersOnly || floating ? null : statusBlock}
 
       {/* ---------------------------- filter sheet --------------------------- */}
       <Modal

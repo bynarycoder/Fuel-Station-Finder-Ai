@@ -6,7 +6,7 @@
  * STRUCTURAL and BEHAVIOURAL invariants — what is mounted, what is labelled,
  * what a tap does — not pixel geometry.
  *
- *  1. the four reference destinations exist and are labelled;
+ *  1. the five destinations exist and are labelled;
  *  2. each destination performs a real action;
  *  3. Report is guarded: signed-out → sign-in, no station → expand the list,
  *     never an empty form that cannot be submitted;
@@ -165,10 +165,10 @@ afterEach(() => {
 });
 
 /* ------------------------------------------------------------------------ */
-/* 1 + 2. The reference's four destinations                                  */
+/* 1 + 2. The five destinations                                              */
 /* ------------------------------------------------------------------------ */
 describe("global bottom navigation", () => {
-  it("exposes exactly the four reference destinations", async () => {
+  it("exposes the five destinations including Stations", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
 
@@ -177,7 +177,7 @@ describe("global bottom navigation", () => {
       .getAllByRole("button")
       .map((b) => b.textContent?.replace(/\d+/g, "").trim());
 
-    expect(labels).toEqual(["Map", "AI Assistant", "Report", "Account"]);
+    expect(labels).toEqual(["Map", "Stations", "AI Assistant", "Report", "Account"]);
   });
 
   it("marks the active destination for assistive tech", async () => {
@@ -185,11 +185,7 @@ describe("global bottom navigation", () => {
     await screen.findByTestId("station-map-mock");
 
     const nav = screen.getByRole("navigation", { name: /main/i });
-    const mapTab = within(nav)
-      .getAllByRole("button")
-      // The Map tab also renders a station-count badge, so its text is e.g.
-      // "1Map" — match on the label rather than the whole string.
-      .find((b) => /Map$/.test(b.textContent ?? ""))!;
+    const mapTab = within(nav).getByRole("button", { name: /^map$/i });
     expect(mapTab).toHaveAttribute("aria-current", "page");
 
     fireEvent.click(within(nav).getByRole("button", { name: /account/i }));
@@ -198,6 +194,24 @@ describe("global bottom navigation", () => {
         "aria-current",
         "page",
       ),
+    );
+  });
+
+  it("opens the Stations catalogue from the nav without remounting the map", async () => {
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+    const before = mapProbe.mounts;
+
+    const nav = screen.getByRole("navigation", { name: /main/i });
+    fireEvent.click(within(nav).getByRole("button", { name: /stations/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByTestId("stations-screen")).toBeInTheDocument();
+    expect(screen.getByTestId("station-map-mock")).toBeInTheDocument();
+    expect(mapProbe.mounts).toBe(before);
+    expect(within(nav).getByRole("button", { name: /stations/i })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
   });
 

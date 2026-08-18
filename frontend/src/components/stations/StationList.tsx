@@ -43,6 +43,8 @@ interface StationListProps {
   onClearFilters?: () => void;
   /** Hide the "N stations" summary line (the sheet header shows its own). */
   hideCount?: boolean;
+  /** Override the default nearby→distance / browse→name sort. */
+  sortBy?: "auto" | "distance" | "name";
 }
 
 export function StationList({
@@ -59,6 +61,7 @@ export function StationList({
   onExpandRadius,
   onClearFilters,
   hideCount = false,
+  sortBy = "auto",
 }: StationListProps) {
   const activeFuelType = useMapStore((s) => s.filters.fuelType);
   const prices = useStationPrices();
@@ -122,9 +125,13 @@ export function StationList({
   }
 
   // Nearby: nearest → farthest (server value, else Haversine). Browse: by name.
-  const sorted = isNearby
-    ? [...items].sort((a, b) => distanceOf(a, userLocation) - distanceOf(b, userLocation))
-    : [...items].sort((a, b) => a.name.localeCompare(b.name));
+  // `sortBy` lets the stations screen override without a second list.
+  const resolvedSort =
+    sortBy === "auto" ? (isNearby ? "distance" : "name") : sortBy;
+  const sorted =
+    resolvedSort === "distance"
+      ? [...items].sort((a, b) => distanceOf(a, userLocation) - distanceOf(b, userLocation))
+      : [...items].sort((a, b) => a.name.localeCompare(b.name));
 
   const closestId = isNearby && sorted.length > 0 ? sorted[0].id : null;
 

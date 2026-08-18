@@ -44,8 +44,8 @@ export function FuelFilterChips({
       role="group"
       aria-label="Filter by fuel type"
       className={cn(
-        "no-scrollbar -mx-1 flex items-center overflow-x-auto px-1",
-        compact ? "gap-1.5 py-0" : "gap-2 py-0.5",
+        "no-scrollbar -mx-1 flex max-h-[60px] flex-nowrap items-center overflow-x-auto overflow-y-hidden px-1",
+        compact ? "h-10 gap-1.5 py-0" : "gap-2 py-0.5",
         className,
       )}
     >
@@ -63,10 +63,10 @@ export function FuelFilterChips({
             aria-label={`Show ${fullName}`}
             onClick={() => setFilters({ fuelType: value })}
             className={cn(
-              "flex h-9 shrink-0 items-center rounded-pill border px-4 text-body-sm font-semibold",
+              "flex shrink-0 items-center justify-center whitespace-nowrap rounded-pill border font-semibold leading-none",
+              compact ? "h-8 px-3 text-caption" : "h-9 px-4 text-body-sm pointer-coarse:min-h-touch",
               "transition-all duration-fast ease-entrance active:scale-[0.97]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
-              "pointer-coarse:min-h-touch",
               isActive
                 ? "border-action bg-action text-action-fg shadow-e1"
                 : "border-hairline bg-surface text-ink-600 hover:border-brand-300 hover:text-brand-700",

@@ -36,7 +36,7 @@ export function MapControls({
   return (
     <div
       className={cn(
-        "pointer-events-auto absolute right-3 z-mapctl flex flex-col items-end gap-2",
+        "pointer-events-auto absolute right-4 z-mapctl flex flex-col items-end gap-2",
         className,
       )}
     >

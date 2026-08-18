@@ -513,7 +513,7 @@ export function FuelIntelligence({
           Sticky at the bottom of the panel. The parent sheet lifts the whole
           surface above the on-screen keyboard (see Sheet's visualViewport
           handling), so the field and send button are never covered. */}
-      <div className="shrink-0 border-t border-hairline bg-surface p-3">
+      <div className="shrink-0 border-t border-hairline bg-surface p-3 pb-safe">
         <div className="flex items-end gap-2">
           <input
             type="text"

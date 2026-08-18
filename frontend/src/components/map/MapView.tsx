@@ -356,7 +356,7 @@ export default function MapView({
         onLocate={handleLocate}
         locating={locating}
         tracking={isWatching}
-        className={controlsClassName ?? "bottom-4"}
+        className={controlsClassName ?? "bottom-[120px] lg:bottom-4"}
       />
     </div>
   );

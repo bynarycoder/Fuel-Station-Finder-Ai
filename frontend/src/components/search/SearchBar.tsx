@@ -63,7 +63,7 @@ interface SearchBarProps {
   recent?: Array<{ id: string; label: string; onApply: () => void }>;
   onClearRecent?: () => void;
   autoFocus?: boolean;
-  /** Tighter field for the map-first mobile overlay. */
+  /** Single-row 48 px field for the map-first mobile chrome. */
   compact?: boolean;
 }
 
@@ -119,7 +119,7 @@ export function SearchBar({
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border bg-surface shadow-e1 transition-all duration-base",
+          "flex h-12 items-center gap-2 rounded-lg border bg-surface shadow-e1 transition-all duration-base",
           compact ? "pl-2.5 pr-1" : "pl-3.5 pr-1.5",
           focused
             ? "border-brand-500 shadow-e2 ring-2 ring-brand-500/20"
@@ -150,7 +150,7 @@ export function SearchBar({
           aria-describedby="search-mode-hint"
           className={cn(
             "min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden",
-            compact ? "h-10" : "h-12 shorty:h-11",
+            "h-12",
           )}
         />
 
@@ -176,7 +176,7 @@ export function SearchBar({
           aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
           className={cn(
             compact
-              ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+              ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
               : "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-semibold pointer-coarse:min-h-touch",
             "transition-all duration-fast active:scale-[0.97] disabled:opacity-40",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
@@ -202,7 +202,7 @@ export function SearchBar({
           : "Press enter to search station names, brands and cities."}
       </p>
 
-      {focused && isQuestion && (
+      {!compact && focused && isQuestion && (
         <p className="mt-1.5 flex items-center gap-1.5 px-1 text-caption text-brand-700">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           Looks like a question — this will go to Fuel Intelligence.
