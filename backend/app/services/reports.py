@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import Select
@@ -262,6 +262,37 @@ async def get_report_for_verification(
 ) -> FuelReport | None:
     """Fetch the raw ORM report (for AI verification), without hiding rules."""
     return await db.get(FuelReport, report_id)
+
+
+async def claim_pending_report_for_auto_verify(
+    db: AsyncSession, report_id: Any
+) -> FuelReport | None:
+    """Atomically claim a PENDING, unscored report for background Gemini.
+
+    ``UPDATE ... WHERE status=pending AND ai_confidence_score IS NULL`` so a
+    concurrent admin verify / second worker cannot both start Gemini. Returns
+    the claimed row, or ``None`` if another path already took it.
+    """
+    result = await db.execute(
+        update(FuelReport)
+        .where(FuelReport.id == report_id)
+        .where(FuelReport.status == ReportStatus.PENDING)
+        .where(FuelReport.ai_confidence_score.is_(None))
+        .where(FuelReport.photo_url.is_not(None))
+        .values(status=ReportStatus.UNDER_REVIEW)
+    )
+    if result.rowcount != 1:
+        await db.rollback()
+        return None
+    await db.commit()
+    return await db.get(FuelReport, report_id)
+
+
+async def release_auto_verify_claim(db: AsyncSession, report: FuelReport) -> None:
+    """Return a failed auto-verify claim to PENDING so admin retry still works."""
+    if report.status == ReportStatus.UNDER_REVIEW and report.ai_confidence_score is None:
+        report.status = ReportStatus.PENDING
+        await db.commit()
 
 
 async def mark_report_verified(

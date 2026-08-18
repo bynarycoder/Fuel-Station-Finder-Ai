@@ -296,6 +296,33 @@ async def test_submit_with_photo_auto_verifies_in_background(
     assert row.status == ReportStatus.VERIFIED
 
 
+async def test_second_auto_verify_does_not_call_gemini_again(
+    portable_authed, portable_client, temp_storage, monkeypatch
+) -> None:
+    """After a successful auto-verify the atomic claim must skip a second Gemini call."""
+    await _seed_catalogue(portable_client)
+    monkeypatch.setattr(
+        reports_api, "AsyncSessionLocal", portable_client._portable_factory
+    )
+    calls: list[int] = []
+
+    def _fake_analyze(image_bytes: bytes, mime_type: str) -> VerificationResult:
+        calls.append(1)
+        return VerificationResult(
+            score=0.9, is_plausible=True, summary="ok", detected_attributes=[]
+        )
+
+    monkeypatch.setattr(reports_api, "analyze_queue_image", _fake_analyze)
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    report = await _submit_report_with_photo(driver)
+    assert len(calls) == 1
+
+    await reports_api.verify_submitted_report_photo(
+        uuid.UUID(report["id"]), temp_storage
+    )
+    assert len(calls) == 1
+
+
 async def test_submit_without_photo_does_not_call_gemini(
     portable_authed, portable_client, temp_storage, monkeypatch
 ) -> None:

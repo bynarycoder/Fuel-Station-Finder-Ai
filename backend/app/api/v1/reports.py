@@ -64,9 +64,13 @@ async def persist_verification_score(
     """Write Gemini score / auto-promote — shared by admin and auto-verify."""
     if result.score >= VERIFICATION_THRESHOLD:
         await report_service.mark_report_verified(db, report, result.score)
-    else:
-        report.ai_confidence_score = result.score
-        await db.commit()
+        return
+    report.ai_confidence_score = result.score
+    # Auto-verify claims PENDING→UNDER_REVIEW; a low score must not leave
+    # the row parked in under_review (admin retry + existing UI expect pending).
+    if report.status == ReportStatus.UNDER_REVIEW:
+        report.status = ReportStatus.PENDING
+    await db.commit()
 
 
 async def verify_submitted_report_photo(
@@ -81,62 +85,55 @@ async def verify_submitted_report_photo(
     logger.info("verification started report_id=%s", report_id)
     try:
         async with AsyncSessionLocal() as db:
-            report = await report_service.get_report_for_verification(db, report_id)
-            if report is None or not report.photo_url:
+            report = await report_service.claim_pending_report_for_auto_verify(
+                db, report_id
+            )
+            if report is None:
                 logger.info(
-                    "verification skipped report_id=%s reason=missing_report_or_photo",
+                    "verification skipped report_id=%s reason=not_claimable",
                     report_id,
                 )
                 return
-            # Do not pay for a second Gemini call if admin (or a prior pass)
-            # already scored or terminal-reviewed this row.
-            if report.ai_confidence_score is not None or report.status in (
-                ReportStatus.VERIFIED,
-                ReportStatus.REJECTED,
-            ):
+            try:
+                try:
+                    image_bytes, mime_type = await run_in_threadpool(
+                        storage.read_image, report.photo_url
+                    )
+                except (FileNotFoundError, StorageUnavailableError) as exc:
+                    logger.warning(
+                        "verification failed report_id=%s reason=photo_unreadable detail=%s",
+                        report_id,
+                        exc,
+                    )
+                    return
+
+                try:
+                    result = analyze_queue_image(image_bytes, mime_type)
+                except (AINotConfiguredError, GeminiVerificationError) as exc:
+                    logger.warning(
+                        "verification failed report_id=%s reason=gemini_unavailable detail=%s",
+                        report_id,
+                        exc,
+                    )
+                    return
+
+                if result.error:
+                    logger.warning(
+                        "verification failed report_id=%s reason=%s",
+                        report_id,
+                        result.error,
+                    )
+                    return
+
+                await persist_verification_score(db, report, result)
                 logger.info(
-                    "verification skipped report_id=%s reason=already_reviewed status=%s",
+                    "verification succeeded report_id=%s score=%s status=%s",
                     report_id,
+                    result.score,
                     report.status,
                 )
-                return
-            try:
-                image_bytes, mime_type = await run_in_threadpool(
-                    storage.read_image, report.photo_url
-                )
-            except (FileNotFoundError, StorageUnavailableError) as exc:
-                logger.warning(
-                    "verification failed report_id=%s reason=photo_unreadable detail=%s",
-                    report_id,
-                    exc,
-                )
-                return
-
-            try:
-                result = analyze_queue_image(image_bytes, mime_type)
-            except (AINotConfiguredError, GeminiVerificationError) as exc:
-                logger.warning(
-                    "verification failed report_id=%s reason=gemini_unavailable detail=%s",
-                    report_id,
-                    exc,
-                )
-                return
-
-            if result.error:
-                logger.warning(
-                    "verification failed report_id=%s reason=%s",
-                    report_id,
-                    result.error,
-                )
-                return
-
-            await persist_verification_score(db, report, result)
-            logger.info(
-                "verification succeeded report_id=%s score=%s status=%s",
-                report_id,
-                result.score,
-                report.status,
-            )
+            finally:
+                await report_service.release_auto_verify_claim(db, report)
     except Exception:
         logger.exception("verification failed report_id=%s", report_id)
 
