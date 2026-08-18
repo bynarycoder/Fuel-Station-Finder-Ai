@@ -357,7 +357,36 @@ describe("map actions", () => {
     expect(
       within(dialog).getByRole("heading", { name: /all stations/i }),
     ).toBeInTheDocument();
+    expect(within(dialog).getByTestId("stations-screen")).toBeInTheDocument();
     expect(mapProbe.mounts).toBe(mountsBefore);
     expect(useMapStore.getState().mode).toBe("browse");
+  });
+
+  it("gives the stations screen search, fuel chips and incremental loading", async () => {
+    mockedStations.mockResolvedValue({
+      items: Array.from({ length: 25 }, (_, i) =>
+        makeStation(`st-${i}`, `Station ${i}`),
+      ),
+      total: 25,
+      page: 1,
+      page_size: 100,
+    });
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /browse all/i }).at(-1)!);
+    const dialog = await screen.findByRole("dialog");
+    const screenRoot = within(dialog).getByTestId("stations-screen");
+
+    expect(
+      within(screenRoot).getByRole("searchbox", { name: /search stations or ask/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(screenRoot).getByRole("group", { name: /filter by fuel type/i }),
+    ).toBeInTheDocument();
+    expect(within(screenRoot).getByRole("group", { name: /sort stations/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(screenRoot).getByRole("button", { name: /show more/i })).toBeInTheDocument(),
+    );
   });
 });

@@ -37,6 +37,7 @@ import { LocationPrimer } from "@/components/stations/LocationPrimer";
 import { StationDetail } from "@/components/stations/StationDetail";
 import { StationFilters } from "@/components/stations/StationFilters";
 import { StationList } from "@/components/stations/StationList";
+import { StationsScreen } from "@/components/stations/StationsScreen";
 import {
   BottomSheet,
   DialogHeader,
@@ -402,19 +403,19 @@ export default function FinderPage() {
         </section>
 
         {/* ---------------------------------------------- mobile chrome ---
-             IN FLOW, not overlaid: Header → Search (48 px) → Fuel chips
-             (≤60 px) → MAP. Document order stays search → chips → Near me
-             → map (locked by page.map-first). The map then owns the rest
-             of the viewport (~70–80 %). */}
-        <div className="shrink-0 space-y-1.5 border-b border-hairline bg-surface px-2.5 pb-1.5 pt-2 lg:hidden">
-          <SearchBar
-            compact
-            value={filters.q}
-            onSearch={handleSearch}
-            onAsk={handleAsk}
-            placeholder="Search stations, areas or fuel..."
-          />
-          <FuelFilterChips compact />
+             OVERLAY: search + chips sit ON the map (map is the background).
+             Document order stays search → chips → Near me → map. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-mapctl lg:hidden">
+          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-55% via-canvas/80 to-transparent px-2.5 pb-3 pt-2">
+            <SearchBar
+              compact
+              value={filters.q}
+              onSearch={handleSearch}
+              onAsk={handleAsk}
+              placeholder="Search stations, areas or fuel..."
+            />
+            <FuelFilterChips compact />
+          </div>
         </div>
 
         {/* -------------------------- ONE map surface, at every viewport ---
@@ -524,45 +525,35 @@ export default function FinderPage() {
         onClose={() => setShowStations(false)}
         labelledBy="stations-screen-title"
       >
-        <DialogHeader
-          title={isNearby ? "Nearby stations" : "All stations"}
-          titleId="stations-screen-title"
-          subtitle={
-            showLoading
-              ? "Searching…"
-              : `${items.length} station${items.length === 1 ? "" : "s"}`
-          }
+        <StationsScreen
+          items={items}
+          isLoading={showLoading}
+          isError={isError}
+          isNearby={isNearby}
+          selectedId={selectedStationId}
+          userLocation={userLocation}
+          showLoading={showLoading}
+          needsLocationPrimer={needsLocationPrimer}
+          isLocating={isLocating}
+          favoriteIds={favorites.favoriteIds}
+          searchValue={filters.q}
+          onSearch={handleSearch}
+          onAsk={(q) => {
+            setShowStations(false);
+            handleAsk(q);
+          }}
+          onSelect={(id) => {
+            setShowStations(false);
+            handleSelect(id);
+          }}
+          onRetry={() => void refetch()}
+          onToggleFavorite={handleToggleFavorite}
+          onExpandRadius={handleExpandRadius}
+          onClearFilters={handleClearFilters}
+          onChooseLocation={handleChooseLocation}
+          onUseLocation={() => void requestLocation()}
           onClose={() => setShowStations(false)}
         />
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {needsLocationPrimer && (
-            <div className="mb-3">
-              <LocationPrimer
-                loading={isLocating}
-                onUseLocation={() => void requestLocation()}
-                onSearchManually={handleChooseLocation}
-              />
-            </div>
-          )}
-          <StationList
-            items={items}
-            isLoading={showLoading}
-            isError={isError}
-            isNearby={isNearby}
-            selectedId={selectedStationId}
-            userLocation={userLocation}
-            onSelect={(id) => {
-              setShowStations(false);
-              handleSelect(id);
-            }}
-            onRetry={() => void refetch()}
-            favoriteIds={favorites.favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-            onExpandRadius={handleExpandRadius}
-            onClearFilters={handleClearFilters}
-            hideCount
-          />
-        </div>
       </FullPage>
 
       {/* Fuel Intelligence — full-viewport page on mobile, inline on desktop */}
@@ -648,6 +639,7 @@ export default function FinderPage() {
               station={selectedStation}
               onClose={() => setShowReportForm(false)}
               onSuccess={() => setShowReportForm(false)}
+              fullScreen
             />
           )}
         </FullPage>

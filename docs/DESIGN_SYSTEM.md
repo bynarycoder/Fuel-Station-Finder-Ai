@@ -149,9 +149,8 @@ shadows.
 
 ```
 Header (48 px on mobile / 56 px on ≥sm)
-Search bar (48 px, single row, in flow)
-Fuel filters (one chip row, ≤60 px, in flow)
-MAP  ← owns the remaining viewport (~70–80 %)
+MAP  ← owns the remaining viewport (~65–75 %+); search/chips overlay it
+  ├── overlay: compact search (48 px) + fuel chips (≤60 px)
   ├── floating left:  Near me / Browse all   (left: 16px, bottom: 120px)
   ├── floating right: + / − / Locate me      (right: 16px, bottom: 120px)
   └── station bottom sheet, collapsed 80–120 px

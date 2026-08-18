@@ -80,6 +80,11 @@ interface StationFiltersProps {
   onBrowseAll?: () => void;
   /** Positions the FAB stack (must stay above the bottom sheet). */
   actionsClassName?: string;
+  /**
+   * Stations-screen chrome: only the Filters trigger + its modal. Near me /
+   * Browse all stay on the map as FABs.
+   */
+  filtersOnly?: boolean;
   className?: string;
 }
 
@@ -89,6 +94,7 @@ export function StationFilters({
   onChooseLocation,
   onBrowseAll,
   actionsClassName,
+  filtersOnly = false,
   className,
 }: StationFiltersProps) {
   const {
@@ -186,11 +192,17 @@ export function StationFilters({
   }
 
   // Leaving nearby mode stops continuous tracking (battery).
+  // A filters-only instance (stations screen) must NEVER own the watcher —
+  // unmounting that screen would otherwise kill live tracking on the map.
   useEffect(() => {
+    if (filtersOnly) return;
     if (!isNearby) stopLocationWatch();
-  }, [isNearby, stopLocationWatch]);
+  }, [filtersOnly, isNearby, stopLocationWatch]);
 
-  useEffect(() => () => stopLocationWatch(), [stopLocationWatch]);
+  useEffect(() => {
+    if (filtersOnly) return;
+    return () => stopLocationWatch();
+  }, [filtersOnly, stopLocationWatch]);
 
   function handleFavoritesToggle() {
     if (!auth.isAuthed) {
@@ -362,11 +374,34 @@ export function StationFilters({
   return (
     <div
       className={cn(
-        floating ? "contents" : compact ? "space-y-1.5" : "space-y-2.5",
+        floating || filtersOnly
+          ? "contents"
+          : compact
+            ? "space-y-1.5"
+            : "space-y-2.5",
         className,
       )}
     >
-      {floating ? (
+      {filtersOnly ? (
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => {
+            setFocusCity(false);
+            setSheetOpen(true);
+          }}
+          className="shrink-0"
+          aria-haspopup="dialog"
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          Filters
+          {filterCount > 0 && (
+            <Badge tone="solid" className="ml-0.5 px-1.5">
+              {filterCount}
+            </Badge>
+          )}
+        </Button>
+      ) : floating ? (
         <>
           {/* Bottom-left FABs — out of flow, never push the map down. */}
           <div
@@ -381,7 +416,7 @@ export function StationFilters({
           </div>
 
           {/* Choose-location + Filters — floating, top-right of the map. */}
-          <div className="pointer-events-auto absolute right-4 top-3 z-mapctl flex items-center gap-1.5">
+          <div className="pointer-events-auto absolute right-4 top-[7.25rem] z-mapctl flex items-center gap-1.5">
             {onChooseLocation && (
               <Button
                 variant="secondary"
@@ -534,8 +569,8 @@ export function StationFilters({
         </div>
       )}
 
-      {floating ? (
-        <div className="pointer-events-none absolute inset-x-2 top-14 z-mapctl space-y-1.5">
+      {filtersOnly ? null : floating ? (
+        <div className="pointer-events-none absolute inset-x-2 top-[7.5rem] z-mapctl space-y-1.5">
           <div className="pointer-events-auto">{statusBlock}</div>
         </div>
       ) : (

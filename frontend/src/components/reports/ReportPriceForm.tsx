@@ -70,11 +70,18 @@ interface ReportPriceFormProps {
   onClose: () => void;
   /** Called after the user dismisses the success screen. */
   onSuccess: () => void;
+  /** Edge-to-edge layout for the mobile full-page surface. */
+  fullScreen?: boolean;
 }
 
 const STEPS = ["Fuel & price", "Conditions", "Evidence"] as const;
 
-export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceFormProps) {
+export function ReportPriceForm({
+  station,
+  onClose,
+  onSuccess,
+  fullScreen = false,
+}: ReportPriceFormProps) {
   const queryClient = useQueryClient();
 
   // Smart default: the first fuel this station actually lists.
@@ -219,15 +226,27 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
    * Only a backend-confirmed report (a persisted id came back) shows success.
    * Neither selecting a photo nor an in-flight request can reach this screen.
    */
+  const shellClass = fullScreen
+    ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-canvas"
+    : "flex min-h-0 flex-1 flex-col";
+
   if (mutation.isSuccess && mutation.data?.id) {
     return (
-      <>
-        <DialogHeader
-          title="Report submitted"
-          titleId="report-form-title"
-          onClose={onSuccess}
-        />
-        <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+      <div className={shellClass}>
+        {fullScreen ? (
+          <PageHeader
+            title="Report submitted"
+            titleId="report-form-title"
+            onClose={onSuccess}
+          />
+        ) : (
+          <DialogHeader
+            title="Report submitted"
+            titleId="report-form-title"
+            onClose={onSuccess}
+          />
+        )}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-pill bg-success-soft text-success-strong">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
@@ -239,7 +258,7 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
             Done
           </Button>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -248,13 +267,22 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
     mutation.error instanceof ApiError && mutation.error.status === 0;
 
   return (
-    <>
-      <DialogHeader
-        title="Report Fuel Price"
-        titleId="report-form-title"
-        subtitle="Help keep fuel prices updated"
-        onClose={onClose}
-      />
+    <div className={shellClass}>
+      {fullScreen ? (
+        <PageHeader
+          title="Report Fuel Price"
+          subtitle="Help keep fuel prices updated"
+          titleId="report-form-title"
+          onClose={onClose}
+        />
+      ) : (
+        <DialogHeader
+          title="Report Fuel Price"
+          titleId="report-form-title"
+          subtitle="Help keep fuel prices updated"
+          onClose={onClose}
+        />
+      )}
 
       {/* Progress */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-hairline bg-surface px-4 py-3">
@@ -604,7 +632,41 @@ export function ReportPriceForm({ station, onClose, onSuccess }: ReportPriceForm
           )}
         </div>
       </form>
-    </>
+    </div>
+  );
+}
+
+/** Full-viewport header — matches the AI / Account page chrome. */
+function PageHeader({
+  title,
+  subtitle,
+  titleId,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  titleId: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
+      <div className="min-w-0">
+        <h2 id={titleId} className="truncate text-h3 text-slab-fg">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="truncate text-caption text-white/85">{subtitle}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+        aria-label="Close"
+      >
+        <X className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
