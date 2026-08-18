@@ -78,10 +78,27 @@ async def verify_submitted_report_photo(
     response is sent. Failures are logged and never raised: the report stays
     PENDING for the existing admin ``Verify with AI`` button.
     """
+    logger.info("verification started report_id=%s", report_id)
     try:
         async with AsyncSessionLocal() as db:
             report = await report_service.get_report_for_verification(db, report_id)
             if report is None or not report.photo_url:
+                logger.info(
+                    "verification skipped report_id=%s reason=missing_report_or_photo",
+                    report_id,
+                )
+                return
+            # Do not pay for a second Gemini call if admin (or a prior pass)
+            # already scored or terminal-reviewed this row.
+            if report.ai_confidence_score is not None or report.status in (
+                ReportStatus.VERIFIED,
+                ReportStatus.REJECTED,
+            ):
+                logger.info(
+                    "verification skipped report_id=%s reason=already_reviewed status=%s",
+                    report_id,
+                    report.status,
+                )
                 return
             try:
                 image_bytes, mime_type = await run_in_threadpool(
@@ -89,7 +106,7 @@ async def verify_submitted_report_photo(
                 )
             except (FileNotFoundError, StorageUnavailableError) as exc:
                 logger.warning(
-                    "auto-verify skipped for %s: cannot read photo (%s)",
+                    "verification failed report_id=%s reason=photo_unreadable detail=%s",
                     report_id,
                     exc,
                 )
@@ -98,20 +115,30 @@ async def verify_submitted_report_photo(
             try:
                 result = analyze_queue_image(image_bytes, mime_type)
             except (AINotConfiguredError, GeminiVerificationError) as exc:
-                logger.warning("auto-verify skipped for %s: %s", report_id, exc)
+                logger.warning(
+                    "verification failed report_id=%s reason=gemini_unavailable detail=%s",
+                    report_id,
+                    exc,
+                )
                 return
 
             if result.error:
                 logger.warning(
-                    "auto-verify skipped for %s: Gemini error %s",
+                    "verification failed report_id=%s reason=%s",
                     report_id,
                     result.error,
                 )
                 return
 
             await persist_verification_score(db, report, result)
+            logger.info(
+                "verification succeeded report_id=%s score=%s status=%s",
+                report_id,
+                result.score,
+                report.status,
+            )
     except Exception:
-        logger.exception("auto-verify failed for report %s", report_id)
+        logger.exception("verification failed report_id=%s", report_id)
 
 
 @router.post(
