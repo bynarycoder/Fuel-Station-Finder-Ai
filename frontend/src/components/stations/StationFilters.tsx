@@ -383,24 +383,23 @@ export function StationFilters({
       )}
     >
       {filtersOnly ? (
-        <Button
-          variant="secondary"
-          size="xs"
+        <button
+          type="button"
           onClick={() => {
             setFocusCity(false);
             setSheetOpen(true);
           }}
-          className="shrink-0"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-hairline bg-surface px-2.5 text-caption font-semibold text-ink-600 transition-colors hover:border-ink-300"
           aria-haspopup="dialog"
         >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
           Filters
           {filterCount > 0 && (
             <Badge tone="solid" className="ml-0.5 px-1.5">
               {filterCount}
             </Badge>
           )}
-        </Button>
+        </button>
       ) : floating ? (
         <>
           {/* Bottom-left FABs — out of flow, never push the map down. */}
@@ -415,7 +414,13 @@ export function StationFilters({
             {browseAllButton}
           </div>
 
-          {/* Choose-location + Filters — floating, top-right of the map. */}
+          {/* Status banners sit under the overlay chrome and keep clear of
+              the top-right icon cluster so they never cover Filters. */}
+          <div className="pointer-events-none absolute inset-x-3 top-[7.5rem] z-mapctl space-y-1.5 pr-[4.75rem]">
+            <div className="pointer-events-auto">{statusBlock}</div>
+          </div>
+
+          {/* Choose-location + Filters — painted after banners so they stay tappable. */}
           <div className="pointer-events-auto absolute right-4 top-[7.25rem] z-mapctl flex items-center gap-1.5">
             {onChooseLocation && (
               <Button
@@ -542,7 +547,7 @@ export function StationFilters({
         On the compact (mobile) bar the toggle is folded into the action row
         above instead of costing the map another 36 px of height.
       */}
-      {!compact && !floating && (
+      {!compact && !floating && !filtersOnly && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
           <button
             type="button"
@@ -569,13 +574,7 @@ export function StationFilters({
         </div>
       )}
 
-      {filtersOnly ? null : floating ? (
-        <div className="pointer-events-none absolute inset-x-2 top-[7.5rem] z-mapctl space-y-1.5">
-          <div className="pointer-events-auto">{statusBlock}</div>
-        </div>
-      ) : (
-        statusBlock
-      )}
+      {filtersOnly || floating ? null : statusBlock}
 
       {/* ---------------------------- filter sheet --------------------------- */}
       <Modal

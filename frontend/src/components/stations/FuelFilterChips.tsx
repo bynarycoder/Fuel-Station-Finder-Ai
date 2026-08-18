@@ -63,7 +63,7 @@ export function FuelFilterChips({
             aria-label={`Show ${fullName}`}
             onClick={() => setFilters({ fuelType: value })}
             className={cn(
-              "flex shrink-0 items-center whitespace-nowrap rounded-pill border font-semibold",
+              "flex shrink-0 items-center justify-center whitespace-nowrap rounded-pill border font-semibold leading-none",
               compact ? "h-8 px-3 text-caption" : "h-9 px-4 text-body-sm pointer-coarse:min-h-touch",
               "transition-all duration-fast ease-entrance active:scale-[0.97]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",

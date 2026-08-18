@@ -406,7 +406,7 @@ export function BottomSheet({
         tabIndex={0}
         aria-label={`${title} — drag or use arrow keys to resize`}
         aria-expanded={snap !== "peek"}
-        className="flex shrink-0 cursor-grab touch-none flex-col items-center gap-1 rounded-t-2xl px-4 pb-1.5 pt-2.5 active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none flex-col items-center gap-1 rounded-t-2xl px-4 pb-1 pt-2 active:cursor-grabbing"
         onPointerDown={(e) => {
           startY.current = e.clientY;
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -442,7 +442,7 @@ export function BottomSheet({
           {title}
         </h2>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2">
         {children}
       </div>
     </section>

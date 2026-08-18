@@ -425,7 +425,7 @@ export default function FinderPage() {
              OVERLAY: search + chips sit ON the map (map is the background).
              Document order stays search → chips → Near me → map. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-mapctl lg:hidden">
-          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-55% via-canvas/75 to-transparent px-3 pb-2.5 pt-2">
+          <div className="pointer-events-auto space-y-1.5 bg-gradient-to-b from-canvas from-55% via-canvas/75 to-transparent px-3 pb-2.5 pt-2 shorty:space-y-1 shorty:pb-2">
             <SearchBar
               compact
               value={filters.q}
@@ -465,8 +465,8 @@ export default function FinderPage() {
           >
             <div className="space-y-2 pt-0.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <h2 className="text-body-sm font-bold text-ink-900 sm:text-h3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="min-w-0 truncate text-body-sm font-bold text-ink-900 sm:text-h3">
                     {isNearby ? "Nearby stations" : "All stations"}
                   </h2>
                   <span
@@ -484,13 +484,14 @@ export default function FinderPage() {
                 </div>
                 {/* Peek stays a summary. "See all" opens the stations screen
                     (map stays mounted underneath). "Show map" only appears
-                    after the user has dragged the sheet up. */}
+                    after the user has dragged the sheet up. Compact height so
+                    the 80–120 px peek never clips the row. */}
                 <button
                   type="button"
                   onClick={() =>
                     snap === "peek" ? openStationsScreen() : setSnap("peek")
                   }
-                  className="shrink-0 rounded-lg px-2 py-1.5 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 pointer-coarse:min-h-touch"
+                  className="shrink-0 rounded-lg px-2 py-1 text-body-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50"
                 >
                   {snap === "peek" ? "See all" : "Show map"}
                 </button>

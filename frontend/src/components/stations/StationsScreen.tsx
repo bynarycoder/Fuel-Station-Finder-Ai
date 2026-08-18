@@ -181,7 +181,7 @@ export function StationsScreen({
                 : "Sign in to use favorites"
             }
             className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-caption font-semibold transition-colors",
+              "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border px-2.5 text-caption font-semibold transition-colors",
               favoritesOnly
                 ? "border-accent-300 bg-accent-50 text-accent-700"
                 : "border-hairline bg-surface text-ink-600 hover:border-ink-300",
@@ -197,7 +197,12 @@ export function StationsScreen({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3",
+          remaining === 0 && "pb-safe",
+        )}
+      >
         {needsLocationPrimer && (
           <div className="mb-3">
             <LocationPrimer
@@ -223,17 +228,18 @@ export function StationsScreen({
           hideCount
           sortBy={resolvedSort}
         />
-        {remaining > 0 && !isLoading && (
-          <div className="mt-3 flex justify-center pb-2">
-            <Button
-              variant="secondary"
-              onClick={() => setVisible((n) => n + STATIONS_PAGE_SIZE)}
-            >
-              Show more · {remaining} left
-            </Button>
-          </div>
-        )}
       </div>
+      {remaining > 0 && !isLoading && (
+        <div className="shrink-0 border-t border-hairline bg-surface px-3 py-2.5 pb-safe">
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => setVisible((n) => n + STATIONS_PAGE_SIZE)}
+          >
+            Show more · {remaining} left
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -262,7 +268,7 @@ function SortChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center rounded-pill border px-3 text-caption font-semibold transition-colors disabled:opacity-40",
+        "inline-flex h-8 shrink-0 items-center justify-center rounded-pill border px-3 text-caption font-semibold leading-none transition-colors disabled:opacity-40",
         pressed
           ? "border-action bg-action text-action-fg"
           : "border-hairline bg-surface text-ink-600 hover:border-brand-300",

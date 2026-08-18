@@ -84,7 +84,7 @@ export function AccountPanel({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain bg-canvas pb-safe">
       {/* ------------------------------------------------ profile header --- */}
-      <div className="relative shrink-0 bg-brand-sheen px-5 pb-7 pt-5 text-slab-fg">
+      <div className="relative shrink-0 bg-brand-sheen px-4 pb-7 pt-4 text-slab-fg">
         <button
           type="button"
           onClick={onClose}
@@ -144,7 +144,7 @@ export function AccountPanel({
       </div>
 
       {/* ---------------------------------------------------- menu card --- */}
-      <div className="-mt-4 flex-1 space-y-5 px-4 pb-8">
+      <div className="-mt-4 flex-1 space-y-4 px-3 pb-8 sm:px-4">
         <nav
           aria-label="Account"
           className="overflow-hidden rounded-2xl border border-hairline bg-surface shadow-e1"

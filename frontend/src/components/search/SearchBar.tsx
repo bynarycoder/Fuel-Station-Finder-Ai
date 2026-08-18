@@ -176,7 +176,7 @@ export function SearchBar({
           aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
           className={cn(
             compact
-              ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+              ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
               : "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-semibold pointer-coarse:min-h-touch",
             "transition-all duration-fast active:scale-[0.97] disabled:opacity-40",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
