@@ -98,6 +98,8 @@ interface FuelIntelligenceProps {
   querySignal?: number;
   /** Opens the shared LocationPicker (manual city/point selection). */
   onChooseLocation?: () => void;
+  /** Edge-to-edge layout for the mobile full-page surface. */
+  fullScreen?: boolean;
 }
 
 export function FuelIntelligence({
@@ -106,6 +108,7 @@ export function FuelIntelligence({
   initialQuery,
   querySignal = 0,
   onChooseLocation,
+  fullScreen = false,
 }: FuelIntelligenceProps) {
   const [query, setQuery] = useState(initialQuery ?? "");
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -231,7 +234,12 @@ export function FuelIntelligence({
 
   return (
     <section
-      className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-hairline bg-surface shadow-e2"
+      className={cn(
+        "flex max-h-full min-h-0 flex-col overflow-hidden bg-surface",
+        fullScreen
+          ? "h-full min-h-0 flex-1 rounded-none border-0 shadow-none"
+          : "rounded-2xl border border-hairline shadow-e2",
+      )}
       aria-label="Fuel Intelligence assistant"
       data-testid="fuel-intelligence"
     >

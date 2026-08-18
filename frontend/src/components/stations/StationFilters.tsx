@@ -229,7 +229,7 @@ export function StationFilters({
   const filterCount = activeChips.length;
 
   return (
-    <div className={cn("space-y-2.5", className)}>
+    <div className={cn(compact ? "space-y-1.5" : "space-y-2.5", className)}>
       {/* Primary controls (spec §11) — "Near me" is the orange proximity
           action, "Browse all" the dark-green supporting one. One compact,
           horizontally scrollable row so nothing is ever clipped at 320 px
@@ -237,7 +237,7 @@ export function StationFilters({
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Button
           variant="accent"
-          size={compact ? "sm" : "md"}
+          size={compact ? "xs" : "md"}
           onClick={() => void handleNearMe()}
           disabled={loading}
           className={cn(
@@ -256,7 +256,7 @@ export function StationFilters({
 
         <Button
           variant={isNearby ? "secondary" : "deep"}
-          size={compact ? "sm" : "md"}
+          size={compact ? "xs" : "md"}
           onClick={handleBrowseAll}
           className="shrink-0"
         >
@@ -267,7 +267,7 @@ export function StationFilters({
         {onChooseLocation && (
           <Button
             variant="quiet"
-            size={compact ? "sm" : "md"}
+            size={compact ? "icon-sm" : "md"}
             onClick={onChooseLocation}
             className="shrink-0"
             title="Search a city or pick a point on the map"
@@ -280,7 +280,7 @@ export function StationFilters({
         {isNearby && hasPosition && (
           <Button
             variant="secondary"
-            size={compact ? "sm" : "md"}
+            size={compact ? "icon-sm" : "md"}
             onClick={() => recenterLocation()}
             className="shrink-0"
             title="Center the map on your current location"
@@ -293,7 +293,7 @@ export function StationFilters({
         {compact && (
           <Button
             variant="secondary"
-            size="sm"
+            size="icon-sm"
             onClick={handleFavoritesToggle}
             aria-pressed={favoritesOnly}
             // Icon-only on the compact bar: the name lives on aria-label, NOT
@@ -323,7 +323,7 @@ export function StationFilters({
 
         <Button
           variant="secondary"
-          size={compact ? "sm" : "md"}
+          size={compact ? "xs" : "md"}
           onClick={() => {
             setFocusCity(false);
             setSheetOpen(true);

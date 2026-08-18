@@ -28,7 +28,14 @@ const CHIPS: Array<{ value: string; label: string }> = [
   { value: "CNG", label: "CNG" },
 ];
 
-export function FuelFilterChips({ className }: { className?: string }) {
+export function FuelFilterChips({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  /** Shorter pills for the map-first mobile overlay. */
+  compact?: boolean;
+}) {
   const fuelType = useMapStore((s) => s.filters.fuelType);
   const setFilters = useMapStore((s) => s.setFilters);
 
@@ -37,7 +44,8 @@ export function FuelFilterChips({ className }: { className?: string }) {
       role="group"
       aria-label="Filter by fuel type"
       className={cn(
-        "no-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5",
+        "no-scrollbar -mx-1 flex items-center overflow-x-auto px-1",
+        compact ? "gap-1.5 py-0" : "gap-2 py-0.5",
         className,
       )}
     >

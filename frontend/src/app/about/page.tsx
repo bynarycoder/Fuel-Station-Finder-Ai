@@ -61,7 +61,7 @@ export default function AboutPage() {
       <main id="main" className="flex-1">
         <Hero />
 
-        <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+        <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-8 sm:space-y-14 sm:px-6 sm:py-16 lg:px-8">
           <Problem />
           <Mission />
           <HowItWorks />
@@ -84,25 +84,25 @@ export default function AboutPage() {
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-header flex h-14 items-center justify-between gap-3 bg-slab px-4 shadow-e2 sm:px-6">
+    <header className="sticky top-0 z-header flex h-12 items-center justify-between gap-2 bg-slab px-3 shadow-e2 sm:h-14 sm:px-6">
       <Link
         href="/"
-        className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
+        className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
       >
-        <BrandGlyph />
-        <span className="min-w-0">
-          <span className="block truncate text-h3 leading-tight text-white">
+        <BrandGlyph className="h-8 w-8" />
+        <span>
+          <span className="block whitespace-nowrap text-body font-bold leading-tight text-white sm:text-h3">
             FuelFinder
-            <span className="ml-1 text-caption font-semibold text-accent-300">AI</span>
+            <span className="ml-1 text-brand-200">AI</span>
           </span>
-          <span className="hidden truncate text-caption text-slab-muted sm:block">
+          <span className="hidden text-caption text-slab-muted sm:block">
             Fuel intelligence for Nigerian drivers
           </span>
         </span>
       </Link>
       <Link
         href="/"
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-accent-400 px-3.5 text-body-sm font-semibold text-brand-950 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
+        className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-accent-400 px-2.5 text-caption font-semibold text-brand-950 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slab sm:h-10 sm:gap-1.5 sm:px-3.5 sm:text-body-sm"
       >
         Open the map <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>
@@ -126,7 +126,7 @@ function Hero() {
         <Fuel className="h-80 w-80 text-white" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-20 lg:px-8">
         <div className="max-w-3xl">
           <Badge tone="solid-accent" size="md">
             <Sparkles className="h-3 w-3" aria-hidden="true" />

@@ -43,11 +43,11 @@ const config: Config = {
       /**
        * `shorty:` — a HEIGHT breakpoint, not a width one.
        *
-       * On a 320x640 phone the chrome (header + search + chips + actions,
-       * all at 44 px touch targets) plus a 42 % sheet leaves the map with
-       * less room than its own controls. Rather than shrink touch targets
-       * below the accessible minimum, short viewports get a smaller collapsed
-       * sheet and tighter stack spacing.
+       * On a 320x640 phone the chrome (header + overlay search/chips/actions)
+       * plus a collapsed sheet used to leave the map with less room than its
+       * own controls. Rather than shrink touch targets below the accessible
+       * minimum, short viewports get a smaller collapsed sheet and tighter
+       * overlay spacing so the map stays dominant.
        */
       screens: {
         shorty: { raw: "(max-height: 700px)" },

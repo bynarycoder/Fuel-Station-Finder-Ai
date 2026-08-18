@@ -148,12 +148,11 @@ shadows.
 ## 7. Home layout contract
 
 ```
-Header (56 px)
-Search (48 px field)
-Fuel filters (scrollable pill rail — All · Petrol · Diesel · LPG · CNG)
-Compact actions (Near me · Browse all · locate · favourites · Filters)
-MAP  ← owns the remaining viewport
-  └── station bottom sheet, snapped at 42 % / 68 % / 92 % of the map
+Header (48 px on mobile / 56 px on ≥sm)
+MAP  ← owns the remaining viewport (search, chips and actions overlay it)
+  ├── floating chrome: compact search + fuel chips + Near me / Browse all
+  └── station bottom sheet, snapped at 16 % / 52 % / 92 % of the map
+      (14 % collapsed on ≤700 px-tall viewports)
 Bottom navigation (64 px + safe area)
 ```
 

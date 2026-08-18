@@ -332,6 +332,16 @@
     height: 92vh;
     height: 92dvh;
   }
+
+  /**
+   * Full-page mobile surfaces (AI, Report, Account). `vh` first as a fallback
+   * for browsers without `dvh`; `dvh` then tracks the *current* viewport so
+   * the composer / submit row is never hidden under mobile browser chrome.
+   */
+  .h-page {
+    height: 100vh;
+    height: 100dvh;
+  }
 }
 
 /* ======================================================================= */

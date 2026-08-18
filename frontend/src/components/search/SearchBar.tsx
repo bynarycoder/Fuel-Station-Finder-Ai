@@ -63,6 +63,8 @@ interface SearchBarProps {
   recent?: Array<{ id: string; label: string; onApply: () => void }>;
   onClearRecent?: () => void;
   autoFocus?: boolean;
+  /** Tighter field for the map-first mobile overlay. */
+  compact?: boolean;
 }
 
 const DEBOUNCE_MS = 400;
@@ -76,6 +78,7 @@ export function SearchBar({
   recent,
   onClearRecent,
   autoFocus = false,
+  compact = false,
 }: SearchBarProps) {
   const [text, setText] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -116,7 +119,8 @@ export function SearchBar({
     <div className={cn("w-full", className)}>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border bg-surface pl-3.5 pr-1.5 shadow-e1 transition-all duration-base",
+          "flex items-center gap-2 rounded-lg border bg-surface shadow-e1 transition-all duration-base",
+          compact ? "pl-2.5 pr-1" : "pl-3.5 pr-1.5",
           focused
             ? "border-brand-500 shadow-e2 ring-2 ring-brand-500/20"
             : "border-hairline",
@@ -144,7 +148,10 @@ export function SearchBar({
           placeholder={placeholder}
           aria-label="Search stations or ask Fuel Intelligence"
           aria-describedby="search-mode-hint"
-          className="h-12 min-w-0 flex-1 bg-transparent text-[16px] shorty:h-11 text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className={cn(
+            "min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden",
+            compact ? "h-10" : "h-12 shorty:h-11",
+          )}
         />
 
         {text && (
@@ -168,10 +175,11 @@ export function SearchBar({
           disabled={!text.trim()}
           aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
           className={cn(
-            "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-semibold",
+            compact
+              ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+              : "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-semibold pointer-coarse:min-h-touch",
             "transition-all duration-fast active:scale-[0.97] disabled:opacity-40",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
-            "pointer-coarse:min-h-touch",
             isQuestion
               ? "bg-action text-action-fg hover:bg-action-hover"
               : "bg-ink-100 text-ink-700 hover:bg-ink-200",
