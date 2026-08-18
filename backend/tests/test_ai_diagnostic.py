@@ -137,3 +137,87 @@ def test_gemini_diagnostic_reports_parser_and_failure_handling(monkeypatch) -> N
     assert result["sdk"].startswith("google-genai==")  # the supported SDK
     assert result["response_parsing"] == "PASS"
     assert result["failure_handling"] == "PASS"
+
+
+def test_gemini_diagnostic_reports_model_configuration_and_image_processing(monkeypatch) -> None:
+    """The diagnostic distinguishes the configured model from a working image
+    pipeline, so a misconfig isn't hidden behind a green SDK import."""
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "x")
+    from app.api.v1 import ai_diag
+
+    result = ai_diag._gemini_checks(live=False)
+    assert result["model_configuration"] == "PASS"
+    assert result["image_processing"] == "PASS"
+    assert result["live_image_request"].startswith("SKIPPED")
+
+
+def test_gemini_diagnostic_flags_a_missing_model(monkeypatch) -> None:
+    """If GEMINI_MODEL is empty, model_configuration must FAIL (never falsely
+    green just because the SDK imported)."""
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(config.settings, "GEMINI_MODEL", "")
+    from app.api.v1 import ai_diag
+
+    result = ai_diag._gemini_checks(live=False)
+    assert result["model_configuration"] == "FAIL: MODEL_NOT_CONFIGURED"
+
+
+def test_gemini_diagnostic_live_image_request_reaches_the_analyzer(monkeypatch) -> None:
+    """?live=true proves a real image reaches Gemini through the SAME analyzer
+    the verify endpoint uses. Fake client; no network."""
+    import app.services.ai.gemini as gemini_svc
+
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "x")
+
+    class _FakeListResp:
+        name = "models/gemini-3.5-flash-lite"
+
+    class _FakeModels:
+        def list(self):
+            return [_FakeListResp()]
+
+        def generate_content(self, **kwargs):
+            text = (
+                '{"score":0.5,"is_plausible":false,"summary":"tiny image",'
+                '"detected_attributes":[]}'
+            )
+            return type("Resp", (), {"text": text})()
+
+    class _FakeClient:
+        def __init__(self):
+            self.models = _FakeModels()
+
+    monkeypatch.setattr(gemini_svc, "build_gemini_client", lambda: _FakeClient())
+
+    from app.api.v1 import ai_diag
+
+    result = ai_diag._gemini_checks(live=True)
+    assert result["model_available"] == "PASS"
+    assert result["live_text_request"] == "PASS"
+    assert result["live_image_request"] == "PASS"
+
+
+def test_gemini_diagnostic_live_image_request_never_falsely_green(monkeypatch) -> None:
+    """A provider failure during the live image request must surface as FAIL,
+    not a fake PASS (mirrors the no-silent-approval rule for verify)."""
+    import app.services.ai.gemini as gemini_svc
+
+    monkeypatch.setattr(config.settings, "GEMINI_API_KEY", "x")
+
+    class _BoomModels:
+        def list(self):
+            return []
+
+        def generate_content(self, **kwargs):
+            raise RuntimeError("NotFound")
+
+    class _BoomClient:
+        def __init__(self):
+            self.models = _BoomModels()
+
+    monkeypatch.setattr(gemini_svc, "build_gemini_client", lambda: _BoomClient())
+
+    from app.api.v1 import ai_diag
+
+    result = ai_diag._gemini_checks(live=True)
+    assert result["live_image_request"].startswith("FAIL")
