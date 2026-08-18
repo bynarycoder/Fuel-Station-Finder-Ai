@@ -46,6 +46,18 @@ services:
         value: https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json
       - key: SUPABASE_JWKS_CACHE_TTL_SECONDS
         value: "300"
+      # --- Report-photo object storage (Supabase Storage) ---
+      # NEW report photos are uploaded to this public bucket (auto-created on
+      # first upload) instead of the ephemeral local /media disk, so they
+      # survive restarts/redeploys. The service_role key is SERVER-ONLY and
+      # must never appear in a NEXT_PUBLIC_* var. Safe rollout: deploy the code
+      # with the key empty (local storage, unchanged), then add the secret.
+      - key: SUPABASE_STORAGE_BUCKET
+        value: report-photos
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_TIMEOUT_SECONDS
+        value: "30"
       # --- AI keys (optional; enable Gemini verification & Groq features) ---
       - key: GEMINI_API_KEY
         sync: false

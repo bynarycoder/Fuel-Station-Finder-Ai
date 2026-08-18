@@ -27,6 +27,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import CurrentUser, require_roles
 from app.core.database import get_db
@@ -39,7 +40,11 @@ from app.services.ai.gemini import (
     GeminiVerificationError,
     analyze_queue_image,
 )
-from app.services.storage import ImageStorage, get_image_storage
+from app.services.storage import (
+    ImageStorage,
+    StorageUnavailableError,
+    get_image_storage,
+)
 
 router = APIRouter(prefix="/reports", tags=["Fuel Reports"])
 
@@ -62,8 +67,12 @@ async def create_report(
     photo: Annotated[Optional[UploadFile], File(description="Station/queue photo (JPEG/PNG/WebP)")] = None,
 ) -> FuelReportPublic:
     # Persist the upload first so its URL can be stored; if report creation then
-    # fails, the orphan file is cleaned up.
-    photo_url = storage.save(photo) if photo is not None else None
+    # fails, the orphan file is cleaned up. Storage I/O (local disk or a Supabase
+    # HTTP round-trip) is offloaded to a worker thread so the event loop never
+    # blocks on it.
+    photo_url = (
+        await run_in_threadpool(storage.save, photo) if photo is not None else None
+    )
 
     try:
         return await report_service.create_report(
@@ -78,11 +87,11 @@ async def create_report(
         )
     except report_service.StationNotFound as exc:
         if photo_url:
-            storage.delete(photo_url)
+            await run_in_threadpool(storage.delete, photo_url)
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     except ValueError as exc:
         if photo_url:
-            storage.delete(photo_url)
+            await run_in_threadpool(storage.delete, photo_url)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
@@ -173,9 +182,22 @@ async def verify_report(
         )
 
     try:
-        image_bytes, mime_type = storage.read_image(report.photo_url)
+        # Offload the blocking read (local disk or Supabase HTTP) to a worker
+        # thread so it never blocks the async event loop.
+        image_bytes, mime_type = await run_in_threadpool(
+            storage.read_image, report.photo_url
+        )
     except FileNotFoundError as exc:
+        # A genuinely missing image (e.g. a legacy photo whose local file was
+        # wiped) is still a 404.
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except StorageUnavailableError as exc:
+        # A storage OUTAGE must never be mistaken for a lost image — surface a
+        # clean 503 so the UI knows verification did not run.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Photo storage is temporarily unavailable. Please try again.",
+        ) from exc
 
     try:
         result = analyze_queue_image(image_bytes, mime_type)

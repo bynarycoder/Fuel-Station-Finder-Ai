@@ -30,6 +30,21 @@ class Settings(BaseSettings):
     SUPABASE_JWKS_URL: str = ""
     SUPABASE_JWKS_CACHE_TTL_SECONDS: int = 300
 
+    # Report-photo object storage (Supabase Storage).
+    #
+    # When SUPABASE_SERVICE_ROLE_KEY is set, NEW report-photo uploads are stored
+    # in the public ``SUPABASE_STORAGE_BUCKET`` (auto-created on first upload)
+    # instead of the local ``MEDIA_DIR``, which lives on Render's ephemeral disk
+    # and is wiped on every restart/redeploy (the root cause of the production
+    # 404 on report-photo verification). When the service role key is empty,
+    # uploads fall back to local storage, keeping behavior unchanged.
+    #
+    # SECURITY: SUPABASE_SERVICE_ROLE_KEY bypasses RLS and is SERVER-ONLY. It
+    # must never be exposed to the browser — never set it in a NEXT_PUBLIC_* var.
+    SUPABASE_STORAGE_BUCKET: str = "report-photos"
+    SUPABASE_SERVICE_ROLE_KEY: str = ""  # server-side only
+    SUPABASE_STORAGE_TIMEOUT_SECONDS: float = 30.0
+
     # AI APIs
     GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""

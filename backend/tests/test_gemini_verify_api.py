@@ -22,6 +22,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+import httpx
 import pytest
 from sqlalchemy import select
 
@@ -271,3 +272,112 @@ async def test_verify_requires_admin(
 
     response = await driver.post(f"/api/v1/reports/{report['id']}/verify")
     assert response.status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# Supabase Storage durability — verification reads the photo from object storage
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def supabase_storage(tmp_path: Path, monkeypatch):
+    """Storage backed by (mocked) Supabase Storage for the whole app."""
+    storage = ImageStorage(
+        base_dir=tmp_path,
+        url_prefix="/media",
+        max_bytes=5 * 1024 * 1024,
+        supabase_url="https://abc.supabase.co",
+        supabase_service_role_key="svc-key",
+        supabase_bucket="report-photos",
+    )
+    production_app.dependency_overrides[get_image_storage] = lambda: storage
+    yield storage
+    production_app.dependency_overrides.pop(get_image_storage, None)
+
+
+class _ApiFakeResp:
+    def __init__(self, status_code: int, content: bytes = b"", headers: dict | None = None):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+
+
+async def test_verify_endpoint_reads_supabase_photo_and_verifies(
+    portable_authed, portable_client, supabase_storage, monkeypatch
+) -> None:
+    await _seed_catalogue(portable_client)
+
+    get_urls: list[str] = []
+
+    def fake_post(url, **kwargs):
+        return _ApiFakeResp(200)  # bucket ensure + object upload
+
+    def fake_get(url, **kwargs):
+        get_urls.append(url)
+        return _ApiFakeResp(200, content=PNG_BYTES, headers={"content-type": "image/png"})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    report = await _submit_report_with_photo(driver)
+
+    # The stored photo_url points at Supabase, not the ephemeral /media disk.
+    assert report["photo_url"].startswith(
+        "https://abc.supabase.co/storage/v1/object/public/report-photos/"
+    )
+
+    captured: list[tuple[bytes, str]] = []
+
+    def fake_analyze(image_bytes: bytes, mime_type: str) -> VerificationResult:
+        captured.append((image_bytes, mime_type))
+        return VerificationResult(
+            score=0.95,
+            is_plausible=True,
+            summary="Vehicles queueing at a filling station.",
+            detected_attributes=["fuel pumps", "vehicles queueing"],
+        )
+
+    monkeypatch.setattr(reports_api, "analyze_queue_image", fake_analyze)
+
+    admin = await portable_authed(UserRole.ADMIN, "admin@naija.dev")
+    response = await admin.post(f"/api/v1/reports/{report['id']}/verify")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["score"] == pytest.approx(0.95)
+    assert body["report_status"] == ReportStatus.VERIFIED.value
+
+    # Verification read the photo FROM Supabase Storage.
+    assert get_urls, "the verify endpoint must fetch the photo from Supabase"
+    assert any("storage/v1/object/public/report-photos/" in u for u in get_urls)
+    assert captured and captured[0][0] == PNG_BYTES
+    assert captured[0][1] == "image/png"
+
+
+async def test_verify_endpoint_storage_outage_returns_503_not_404(
+    portable_authed, portable_client, supabase_storage, monkeypatch
+) -> None:
+    await _seed_catalogue(portable_client)
+
+    def fake_post(url, **kwargs):
+        return _ApiFakeResp(200)
+
+    def fake_get(url, **kwargs):
+        raise httpx.ConnectError("storage down")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    driver = await portable_authed(UserRole.DRIVER, "driver@naija.dev")
+    report = await _submit_report_with_photo(driver)
+
+    admin = await portable_authed(UserRole.ADMIN, "admin@naija.dev")
+    response = await admin.post(f"/api/v1/reports/{report['id']}/verify")
+
+    # An outage must surface as 503 (storage unavailable) — never a misleading
+    # 404 as if the image had been lost.
+    assert response.status_code == 503
+    assert "temporarily unavailable" in response.json()["detail"].lower()
+
+    row = await _report_row(portable_client, report["id"])
+    assert row.status == ReportStatus.PENDING
+    assert row.ai_confidence_score is None
