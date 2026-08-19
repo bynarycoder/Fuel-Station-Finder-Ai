@@ -51,7 +51,7 @@ import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useStationsQuery } from "@/hooks/useStations";
-import { TAB_PATH, useFinderTabFromUrl } from "@/lib/useFinderPath";
+import { TAB_PATH, tabFromPathname, useFinderPathname } from "@/lib/useFinderPath";
 import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS, useMapStore } from "@/store/useMapStore";
 
 export default function FinderPage() {
@@ -92,13 +92,14 @@ export default function FinderPage() {
   // The browser URL is the source of truth for the active destination, so a
   // refresh or direct entry of /map, /stations, /ai, /report or /account
   // restores that tab (see rewrites in next.config.mjs).
-  const initialTab = useFinderTabFromUrl();
+  const pathname = useFinderPathname();
+  const urlTab = tabFromPathname(pathname);
 
-  const [tab, setTab] = useState<FinderTab>(initialTab);
+  const [tab, setTab] = useState<FinderTab>(urlTab);
   const [snap, setSnap] = useState<SheetSnap>("peek");
   const [showReports, setShowReports] = useState(false);
-  const [showAccount, setShowAccount] = useState(initialTab === "account");
-  const [showFuelAi, setShowFuelAi] = useState(initialTab === "ai");
+  const [showAccount, setShowAccount] = useState(urlTab === "account");
+  const [showFuelAi, setShowFuelAi] = useState(urlTab === "ai");
   const [aiQuery, setAiQuery] = useState("");
   const [aiSignal, setAiSignal] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
@@ -107,7 +108,7 @@ export default function FinderPage() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
-  const [showStations, setShowStations] = useState(initialTab === "stations");
+  const [showStations, setShowStations] = useState(urlTab === "stations");
 
   /**
    * Apply the surface state for a destination WITHOUT touching the URL — used
@@ -176,25 +177,16 @@ export default function FinderPage() {
     navigateToTab("map", { replace: true });
   }, [navigateToTab]);
 
-  // Back / forward buttons: the browser already updated the URL, so mirror
-  // the pathname into shell state without pushing another history entry.
+  // Reconcile shell state with the address bar whenever the pathname changes.
+  // This single effect covers back/forward, the header brand link (which uses
+  // Next's <Link> to "/"), hard-refresh/direct-entry initial state, and our
+  // own history.pushState calls — the URL always wins. `applyTabSurface` is
+  // idempotent, so our own navigations simply re-confirm the same surface. We
+  // only reconcile when the URL's tab differs from the active tab, so closing
+  // a sub-surface (detail, report form) while on the same tab is untouched.
   useEffect(() => {
-    const onPopState = () => {
-      const path = window.location.pathname;
-      const next = (
-        {
-          "/map": "map",
-          "/stations": "stations",
-          "/ai": "ai",
-          "/report": "report",
-          "/account": "account",
-        } as Record<string, FinderTab>
-      )[path] ?? "map";
-      applyTabSurface(next);
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [applyTabSurface]);
+    if (urlTab !== tab) applyTabSurface(urlTab);
+  }, [urlTab, tab, applyTabSurface]);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
   // Never crown a "closest" station from placeholder (previous-location) data.

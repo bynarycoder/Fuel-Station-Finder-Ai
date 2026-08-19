@@ -1,10 +1,15 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { TAB_PATH, useFinderTabFromUrl } from "@/lib/useFinderPath";
+import {
+  PATH_TO_TAB,
+  TAB_PATH,
+  tabFromPathname,
+  useFinderPathname,
+} from "@/lib/useFinderPath";
 import { mockPathname } from "../../vitest.setup";
 
-describe("useFinderTabFromUrl", () => {
+describe("useFinderPath", () => {
   afterEach(() => {
     mockPathname("/");
   });
@@ -17,20 +22,12 @@ describe("useFinderTabFromUrl", () => {
     ["/account", "account"],
   ])("maps %s to the %s tab", (path, expected) => {
     mockPathname(path);
-    const { result } = renderHook(() => useFinderTabFromUrl());
-    expect(result.current).toBe(expected);
+    const { result } = renderHook(() => useFinderPathname());
+    expect(result.current).toBe(path);
+    expect(tabFromPathname(result.current)).toBe(expected);
   });
 
-  it("defaults to map for the finder root and unknown paths", () => {
-    mockPathname("/");
-    expect(renderHook(() => useFinderTabFromUrl()).result.current).toBe("map");
-    mockPathname("/about");
-    expect(renderHook(() => useFinderTabFromUrl()).result.current).toBe("map");
-    mockPathname("/random-thing");
-    expect(renderHook(() => useFinderTabFromUrl()).result.current).toBe("map");
-  });
-
-  it("exposes a stable path for every tab", () => {
+  it("exposes a stable forward and reverse path mapping", () => {
     expect(TAB_PATH).toEqual({
       map: "/map",
       stations: "/stations",
@@ -38,5 +35,19 @@ describe("useFinderTabFromUrl", () => {
       report: "/report",
       account: "/account",
     });
+    expect(PATH_TO_TAB).toEqual({
+      "/map": "map",
+      "/stations": "stations",
+      "/ai": "ai",
+      "/report": "report",
+      "/account": "account",
+    });
+  });
+
+  it("defaults unknown paths and the finder root to map", () => {
+    expect(tabFromPathname("")).toBe("map");
+    expect(tabFromPathname("/")).toBe("map");
+    expect(tabFromPathname("/about")).toBe("map");
+    expect(tabFromPathname("/random-thing")).toBe("map");
   });
 });

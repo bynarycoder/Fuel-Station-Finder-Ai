@@ -8,10 +8,10 @@ import type { FinderTab } from "@/components/shell/MobileBottomNav";
  * single shell in `app/page.tsx` (see the rewrites in `next.config.mjs`).
  *
  * The browser URL is the source of truth for the active destination: it
- * restores the right tab on refresh/direct entry, drives back/forward via the
- * popstate listener, and stays in sync as the user taps a tab. Anything that
- * isn't a known tab path (e.g. `/`, `/about`, `/admin`) resolves to `"map"`,
- * which keeps the shell correct when mounted elsewhere (tests, previews).
+ * restores the right tab on refresh/direct entry, drives back/forward, and
+ * stays in sync as the user taps a tab. Anything that isn't a known tab path
+ * (e.g. `/`, `/about`, `/admin`) resolves to `"map"`, which keeps the shell
+ * correct when mounted elsewhere (tests, previews).
  */
 export const TAB_PATH: Record<FinderTab, string> = {
   map: "/map",
@@ -21,7 +21,7 @@ export const TAB_PATH: Record<FinderTab, string> = {
   account: "/account",
 };
 
-const PATH_TO_TAB: Record<string, FinderTab> = {
+export const PATH_TO_TAB: Record<string, FinderTab> = {
   "/map": "map",
   "/stations": "stations",
   "/ai": "ai",
@@ -30,11 +30,17 @@ const PATH_TO_TAB: Record<string, FinderTab> = {
 };
 
 /**
- * Read the active tab from the current URL. `usePathname()` is SSR-safe, so
- * deep links render their destination on first paint (no flash of the map),
- * and it reflects the address bar even though all five paths rewrite to `/`.
+ * Return the current pathname. `usePathname()` is SSR-safe and re-renders on
+ * every client navigation (including `history.pushState`), so the shell can
+ * keep its surface state reconciled with the address bar regardless of
+ * whether a destination was reached via a tab tap, the brand link,
+ * back/forward or a hard refresh.
  */
-export function useFinderTabFromUrl(): FinderTab {
-  const pathname = usePathname();
-  return PATH_TO_TAB[pathname ?? ""] ?? "map";
+export function useFinderPathname(): string {
+  return usePathname() ?? "";
+}
+
+/** Derive the active tab from a pathname (defaults to `"map"`). */
+export function tabFromPathname(pathname: string): FinderTab {
+  return PATH_TO_TAB[pathname] ?? "map";
 }
