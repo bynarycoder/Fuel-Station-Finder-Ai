@@ -12,8 +12,9 @@
  *
  * `stationCount` annotates the Stations tab (the catalogue), not Map.
  *
- * Ergonomics: 56 px targets on a 68 px bar, safe-area aware, and hidden at
- * ≥lg where the split layout exposes every destination at once.
+ * Ergonomics: 56 px targets on a 68 px bar, safe-area aware, and visible at
+ * every width — the same five destinations remain available on laptop and
+ * desktop alongside the split layout.
  */
 
 import { Fuel, Map as MapIcon, MessageSquarePlus, Sparkles, User } from "lucide-react";

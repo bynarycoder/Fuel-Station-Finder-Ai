@@ -534,7 +534,6 @@ export default function FinderPage() {
         active={tab}
         onChange={handleTabChange}
         stationCount={items.length}
-        className="lg:hidden"
       />
 
       {/* --------------------------------------------------- overlays ------ */}

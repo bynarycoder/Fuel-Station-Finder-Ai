@@ -180,6 +180,30 @@ describe("global bottom navigation", () => {
     expect(labels).toEqual(["Map", "Stations", "AI Assistant", "Report", "Account"]);
   });
 
+  it("keeps the five destinations visible at laptop width (never hidden by lg:hidden)", async () => {
+    installViewport(BREAKPOINTS.laptop);
+    renderPage();
+    await screen.findByTestId("station-map-mock");
+
+    const nav = screen.getByRole("navigation", { name: /main/i });
+    // The bar is rendered at every width — including ≥lg — so it must not
+    // carry the utility that used to hide it there, nor the bare `hidden`.
+    expect(nav.className).not.toMatch(/\blg:hidden\b/);
+    expect(nav.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+
+    const labels = within(nav)
+      .getAllByRole("button")
+      .map((b) => b.textContent?.replace(/\d+/g, "").trim());
+
+    expect(labels).toEqual([
+      "Map",
+      "Stations",
+      "AI Assistant",
+      "Report",
+      "Account",
+    ]);
+  });
+
   it("marks the active destination for assistive tech", async () => {
     renderPage();
     await screen.findByTestId("station-map-mock");
