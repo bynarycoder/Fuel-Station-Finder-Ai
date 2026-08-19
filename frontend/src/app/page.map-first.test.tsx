@@ -22,6 +22,9 @@
  *     heights (the literals in page.tsx and SHEET_SNAP_PERCENT cannot drift).
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -360,6 +363,28 @@ describe("map actions", () => {
     expect(within(dialog).getByTestId("stations-screen")).toBeInTheDocument();
     expect(mapProbe.mounts).toBe(mountsBefore);
     expect(useMapStore.getState().mode).toBe("browse");
+  });
+
+  it("contains Leaflet pane z-indexes inside the map so overlay chrome stays on top", () => {
+    // jsdom has no paint order; the contract is the stacking context itself.
+    // Leaflet tiles/markers/popups use 200–700 and leak unless the map box
+    // isolates them. Overlay chrome (search, chips, FABs) stays on z-mapctl.
+    const mapView = readFileSync(
+      resolve(__dirname, "../components/map/MapView.tsx"),
+      "utf8",
+    );
+    expect(mapView).toContain('className="relative z-map isolate h-full w-full"');
+    expect(mapView).toContain('className="z-0 h-full w-full"');
+    expect(mapView.lastIndexOf("</MapContainer>")).toBeLessThan(
+      mapView.indexOf("<MapControls"),
+    );
+
+    const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+    expect(page).toContain("z-mapctl lg:hidden");
+    const floatingFilters = page.indexOf("floating");
+    const mapSurface = page.indexOf("{mapSurface}");
+    expect(floatingFilters).toBeGreaterThan(-1);
+    expect(floatingFilters).toBeLessThan(mapSurface);
   });
 
   it("gives the stations screen search, fuel chips and incremental loading", async () => {

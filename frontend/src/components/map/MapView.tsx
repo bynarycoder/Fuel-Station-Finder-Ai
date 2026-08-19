@@ -211,14 +211,16 @@ export default function MapView({
     void requestLocation();
   }, [userLocation, recenterLocation, requestLocation]);
 
+  // Isolate Leaflet pane z-indexes (tiles 200 … popups 700) inside this box
+  // so overlay chrome on z-mapctl (search, chips, FABs) stays tappable.
   return (
-    <div className="relative h-full w-full">
+    <div className="relative z-map isolate h-full w-full">
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
         scrollWheelZoom
         zoomControl={false}
-        className="h-full w-full"
+        className="z-0 h-full w-full"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
