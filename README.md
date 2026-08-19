@@ -1,461 +1,539 @@
-# Fuel Station Finder AI 🇳🇬⛽
+# FuelFinder AI
 
-**A Production-Ready, AI-Powered Fuel Station Tracking Startup & 3MTT Capstone Project**
+FuelFinder AI is a smart fuel-station discovery platform built for Nigerian
+drivers. It combines an interactive map, real-time location, community price
+and availability reports, and an AI assistant to help drivers find the right
+fuel — Petrol, Diesel, Kerosene, Cooking Gas or autogas (CNG) — quickly and
+confidently.
 
----
-
-## 🚦 3MTT COMPLIANCE RULES
-Whenever making technical decisions:
-1. **Ensure the implementation satisfies the official 3MTT capstone requirements.**
-2. **TypeScript is allowed** because it compiles to JavaScript and belongs to the JavaScript ecosystem.
-3. If a technology choice conflicts with the capstone requirements, **choose the option that best satisfies the official requirements.**
-4. If there are multiple valid approaches, **explain the trade-offs and recommend the most maintainable solution.**
-*Never sacrifice simplicity or successful submission for unnecessary complexity.*
+**Live application:** <https://fuel-station-finder-omega.vercel.app>
 
 ---
 
-## 🏆 CAPSTONE SUCCESS RULE
-Before implementing any new feature, we classify it as:
-* **REQUIRED** (mandatory for the official 3MTT capstone)
-* **HIGH VALUE** (significantly improves judging score)
-* **OPTIONAL** (future startup feature)
+## Overview
 
-*We must always complete every **REQUIRED** feature before implementing **HIGH VALUE** features, and complete **HIGH VALUE** features before **OPTIONAL** ones. If an **OPTIONAL** feature could delay submission or reduce project stability, we will postpone it.*
+Finding fuel in Nigeria can be frustrating. Station information is scattered,
+prices change daily, queues and product shortages are common, and there is no
+single, trustworthy place to see what is available where. Drivers waste time
+and fuel driving from station to station.
+
+FuelFinder AI solves this by bringing together, in one mobile-first
+experience:
+
+- an **interactive map** of fuel stations across Nigeria;
+- **nearby discovery** using the device's GPS (or a manually chosen location);
+- **search and filtering** by name, area, brand, city and fuel type;
+- **station details** with prices, distance, reports, contact info and
+  directions;
+- **community reporting** so drivers can share prices, queue lengths and
+  availability, optionally with a photo;
+- an **AI assistant ("Fuel Intelligence")** that answers natural-language
+  questions and recommends stations from the real catalogue;
+- **authentication, accounts and favourites** powered by Supabase.
+
+The result is a living, community-improved map of where fuel actually is.
 
 ---
 
-## 🛠 Tech Stack
+## Features
 
-Our stack combines performance, modern developer tooling, and robust curriculum alignment:
+### Map & discovery
+- **Interactive Leaflet map** with custom station markers, marker clustering,
+  the user's location, and a "closest station" highlight when nearby.
+- **Near me / geolocation** with a single location owner in the app state,
+  manual location picking, and clear status/error messaging.
+- **One map at every screen size** — the map stays mounted across tab changes
+  and window resizes (no duplicate Leaflet instances).
+- **Map controls**: zoom in/out, recentre on my location, floating
+  Near-me / Browse-all actions.
+
+### Search & filtering
+- Free-text **station search** (name, brand, city, area).
+- **Fuel-type filter chips**: Petrol (PMS), Diesel (AGO), Kerosene (DPK),
+  Cooking Gas (LPG) and Compressed Natural Gas (CNG).
+- Brand, city and query filters, plus an adjustable **search radius**.
+- **Natural-language search** routed through Fuel Intelligence.
+- Recent searches with quick-apply chips.
+
+### Stations & details
+- Station cards with brand, name, area, distance, price summary, availability
+  and data-provenance information.
+- **Station detail** view: identity, summary, **Get Directions** (opens the
+  device maps app), Report price, contact details, coordinates, status, and
+  recent community reports.
+- A dedicated **Stations** screen for focused browsing (map stays mounted).
+
+### Accounts, favourites & community
+- **Supabase Authentication** — email/password sign-in and sign-up, session
+  restoration, cross-tab auth state.
+- **Account panel** with profile, theme control, saved stations and "my
+  reports".
+- **Favourite stations** (saved per user).
+- **Community price/availability reports**, including price per litre, queue
+  length, notes and **photo uploads**.
+- **Photo uploads are stored in Supabase Storage** (the `report-photos`
+  bucket), so images persist across backend restarts and redeploys.
+- A public **community reports feed** and a station-level report history.
+- **AI confidence / verification** signals on reports and an admin review
+  workflow (pending / under review / verified / rejected).
+
+### AI Assistant — Fuel Intelligence
+- Conversational assistant for general questions about the app.
+- Natural-language **station recommendations**: intent extraction runs against
+  the real database (the database, not the model, ranks stations).
+- Answers are labelled by source (`groq` vs deterministic `fallback`) so
+  AI-generated text is never presented as fact when the model is unavailable.
+- Multimodal **Gemini**-powered report-photo verification for admins.
+- All AI API keys are kept **server-side**; the browser only sends the query
+  and the user's coordinates.
+
+### Interface, accessibility & offline
+- **Responsive, mobile-first** design with a bottom navigation on phones and a
+  split results-rail + map layout on laptops/desktops.
+- Five always-available destinations with **refresh-safe, shareable URLs**:
+  `/map`, `/stations`, `/ai`, `/report` and `/account`.
+- **Light/dark theme** with no-flash first paint and a manual toggle.
+- **Multilingual** interface: English, Hausa, Yoruba and Igbo (powered by
+  i18next).
+- Accessible dialogs (focus trap, Escape, scrim close, labelled titles),
+  keyboard-operable bottom sheet, zoom allowed (WCAG 1.4.4), and skip links.
+- **PWA**: installable, with a network-first service worker that keeps the
+  public station catalogue browsable offline and clearly labels stale data.
+
+### Administration
+- An `/admin` dashboard (gated by Supabase auth + an `admin` role) with
+  analytics, report moderation/verification and user management.
+
+---
+
+## Screenshots
+
+_Screenshots can be added here. Drop image files into `docs/screenshots/` and
+reference them below, for example:_
+
+```md
+![Map view on mobile](docs/screenshots/map-mobile.png)
+![Station detail](docs/screenshots/station-detail.png)
+![Fuel Intelligence](docs/screenshots/fuel-intelligence.png)
+```
+
+No screenshot URLs are hard-coded in this README.
+
+---
+
+## Technology Stack
 
 ### Frontend
-- **Framework:** Next.js 15 (Stable)
-- **Library:** React 19 (Stable)
-- **Language:** TypeScript (Preferred over JavaScript for type-safety, maintainability, and clean API models while remaining fully compatible with the JS ecosystem)
-- **Styling:** Tailwind CSS & shadcn/ui
-- **Interactive Maps:** Leaflet & OpenStreetMap (`react-leaflet`)
-- **Remote State Cache:** React Query (`@tanstack/react-query`)
-- **Global State Store:** Zustand
-- **Icons:** Lucide React
+- **[Next.js 15](https://nextjs.org/)** (App Router) with **React 19**
+- **TypeScript** end-to-end
+- **Tailwind CSS** with a custom design-token theme (the UI is hand-built with
+  Tailwind and Radix-style primitives — it does **not** depend on shadcn/ui)
+- **Leaflet** + **react-leaflet** + **react-leaflet-cluster** for mapping
+- **Zustand** for client/map state
+- **TanStack Query** for server state
+- **i18next / react-i18next** for internationalisation (en, ha, yo, ig)
+- **Supabase JS** for Auth and Storage
+- **Vitest** + **Testing Library** for unit/component tests
 
 ### Backend
-- **Language:** Python 3.12+
-- **Framework:** FastAPI
-- **ORM:** SQLAlchemy 2.0 (Modern declarative styles)
-- **Migration Tool:** Alembic
-- **Validation Engine:** Pydantic v2
-- **Testing:** Pytest & HTTPX client
+- **Python 3** + **FastAPI**
+- **SQLAlchemy 2** (async) with **Alembic** migrations
+- **PostgreSQL** with the **PostGIS** extension for geospatial queries
+- **GeoAlchemy2** / **asyncpg** / **psycopg2**
+- **PyJWT** for asymmetric (ES256/JWKS) Supabase token verification
+- **httpx** for outbound calls (AI, geocoding, object storage)
+- **pytest** for the backend test suite
 
-### Database & Security
-- **Database:** PostgreSQL (via Supabase Managed Cloud)
-- **Spatial Queries Extension:** PostGIS (for fast, accurate nearby geodesic distance calculations)
-- **User Authentication:** Supabase Auth
-- **Realtime Channel:** Supabase Realtime (live price/queue reports streaming)
-
-### Artificial Intelligence (AI)
-- **Verification Engine:** Google Gemini (visual analysis of fuel queue images and automated report verification)
-- **Natural Language Parsing:** Groq **GPT-OSS 20B** (`openai/gpt-oss-20b`) — intent extraction for Fuel Intelligence + natural-language search (e.g., *"Which station has short queues near Ikeja?"*) and the optional factual explanation. The LLM never selects the final station — that stays deterministic and database-driven.
-
-### Deployment & CI/CD
-- **Dev Containerization:** Docker & Docker Compose
-- **Pipeline:** GitHub Actions CI workflow (linting, tests, static typing checks)
-- **Hosting:** Vercel (Frontend), Render (Backend), Supabase (Database/Auth)
+### External services
+- **Supabase** — PostgreSQL database, Authentication, and Storage
+- **GroqCloud** hosting the **`openai/gpt-oss-20b`** model for Fuel
+  Intelligence (conversation, intent extraction, recommendations)
+- **Google Gemini** — **`gemini-3.5-flash-lite`** — for multimodal
+  report-photo verification
+- **OpenStreetMap Nominatim** — proxied server-side for location
+  search/geocoding (no API key in the browser)
+- **Vercel** — frontend hosting
+- **Render** — backend hosting (Docker, auto-deploy, migrations on boot)
+- **Docker** / **docker-compose** for containerised local development
 
 ---
 
-## 🏗 Directory Structure (Monorepo)
+## System Architecture
 
-The repository uses a clean monorepo architecture, splitting concerns into fully isolated `frontend` and `backend` layers:
+```
+┌──────────────────────────────┐
+│   Browser / PWA (Next.js)    │
+│  Map · Search · AI · Report  │
+│  Zustand · React Query       │
+└───────────────┬──────────────┘
+                │ HTTPS / JSON (NEXT_PUBLIC_API_URL)
+                ▼
+┌──────────────────────────────┐
+│   FastAPI backend (Render)   │
+│  /api/v1 stations · reports  │
+│  · auth · favorites · ai     │
+│  · admin · geocode           │
+└───────┬───────────┬──────────┘
+        │           │
+        ▼           ▼
+┌──────────────┐ ┌──────────────────────┐
+│  PostgreSQL  │ │  Supabase Auth +     │
+│  + PostGIS   │◄┤  Storage (photos)    │
+│ (Supabase DB)│ └──────────────────────┘
+└──────────────┘
+        │
+        ├──► GroqCloud (openai/gpt-oss-20b)  — Fuel Intelligence
+        ├──► Google Gemini (gemini-3.5-flash-lite) — photo verification
+        └──► OpenStreetMap Nominatim — location search/geocoding
+```
+
+The frontend is a single Next.js application. The five in-app destinations
+(Map, Stations, AI, Report, Account) are tabs of one stateful shell and have
+refresh-safe URLs (`/map`, `/stations`, …) served via Next.js rewrites, so the
+map is never remounted when switching tabs.
+
+The backend is a versioned REST API under `/api/v1`. It owns all database
+access, verifies Supabase JWTs (ES256 via JWKS), holds all AI/Storage
+secrets, and returns JSON to the client.
+
+---
+
+## Supabase
+
+Supabase provides three core services:
+
+- **PostgreSQL database** — the station, report, user and favourites data,
+  with PostGIS enabling location-based ("near me") queries.
+- **Authentication** — email/password auth and session management. The backend
+  verifies Supabase's asymmetric **ES256** access tokens against the project's
+  public JWKS endpoint; protected routes require a valid user (and an `admin`
+  role for `/admin`).
+- **Storage** — user-uploaded **report photos** are stored in a public
+  `report-photos` bucket. The backend uploads using the **server-only service
+  role key**; images are served by public URL and survive Render restarts.
+
+Supabase Row-Level-Security policies for favourites live in
+[`backend/supabase/`](backend/supabase).
+
+> **Never** commit the `SUPABASE_SERVICE_ROLE_KEY` or any `service_role`
+> credential. It bypasses RLS and must stay server-side. Only the
+> `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` belong in the
+> frontend.
+
+---
+
+## Project Structure
 
 ```
 Fuel-Station-Finder-Ai/
-├── .github/
-│   └── workflows/
-│       └── ci.yml             # GitHub Actions CI automation pipeline
-├── backend/
-│   ├── alembic/               # Alembic DB migration scripts
-│   │   ├── versions/          # Versioned migration files
-│   │   └── env.py             # Migration runtime configuration
-│   ├── alembic.ini            # Alembic configuration
-│   ├── app/
-│   │   ├── api/               # API route definitions
-│   │   │   ├── deps.py        # Authentication & authorization dependencies
-│   │   │   └── v1/            # v1 route handlers (auth, ...)
-│   │   ├── core/              # Configs, DB sessions, security/JWT verification
-│   │   ├── models/            # SQLAlchemy 2.0 ORM models (PostGIS spatial)
-│   │   ├── schemas/           # Pydantic validation & response schemas
-│   │   ├── services/          # Business logic & data access (stations, ...)
-│   │   ├── scripts/           # CLI data tooling (e.g. database seeding)
-│   │   └── main.py            # FastAPI main entrypoint
-│   ├── tests/                 # Complete backend testing suites
-│   ├── .env.example           # Backend config template
-│   ├── Dockerfile             # Multi-stage Python 3.12 production Docker build
-│   └── requirements.txt       # Python dependencies declaration
-├── frontend/
+├── frontend/                  # Next.js 15 + React 19 application
 │   ├── src/
-│   │   ├── app/               # Next.js App Router (pages & layout)
-│   │   ├── components/        # Shared and ui components
-│   │   ├── hooks/             # Reusable custom React hooks
-│   │   ├── lib/               # Utility functions (shadcn, etc.)
-│   │   ├── store/             # Zustand state management
-│   │   ├── types/             # Frontend typescript interfaces
-│   │   └── services/          # Client-side API request clients
-│   ├── .env.example           # Frontend config template
-│   ├── Dockerfile             # Next.js 15 production runner Docker build
-│   └── package.json           # Node.js dependencies configuration
-├── docker-compose.yml         # Local Postgres + PostGIS dev environment
-└── README.md                  # This documentation
+│   │   ├── app/               # App Router: /, /about, /admin, /offline
+│   │   ├── components/        # UI: map, stations, reports, ai, account, shell
+│   │   ├── hooks/             # useAuth, useStations, useFavorites, useGeolocation…
+│   │   ├── lib/               # API client, geo, auth, format, upload, utils
+│   │   ├── services/          # Backend API wrappers
+│   │   ├── store/             # Zustand map/location/filter store
+│   │   ├── i18n/              # en / ha / yo / ig translations
+│   │   ├── types/             # Shared TypeScript domain types
+│   │   └── test/              # Test helpers (viewport, geo mock)
+│   ├── public/                # Icons, PWA manifest, service worker
+│   ├── next.config.mjs        # Rewrites for /map, /stations, /ai, /report, /account
+│   └── package.json
+├── backend/                   # FastAPI + SQLAlchemy + Alembic
+│   ├── app/
+│   │   ├── api/v1/            # Routers: stations, reports, auth, ai, admin…
+│   │   ├── core/              # Config, database, security (JWT/JWKS)
+│   │   ├── models/            # SQLAlchemy ORM models
+│   │   ├── schemas/           # Pydantic request/response schemas
+│   │   ├── services/          # Business logic incl. services/ai/* and storage
+│   │   └── scripts/           # Station import / seeding
+│   ├── alembic/versions/      # Database migrations (run automatically on boot)
+│   ├── supabase/              # RLS policies
+│   ├── tests/                 # Pytest suite
+│   ├── Dockerfile
+│   └── requirements.txt
+├── docs/                      # Design, data, multilingual and QA documentation
+├── scripts/                   # Repo-level helper scripts
+├── docker-compose.yml         # Local PostGIS + backend + frontend
+├── render.yaml                # Render blueprint for the backend
+└── README.md
 ```
 
 ---
 
-## 🚦 Roadmap & Core Requirements Checklist (By Priority)
+## Environment Variables
 
-We construct our project incrementally, strictly executing REQUIRED features first.
+Only variable **names** are documented here. Use the provided `.env.example`
+files and supply real values in untracked `.env` files or your host's secret
+management. **Never commit secrets.**
 
-### 📋 Phase-by-Phase Roadmap & Classifications
+### Frontend (`frontend/.env.local`)
 
-| Phase | Module | Classification | Status | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Project Setup** | **REQUIRED** | ✔ **Completed** | Monorepo configuration, Next.js 15 & React 19 upgrade, Python 3.12 Docker environments, and GitHub Actions CI. |
-| **Phase 2** | **Database Schema** | **REQUIRED** | ✔ **Completed** | PostgreSQL schema, PostGIS spatial mapping, SQLAlchemy 2.0 models, Alembic migrations, and seed data for Nigerian stations (Mobil, NNPC, Conoil, etc.). |
-| **Phase 3** | **Authentication** | **REQUIRED** | ✔ **Completed** | Supabase Auth, ES256/JWKS JWT verification, just-in-time user provisioning, and User roles (Driver, Station Manager, Admin) with role-based access control. |
-| **Phase 4** | **Fuel Stations API** | **REQUIRED** | ✔ **Completed** | CRUD, PostGIS spatial nearby station search (distance-based, nearest-first), and catalog filters. |
-| **Phase 5** | **Interactive Map UI** | **REQUIRED** | ✔ **Completed** | Leaflet + OpenStreetMap, marker clustering, nearby search & directions, and user geolocation. |
-| **Phase 6** | **Fuel Reports Engine** | **REQUIRED** | ✔ **Completed** | Crowd-sourced report submissions: pricing, fuel type, queue length, photo uploads, and verification status. |
-| **Phase 7** | **Realtime Updates** | **HIGH VALUE** | ✔ **Completed** | Supabase Realtime (`postgres_changes`) feeds instant crowd-sourced report updates to the UI, with a polling fallback. |
-| **Phase 8** | **AI Features** | **HIGH VALUE** | ✔ **Completed** | Gemini queue-image verification & validation score; Groq natural-language station search. |
-| **Phase 9** | **Admin Dashboard** | **HIGH VALUE** | ✔ **Completed** | Admin-only API + dashboard: report moderation, user management, and platform analytics. |
-| **Phase 10**| **Cloud Deployment** | **REQUIRED** | ✔ **Completed** | Production deployment config (Render `render.yaml`, Vercel `vercel.json`), configurable CORS/PORT, a full deployment guide (`DEPLOYMENT.md`), and a demo script. |
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | Base URL of the FastAPI backend, e.g. `https://fuel-station-finder-ai.onrender.com/api/v1` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public anonymous key |
 
----
+See [`frontend/.env.example`](frontend/.env.example).
 
-## 🗄 Phase 2 — Database Schema Overview
+### Backend (`backend/.env`)
 
-The spatial data layer is built on **PostgreSQL + PostGIS**, modelled with **SQLAlchemy 2.0** (typed `Mapped` columns) and migrated with **Alembic**.
+| Variable | Purpose |
+| --- | --- |
+| `PROJECT_NAME`, `ENVIRONMENT`, `PORT` | App identity/runtime |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins |
+| `DATABASE_URL` | Sync PostgreSQL/PostGIS connection (migrations) |
+| `ASYNC_DATABASE_URL` | Async connection (runtime, asyncpg) |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase project coordinates |
+| `SUPABASE_JWT_ALGORITHM`, `SUPABASE_JWT_AUDIENCE`, `SUPABASE_JWT_ISSUER`, `SUPABASE_JWKS_URL`, `SUPABASE_JWKS_CACHE_TTL_SECONDS` | Asymmetric JWT verification |
+| `SUPABASE_STORAGE_BUCKET` | Storage bucket for report photos (default `report-photos`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server-only** key for Storage uploads (bypasses RLS) |
+| `SUPABASE_STORAGE_TIMEOUT_SECONDS` | Storage request timeout |
+| `GROQ_API_KEY`, `GROQ_MODEL` | Fuel Intelligence LLM (model `openai/gpt-oss-20b`) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Photo-verification model (e.g. `gemini-3.5-flash-lite`) |
+| `AI_TIMEOUT_SECONDS`, `AI_MAX_RETRIES`, `AI_RECOMMEND_CACHE_TTL_SECONDS` | AI resilience/caching |
+| `NOMINATIM_BASE_URL`, `NOMINATIM_USER_AGENT`, `NOMINATIM_REFERER`, `NOMINATIM_TIMEOUT_SECONDS`, `NOMINATIM_SEARCH_LIMIT` | Server-side geocoding |
+| `MEDIA_DIR`, `MEDIA_URL`, `MAX_UPLOAD_BYTES` | Local-media fallback (5 MiB default) |
 
-### Core Entities
-
-| Table | Purpose |
-| :--- | :--- |
-| `fuel_types` | Reference catalogue of Nigerian petroleum products: **PMS** (Petrol), **AGO** (Diesel), **DPK** (Kerosene), **LPG** (Cooking Gas). Natural primary key = product code, guarded by a `CHECK` constraint. |
-| `fuel_stations` | The spatial core. Each station's location is a PostGIS **`geography(POINT, 4326)`** column backed by a **GiST** index for fast "stations near me" queries (metre-accurate on the sphere). De-duplicated by a `UNIQUE(name, city)` business key. |
-| `fuel_station_fuel_types` | Many-to-many catalogue of which products each station offers (composite PK, cascading foreign keys). |
-
-### Design Notes
-- **PostGIS `geography` over `geometry`**: distance / `ST_DWithin` math is performed on the sphere in metres — exactly what proximity search needs, with no manual projection.
-- **Phase discipline**: time-series metrics (live price, queue length, availability) belong to the Fuel Reports engine (Phase 6) and are intentionally not modelled here yet, keeping the schema lean.
-- Every table carries auditable `created_at` / `updated_at` timestamps via a shared `TimestampMixin`.
-
-### Seed Data
-`backend/app/scripts/seed.py` loads **4 fuel types** and **18 representative stations** across **Lagos** and the **FCT (Abuja)** from real brands — Mobil, NNPC, Conoil, TotalEnergies, Oando, MRS, NIPCO, Forte Oil, Bovas and AA Rano — with neighbourhood-level coordinates. The script is idempotent (re-runnable) and can be reset with `--reset`.
+See [`backend/.env.example`](backend/.env.example).
 
 ---
 
-## 🔐 Phase 3 — Authentication Overview
-
-Authentication is **delegated to Supabase Auth** — it owns signup, login, password hashing and session issuance, so the backend never stores or handles credentials. The backend's job is to **verify Supabase-issued JWTs** and attach the caller's identity and application role to each request.
-
-### How a protected request flows
-1. The frontend signs in with Supabase and receives an access token signed with the project's asymmetric ES256 key.
-2. It sends that token as `Authorization: Bearer <token>` to the backend.
-3. `app/core/security.py` reads the header `kid`, selects the matching cached Supabase JWKS public key, and verifies the ES256 signature, issuer, audience, expiry, and Supabase role via PyJWT.
-4. `app/api/deps.py::get_current_user` decodes the token and **just-in-time provisions** a local `User` row (creating it on first sighting, refreshing email/name thereafter) — so the `users` table always mirrors Supabase identities without a separate sync job.
-5. Endpoints declare their access needs with `require_roles(UserRole.ADMIN, ...)` for **role-based access control**.
-
-### Application roles
-| Role | Value | Capabilities |
-| :--- | :--- | :--- |
-| Driver | `driver` | Default. Search stations, view prices/queues, submit reports. |
-| Station Manager | `station_manager` | Manage assigned stations; official pricing/availability; moderate their reports. |
-| Admin | `admin` | Full access: verify/moderate reports, manage users & roles, curate stations. |
-
-> Supabase's own JWT `role` claim (`anon`/`authenticated`/`service_role`, used for Row Level Security) is **distinct** from these application roles, which live in the local `users.role` column.
-
-### API surface (v1)
-| Method | Path | Auth | Purpose |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/auth/me` | ✔ user | Returns the caller's profile; JIT-provisions the local user. |
-| `GET` | `/api/v1/auth/roles` | public | Lists application roles for the frontend sign-up flow. |
-
-### Configuration
-Set `SUPABASE_URL`, `SUPABASE_JWT_ALGORITHM=ES256`, `SUPABASE_JWT_AUDIENCE=authenticated`, and the exact project issuer/JWKS URL (or leave those two URLs blank to derive them from `SUPABASE_URL`). `SUPABASE_JWKS_CACHE_TTL_SECONDS` defaults to 300 seconds. The backend does not use the frontend anon key or a legacy JWT secret to verify ES256 tokens. See `backend/.env.example`.
-
----
-
-## ⛽ Phase 4 — Fuel Stations API Overview
-
-A REST API over the Phase 2 schema: catalogue browsing with filters, a PostGIS **nearby search** (distance-based, nearest-first), and staff-only CRUD. Logic lives in a dedicated service layer (`app/services/stations.py`) whose spatial query *builders* are pure functions returning SQLAlchemy `Select` objects.
-
-### Endpoints (v1)
-| Method | Path | Auth | Purpose |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/stations` | public | Paginated catalogue with filters: `q` (name), `brand`, `city`, `state`, `fuel_type`, `is_active`. |
-| `GET` | `/api/v1/stations/nearby` | public | **Spatial search**: `latitude`/`longitude`/`radius_meters` (+ optional `fuel_type`/`limit`). Returns stations within the radius, nearest first, each with `distance_meters`. |
-| `GET` | `/api/v1/stations/{id}` | public | Single station with its fuel types. |
-| `POST` | `/api/v1/stations` | Admin / Station Manager | Create a station (+ optional `fuel_type_codes`). |
-| `PATCH` | `/api/v1/stations/{id}` | Admin / Station Manager | Partial update (including partial lat/lon and fuel-type reassignment). |
-| `DELETE` | `/api/v1/stations/{id}` | Admin / Station Manager | Delete (cascades fuel-type links). |
-
-### Spatial design
-The nearby search uses `ST_DWithin(location, <point>::geography, radius_meters)` — which leverages the GiST index on the `geography` column for an efficient radius filter — and `ST_Distance(...)` to compute and order results in metres. Coordinates are exchanged as plain `latitude`/`longitude` floats and converted to/from `geography` in the service layer.
-
-> Fine-grained, per-station scoping for Station Managers (so a manager only edits their own stations) arrives with the admin/assignment work in a later phase.
-
----
-
-## 🗺️ Phase 5 — Interactive Map UI Overview
-
-A full map experience (Next.js App Router, React 19, TypeScript) at the app root `/`, backed by the Phase 4 API. The Phase 1 landing page moved to `/about`.
-
-### Capabilities
-- **Leaflet + OpenStreetMap** base map with **marker clustering** (`react-leaflet-cluster`), themed emerald `divIcon` pins (no broken default marker images).
-- **Near-me search** — a *Near me* button uses the browser Geolocation API, switches to the PostGIS `/stations/nearby` endpoint, recentres the map and lists stations nearest-first with distances.
-- **Location routing** — every station (in its popup and list row) offers *Get directions*, a turn-by-turn Google Maps deep link using the user's location as the origin.
-- **Filters** — name search, brand, city and fuel-type chips; *Browse all* vs *Near me* modes with an adjustable radius.
-- List/map are kept in sync: selecting a station flies the map to it; clicking a marker selects it in the list.
-
-### Architecture
-- **React Query** for remote state (catalogue + nearby queries, with `placeholderData`), **Zustand** for UI state (mode, filters, user location, selected station) — matching the documented stack.
-- The map is **SSR-safe**: Leaflet needs `window`, so `MapView` is lazy-imported via `next/dynamic` with `ssr: false` from a Client-Component wrapper.
-- Dependencies upgraded to the **React 19**-compatible line: `react-leaflet@5`, `@react-leaflet/core@3`, `react-leaflet-cluster@4` (Phase 1 had pinned `react-leaflet@4`, which requires React 18 and is incompatible with this project's React 19).
-
-### Validation
-`npm run build` (type-checks + static generation) and `npm run lint` both pass. The map loads live data when the backend is running (`NEXT_PUBLIC_API_URL`).
-
----
-
-## 🧾 Phase 6 — Fuel Reports Engine Overview
-
-Crowd-sourced station reports — the data that makes the finder useful. Any authenticated user submits pricing, queue length, fuel type and an optional photo; reports start `pending` and are verified/rejected in later phases.
-
-### Endpoints (v1)
-| Method | Path | Auth | Purpose |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/reports` | any user | Submit a report (multipart: form fields + optional `photo`). |
-| `GET` | `/api/v1/reports` | any user | Paginated list with filters (`station_id`, `fuel_type`, `status`); rejected reports hidden from non-admins. |
-| `GET` | `/api/v1/reports/{id}` | any user | Single report (rejected hidden from non-admins). |
-
-### Submission model
-A `FuelReport` records `fuel_type_code`, optional `price_per_litre` (₦/L), optional `queue_length` (`none`/`short`/`medium`/`long`), optional `notes`, and an optional `photo_url`. The API requires at least a price, a queue reading, or a photo.
-
-### Photo uploads
-`POST /reports` accepts an optional `photo` (JPEG/PNG/WebP, size-capped) via a swappable `ImageStorage` service that validates type/size and writes to local disk; files are served via a static mount (`/media`). A failed report creation cleans up the orphan upload. The storage layer is isolated so it can be swapped for Supabase Storage / object storage without touching the reports API.
-
-### Verification lifecycle
-`status` (`pending`/`verified`/`rejected`) is captured from day one; status transitions and AI/admin verification arrive in Phases 8 & 9.
-
----
-
-## ⚡ Phase 7 — Realtime Updates Overview
-
-Crowd-sourced reports now reach the UI instantly via **Supabase Realtime**, with graceful degradation when Supabase isn't configured.
-
-### How it works
-- **Backend** (`alembic/versions/0004_enable_realtime.py`): an idempotent, Supabase-aware migration that opts `fuel_reports` (and `fuel_stations`) into the `supabase_realtime` publication — the mechanism Supabase uses for `postgres_changes`. On vanilla Postgres (the local docker DB) it's a safe no-op.
-- **Frontend**:
-  - `lib/supabase.ts` — a lazy, config-guarded Supabase client (returns `null` when `NEXT_PUBLIC_SUPABASE_*` env vars are absent).
-  - `hooks/useReportRealtime.ts` — subscribes to `postgres_changes` on `fuel_reports` and **invalidates the React Query cache** on any insert/update, so the feed refreshes the moment a report lands.
-  - `components/reports/ReportsFeed.tsx` — a live "Community reports" panel (opened from the header) showing the public feed, with a Live/Connecting/Polling badge.
-  - **Fallback**: when Supabase isn't configured (local dev), the hook is a no-op and `useReports` polls every 30s, so the UI stays fresh without realtime infrastructure.
-
-### Note
-Report *reads* are now **public** (community feed) and always exclude rejected reports; submission still requires authentication. This lets the live feed work without a login.
-
----
-
-## 🤖 Phase 8 — AI Features Overview
-
-Two AI capabilities, each behind a config gate (graceful 503 when its API key is absent) and split into a deterministic, unit-tested parser + the network call:
-
-### AI provider responsibility map
-
-| User action | Provider | Endpoint | Service | Model | Output |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| General/conversational question | **Groq** | `POST /api/v1/ai/chat` (and `/ai/recommend` when the message isn't a search) | `services/ai/chat.py` | `GROQ_MODEL` | natural-language answer + `answer_source` |
-| Station recommendation | **Groq** + station DB | `POST /api/v1/ai/recommend` | `services/ai/recommend.py` | `GROQ_MODEL` | intent, ranked stations, factual explanation |
-| Natural-language catalogue search | **Groq** | `GET /api/v1/stations/search` | `services/ai/nl_search.py` | `GROQ_MODEL` | structured filters + matching stations |
-| Report photo verification | **Gemini** | `POST /api/v1/reports/{id}/verify` (Admin) | `services/ai/gemini.py` | `GEMINI_MODEL` | `score`, `is_plausible`, `summary`, `detected_attributes` |
-| Provider health | – | `GET /api/v1/ai/diagnostic[?live=true]` | `api/v1/ai_diag.py` | both | per-check PASS/FAIL + safe error category |
-
-Groq is never used for image verification and Gemini is never used for
-conversation, recommendations or intent extraction.
-
-### 1. Gemini queue-image verification (`app/services/ai/gemini.py`)
-- `POST /api/v1/reports/{id}/verify` (Admin) reads a report's stored photo, sends it to Gemini, and returns a **validation score** (0.0–1.0), plausibility flag, summary and detected attributes.
-- SDK: the supported **`google-genai`** client (the legacy `google-generativeai` package reached end-of-life on 30 Nov 2025). Model: `GEMINI_MODEL` — **must be a currently supported multimodal model**; `gemini-1.5-flash` was shut down on 29 Sep 2025 and returns 404 for every request.
-- Failure policy: a missing key raises a clean 503; any provider failure (timeout, rate limit, auth, retired model, malformed JSON) returns a **zero-confidence** result with a safe error category, and the endpoint answers 503 — a Gemini outage can never mark a report `verified`.
-- High-confidence photos (score ≥ 0.7) **auto-promote** the report to `verified` (with `verified_at`); lower scores stay `pending` for manual review.
-- `build_verification_prompt` / `parse_verification_response` are pure & tested (JSON extraction, score clamping, safe defaults on malformed output).
-
-### 2. Groq conversational assistant (`app/services/ai/chat.py`)
-- `POST /api/v1/ai/chat` (public) answers general questions — *"Hello, what can you help me with?"*, *"Why should I verify a reported price?"*, *"What fuel types can I report?"* — with Groq **GPT-OSS 20B**.
-- A deterministic router (`classify_query`) decides SEARCH vs. CONVERSATION, so the single "Ask Fuel AI" box handles both and a provider outage can never silently change which feature runs. `POST /ai/recommend` uses the same router and answers non-search messages conversationally (`mode: "conversation"`, no location required).
-- The system prompt is built from the app's own catalogue (`FuelTypeCode`, `QueueLength`, `ReportStatus`) and forbids inventing stations, prices or verification claims; live facts only ever come from the recommendation pipeline.
-- When Groq is unavailable a deterministic help text is returned and labelled `answer_source: "fallback"` — the UI renders "answered without AI" so a fallback is never mistaken for a working AI.
-
-### 3. Groq natural-language search (`app/services/ai/nl_search.py`)
-- `GET /api/v1/stations/search?q=…` (public) parses free-form queries like *"short petrol near Ikeja"* into structured filters (fuel type, queue length, brand, city, state) via Groq **GPT-OSS 20B** (`openai/gpt-oss-20b`), then returns the matching stations plus the parsed intent.
-- `build_system_prompt` / `to_parsed_query` are pure & tested (enum normalisation/validation, casual-term mapping).
-
-### 4. Fuel Intelligence — AI station recommendations (`app/services/ai/recommend.py`)
-- `POST /api/v1/ai/recommend` (public) — the AI assistant that answers questions like *"Find the cheapest petrol near me"*, *"closest CNG"*, *"diesel under ₦1000"*, *"which nearby station is most reliable?"*.
-- The Groq provider is configured via `GROQ_MODEL` (default **`openai/gpt-oss-20b`**). Groq performs **two** operations — **intent extraction** (natural-language query → structured `FuelSearchIntent`) and the optional **factual explanation** (ranked DB facts → natural-language answer). Both use the existing timeout (`AI_TIMEOUT_SECONDS`) and graceful-degradation behaviour.
-- Pipeline (the AI never touches the database): Groq **intent extraction** → existing **nearby station API** (PostGIS) → crowd-sourced **price facts** from reports → **deterministic ranking** → Groq **explanation** limited to the returned facts.
-- Deterministic ranking is a weighted, normalised score of *distance, price, verification, freshness, availability*; the weights follow the user's intent (`price` → cheap wins, `distance` → close wins, `reliability` → verification/freshness, `best_overall` → balanced). The LLM never picks the winner.
-- Honesty guarantees: no invented prices ("Price information is currently unavailable."), no invented verification (an imported/unverified row stays labeled exactly as the database says), no invented coordinates (no location → "I need your location…"), no stations → "I couldn't find a nearby station…".
-- If `GROQ_API_KEY` is missing or the provider times out, the feature degrades to a deterministic keyword intent parser + template answers and flags it via `intent_source`/`answer_source: "fallback"`. Results are cached in memory for `AI_RECOMMEND_CACHE_TTL_SECONDS` (keyed by query + ~100 m location bucket) so repeat asks don't re-invoke the LLM.
-- Frontend: the **🤖 Fuel AI** panel on the home page (reuses the real geolocation fix, station provenance badges and Directions links).
-
-### Shared
-`app/services/ai/base.py` provides `extract_json_object` (robust JSON extraction from fenced/prose LLM output) and `AINotConfiguredError`.
-
-`app/services/ai/provider.py` is the single place that builds the Groq client and issues chat completions:
-- `timeout` (`AI_TIMEOUT_SECONDS`) and `max_retries` (`AI_MAX_RETRIES`) are set on the **client constructor**. `max_retries` is *not* a valid `chat.completions.create()` keyword — passing it there raises `TypeError` before any HTTP request, which is exactly the production regression this centralisation prevents from reappearing.
-- every failure is classified into a safe category (`TIMEOUT`, `RATE_LIMITED`, `AUTH_ERROR`, `MODEL_NOT_FOUND`, `BAD_REQUEST`, `NETWORK_ERROR`, `EMPTY_RESPONSE`, `SDK_PARAMETER_ERROR`, `PROVIDER_ERROR`) and logged as `[AI] provider=… feature=… model=… category=… status=…`. **No key, header, prompt or user content is ever logged.**
-- an empty/blank completion is treated as a failure, not as an answer.
-
-Both SDKs are imported lazily inside the call functions, so the app starts even without keys.
-
----
-
-## 🛡️ Phase 9 — Admin Dashboard Overview
-
-An admin-only API (`/api/v1/admin/*`, every route gated by `require_roles(ADMIN)`) plus a `/admin` dashboard UI with Supabase sign-in.
-
-### Backend endpoints
-| Method | Path | Purpose |
-| :--- | :--- | :--- |
-| `GET` | `/admin/reports` | Moderation queue — **all** reports (incl. rejected), filterable by station/fuel/status. |
-| `PATCH` | `/admin/reports/{id}/status` | Verify / reject a report (stamps `verified_at`). |
-| `GET` | `/admin/users` | List users (paginated). |
-| `PATCH` | `/admin/users/{id}` | Update a user's role and/or active flag (the "user flags" moderation). |
-| `GET` | `/admin/analytics` | Platform metrics: stations (total/active), reports (by status), users (by role). |
-
-### Frontend (`/admin`)
-- Supabase **sign-in gate** → calls `/auth/me` → only renders for Admins.
-- **Analytics** overview cards, **report moderation** (Verify/Reject actions), and **user management** (enable/disable), all via React Query with automatic cache invalidation.
-- Auth token injection in the API client; graceful "Supabase not configured" state for local dev.
-
----
-
-## ☁️ Phase 10 — Cloud Deployment Overview
-
-Production runs on three hosts (full step-by-step guide: **[`DEPLOYMENT.md`](./DEPLOYMENT.md)**):
-
-- **Database / Auth / Realtime** — Supabase (managed PostgreSQL + PostGIS). Migrations (`alembic upgrade head`) + seed run against it; migration `0004` enables Realtime.
-- **Backend** — Render via the included **[`render.yaml`](./render.yaml)** Blueprint (Docker, `/health` check, honours `$PORT`, prompted secret env vars).
-- **Frontend** — Vercel (Next.js auto-detected; `frontend/vercel.json`), with `NEXT_PUBLIC_API_URL` pointed at Render.
-
-Production hardening in this phase:
-- **CORS** is now a comma-separated `CORS_ORIGINS` env var (`settings.cors_origins_list`) — trivial to set on any host.
-- The **Dockerfile** honours `$PORT` (works for both docker-compose and Render).
-- A **demo script** (for the capstone video) is in `DEPLOYMENT.md`.
-
----
-
-## 🚀 Local Setup & Getting Started
+## Installation
 
 ### Prerequisites
-- [Docker & Docker Compose](https://www.docker.com/)
-- [Node.js v22+](https://nodejs.org/)
-- [Python 3.12+](https://www.python.org/)
+- Node.js 20+ and npm
+- Python 3.11+
+- Docker & Docker Compose (recommended for the database)
+- A Supabase project (PostgreSQL + PostGIS, Auth enabled)
 
----
-
-### Step 1: Start the Local PostgreSQL + PostGIS Database
-To boot up the spatial database container:
-```bash
-docker-compose up -d db
-```
-This boots up Postgres on port `5432` with PostGIS extensions ready.
-
----
-
-### Step 2: Configure Environment Variables
-
-1. **Backend:**
-   Copy the backend template and adjust values:
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
-
-2. **Frontend:**
-   Copy the frontend template:
-   ```bash
-   cp frontend/.env.example frontend/.env
-   ```
-
----
-
-### Step 3: Apply Database Migrations & Seed Data
-
-With the database running (Step 1) and environment configured (Step 2), create the schema and load the starter Nigerian station catalogue.
-
-From the `backend/` directory, inside your virtual environment:
+### 1. Clone the repository
 
 ```bash
-cd backend
-
-# 1. Apply all migrations (creates tables, the PostGIS extension & spatial indexes)
-alembic upgrade head
-
-# 2. Seed the fuel-type catalogue and representative Nigerian stations
-python -m app.scripts.seed
+git clone https://github.com/bynarycoder/Fuel-Station-Finder-Ai.git
+cd Fuel-Station-Finder-Ai
 ```
 
-- The initial migration (`0001_initial_schema`) enables the `postgis` extension and creates the `fuel_types`, `fuel_stations` (with a `geography(POINT, 4326)` column + GiST index) and `fuel_station_fuel_types` tables.
-- The seed script is **idempotent** — re-running it updates rows in place instead of duplicating. Pass `--reset` to wipe and re-insert during development.
-- Preview the exact SQL without touching the database with `alembic upgrade head --sql`.
-
----
-
-### Step 4: Run FastAPI Backend Locally
-
-We recommend setting up a virtual environment:
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-- **API URL:** `http://localhost:8000`
-- **Interactive OpenAPI Documentation:** `http://localhost:8000/docs`
-
----
-
-### Step 5: Run Next.js Frontend Locally
+### 2. Frontend
 
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local   # then fill in NEXT_PUBLIC_* values
+```
+
+### 3. Backend
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env          # then fill in the values
+```
+
+### 4. Database
+
+The easiest path is Docker Compose, which starts PostGIS for you:
+
+```bash
+docker compose up -d db
+```
+
+Then run migrations (they also run automatically in the container entrypoint):
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Point `DATABASE_URL` / `ASYNC_DATABASE_URL` at your Supabase (or local)
+PostgreSQL+PostGIS database.
+
+### 5. Optional: import/seed stations
+
+The backend includes OSM import and seed scripts under
+[`backend/app/scripts/`](backend/app/scripts) — see their module docstrings.
+
+---
+
+## Development
+
+Run the frontend and backend separately (hot reload):
+
+```bash
+# Backend (http://localhost:8000 — API docs at /docs)
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload
+
+# Frontend (http://localhost:3000)
+cd frontend
 npm run dev
 ```
-- **Frontend App URL:** `http://localhost:3000`
+
+Or bring up the full stack with Docker:
+
+```bash
+docker compose up --build
+```
+
+### Tests
+
+```bash
+# Frontend
+cd frontend && npm test
+
+# Backend
+cd backend && pytest
+```
+
+### Type checking / linting
+
+```bash
+cd frontend && npx tsc --noEmit && npm run lint
+```
 
 ---
 
-## 🧪 Testing the Setup
+## Deployment
 
-### Run Backend Tests
-Ensure you are in the `/backend` directory:
-```bash
-pip install pytest
-pytest
-```
-*Expected Output:*
-All tests inside `backend/tests/` should pass successfully.
+Production architecture:
 
-### Run Frontend Static Type Verification & Build
-Ensure you are in the `/frontend` directory:
-```bash
-npm run build
-```
-*Expected Output:*
-Next.js should output a successful static compiled page build.
+- **Frontend → Vercel** (`next build` / `next start`). Set the
+  `NEXT_PUBLIC_*` variables in the Vercel project.
+- **Backend → Render** via the [`render.yaml`](render.yaml) blueprint (Docker,
+  free plan, auto-deploy, health check at `/health`). The container runs
+  `alembic upgrade head` before starting uvicorn.
+- **Database / Auth / Storage → Supabase** (PostgreSQL + PostGIS, Auth, and
+  the `report-photos` Storage bucket).
+
+**Live URL:** <https://fuel-station-finder-omega.vercel.app>
+
+The five app destinations are refresh-safe in production thanks to Next.js
+rewrites in [`frontend/next.config.mjs`](frontend/next.config.mjs), so a hard
+refresh on `/map`, `/stations`, `/ai`, `/report` or `/account` stays on that
+destination.
 
 ---
 
-## 🤝 3MTT Capstone Code Quality Commitment
-We write clean, sustainable, modular software. We respect SOLID design principles, prevent the use of mocked or fake solutions, write extensive types/interfaces, and guarantee that the capstone requirements are completely built, integrated, and validated before adding secondary capabilities.
+## API
+
+The backend is versioned under `/api/v1` (interactive docs at `/docs`). Major
+areas:
+
+| Area | Endpoints (examples) |
+| --- | --- |
+| Stations | `GET /stations` (list/filter), `GET /stations/{id}`, `GET /stations/nearby`, `GET /stations/search`, station import admin routes |
+| Reports | `POST /reports` (authenticated, multipart photo), `GET /reports` (public feed), `GET /reports/{id}`, station reports, photo verification |
+| Auth | `GET /auth/me` (current Supabase user) |
+| Favorites | `GET/PUT/DELETE /favorites` (authenticated) |
+| AI | `POST /ai/chat`, `POST /ai/recommend` |
+| Geocoding | `GET /geocode/search`, `GET /geocode/reverse` (Nominatim proxy) |
+| Admin | `GET /admin/...` analytics, reports, users; report verification & status updates (admin role) |
+
+General: `GET /` (service info) and `GET /health` (Render health check).
+
+---
+
+## AI Assistant
+
+Fuel Intelligence helps drivers in two ways:
+
+1. **Conversation & questions** (`POST /api/v1/ai/chat`) — answers general
+   questions about the app using the **`openai/gpt-oss-20b`** model served by
+   GroqCloud.
+2. **Station recommendations** (`POST /api/v1/ai/recommend`) — extracts intent
+   from a natural-language request and asks the database for matching nearby
+   stations. The model writes explanations; **the database performs the
+   ranking**, so prices and availability stay factual.
+
+In addition, **Google Gemini (`gemini-3.5-flash-lite`)** performs multimodal
+verification of uploaded report photos for admins.
+
+When an AI provider is unavailable, the backend degrades gracefully to a
+deterministic intent parser/template answer and labels the response
+`answer_source: "fallback"` — it never fails the user's request or invents
+station data.
+
+**Credentials stay server-side.** The browser never holds `GROQ_API_KEY` or
+`GEMINI_API_KEY`; it sends only the message/query and the user's coordinates.
+
+---
+
+## Security
+
+- **Secrets in environment variables.** No API keys, JWT secrets, database
+  passwords or service-role keys are committed.
+- **Server-side API keys** for Groq, Gemini, Supabase Storage and geocoding.
+- **Supabase Auth** with asymmetric **ES256** JWT verification against the
+  project's JWKS endpoint; protected routes require a valid token, and admin
+  routes require the `admin` role.
+- **Supabase Storage** uploads use the server-only service-role key; the
+  public bucket serves images by URL.
+- **Upload validation** — accepted image types and a 5 MiB size limit
+  (`MAX_UPLOAD_BYTES`); the backend surfaces actionable validation errors.
+- **CORS** is restricted to configured origins (`CORS_ORIGINS`).
+- **Location isolation** — placeholder data from a previous location is never
+  presented as current or used to crown a "closest" station.
+- The service worker never caches location-specific `/nearby` or `/search`
+  responses or authenticated requests.
+
+---
+
+## Nigerian Context / Impact
+
+Fuel availability, pricing and queue times change frequently across Nigeria,
+and reliable, up-to-date information is hard to come by. FuelFinder AI is
+built specifically for this reality:
+
+- Covers the products drivers actually buy — **Petrol (PMS), Diesel (AGO),
+  Kerosene (DPK), Cooking Gas (LPG) and CNG**.
+- Works on low-end Android phones over metered mobile data (system fonts,
+  lightweight bundles, offline catalogue caching, installable PWA).
+- Speaks to drivers in **English, Hausa, Yoruba and Igbo**.
+- Turns every driver's report into shared, community-verified intelligence —
+  fewer wasted trips, less fuel burnt searching for fuel, and clearer signals
+  about where product is actually available.
+
+---
+
+## Future Improvements
+
+The following are **planned/future ideas**, not current features:
+
+- Larger, continuously refreshed station dataset with broader geographic
+  coverage beyond the seed catalogue.
+- Stricter real-time fuel-availability signals and push/expiry for stale
+  reports.
+- Push notifications for saved stations or favourite fuel types.
+- Stronger community verification, reputation and anti-abuse tooling.
+- Advanced analytics on price trends and availability over time.
+- A native mobile application.
+
+---
+
+## Project Status
+
+**Status: Completed / Production**
+
+FuelFinder AI is deployed and functional at
+<https://fuel-station-finder-omega.vercel.app>, with the backend running on
+Render and data/auth/storage on Supabase.
+
+---
+
+## Author
+
+**Abdulwahab Abdulyekeen**
+**3MTT NextGen Fellow**
+**FuelFinder AI**
+
+---
+
+## License
+
+No license file is currently included in this repository. All rights are
+retained by the author unless a license is added explicitly.

@@ -51,6 +51,7 @@ import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useStationsQuery } from "@/hooks/useStations";
+import { TAB_PATH, tabFromPathname, useFinderPathname } from "@/lib/useFinderPath";
 import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS, useMapStore } from "@/store/useMapStore";
 
 export default function FinderPage() {
@@ -88,11 +89,17 @@ export default function FinderPage() {
   // `lg:hidden` (which would leave a duplicate dialog mounted).
   const isDesktop = useIsDesktop();
 
-  const [tab, setTab] = useState<FinderTab>("map");
+  // The browser URL is the source of truth for the active destination, so a
+  // refresh or direct entry of /map, /stations, /ai, /report or /account
+  // restores that tab (see rewrites in next.config.mjs).
+  const pathname = useFinderPathname();
+  const urlTab = tabFromPathname(pathname);
+
+  const [tab, setTab] = useState<FinderTab>(urlTab);
   const [snap, setSnap] = useState<SheetSnap>("peek");
   const [showReports, setShowReports] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
-  const [showFuelAi, setShowFuelAi] = useState(false);
+  const [showAccount, setShowAccount] = useState(urlTab === "account");
+  const [showFuelAi, setShowFuelAi] = useState(urlTab === "ai");
   const [aiQuery, setAiQuery] = useState("");
   const [aiSignal, setAiSignal] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
@@ -101,7 +108,85 @@ export default function FinderPage() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"signin" | "signup">("signin");
   const [signInIntent, setSignInIntent] = useState<"report" | null>(null);
-  const [showStations, setShowStations] = useState(false);
+  const [showStations, setShowStations] = useState(urlTab === "stations");
+
+  /**
+   * Apply the surface state for a destination WITHOUT touching the URL — used
+   * by back/forward handling (the URL has already changed) and by internal
+   * redirects that resolve one tab into another.
+   */
+  const applyTabSurface = useCallback((next: FinderTab) => {
+    setTab(next);
+    if (next === "map") {
+      setSnap("peek");
+      setShowStations(false);
+      return;
+    }
+    if (next === "stations") {
+      setShowStations(true);
+      setSnap("peek");
+      setShowFuelAi(false);
+      setShowAccount(false);
+      return;
+    }
+    if (next === "ai") {
+      setShowFuelAi(true);
+      setShowStations(false);
+      return;
+    }
+    if (next === "account") {
+      setShowAccount(true);
+      setShowStations(false);
+      return;
+    }
+    // report: surface itself is opened by handleTabChange after its guards.
+    setShowStations(false);
+    setShowFuelAi(false);
+    setShowAccount(false);
+  }, []);
+
+  /**
+   * Navigate to a destination and write its path to the address bar. A plain
+   * `history.pushState` (rather than `router.push`) keeps the whole shell —
+   * and the single mounted map — alive, so tab switches never remount it.
+   * `syncUrl=false` is used for popstate, where the URL is already correct.
+   */
+  const navigateToTab = useCallback(
+    (next: FinderTab, options: { syncUrl?: boolean; replace?: boolean } = {}) => {
+      const { syncUrl = true, replace = false } = options;
+      applyTabSurface(next);
+      if (syncUrl && typeof window !== "undefined") {
+        const url = TAB_PATH[next];
+        if (window.location.pathname !== url) {
+          if (replace) {
+            window.history.replaceState({ tab: next }, "", url);
+          } else {
+            window.history.pushState({ tab: next }, "", url);
+          }
+        }
+      }
+    },
+    [applyTabSurface],
+  );
+
+  /**
+   * Collapse any surface back to the map. Uses `replaceState` so dismissing a
+   * sheet doesn't add a redundant `/map` entry the user has to back through.
+   */
+  const returnToMap = useCallback(() => {
+    navigateToTab("map", { replace: true });
+  }, [navigateToTab]);
+
+  // Reconcile shell state with the address bar whenever the pathname changes.
+  // This single effect covers back/forward, the header brand link (which uses
+  // Next's <Link> to "/"), hard-refresh/direct-entry initial state, and our
+  // own history.pushState calls — the URL always wins. `applyTabSurface` is
+  // idempotent, so our own navigations simply re-confirm the same surface. We
+  // only reconcile when the URL's tab differs from the active tab, so closing
+  // a sub-surface (detail, report form) while on the same tab is untouched.
+  useEffect(() => {
+    if (urlTab !== tab) applyTabSurface(urlTab);
+  }, [urlTab, tab, applyTabSurface]);
 
   const selectedStation = items.find((s) => s.id === selectedStationId) ?? null;
   // Never crown a "closest" station from placeholder (previous-location) data.
@@ -168,9 +253,8 @@ export default function FinderPage() {
   const handleAsk = useCallback((question: string) => {
     setAiQuery(question);
     setAiSignal((n) => n + 1);
-    setShowFuelAi(true);
-    setTab("ai");
-  }, []);
+    navigateToTab("ai");
+  }, [navigateToTab]);
 
   /** Open the shared location picker (manual city/point selection). */
   const handleChooseLocation = useCallback(() => {
@@ -206,7 +290,8 @@ export default function FinderPage() {
   }, [setFilters, setRadiusMeters, setFavoritesOnly]);
 
   /**
-   * Mobile tab → surface mapping. Every tab performs a real action.
+   * Tab → surface mapping. Every tab performs a real action AND updates the
+   * browser URL so the destination survives refresh.
    *
    * "Report" is station-scoped (the backend requires a station_id) and
    * requires auth, so it resolves in this order: signed out → sign-in
@@ -214,25 +299,6 @@ export default function FinderPage() {
    * the user can pick one; otherwise → open the report form.
    */
   function handleTabChange(next: FinderTab) {
-    setTab(next);
-    if (next === "map") {
-      setSnap("peek");
-      setShowStations(false);
-    }
-    if (next === "stations") {
-      setShowStations(true);
-      setSnap("peek");
-      setShowFuelAi(false);
-      setShowAccount(false);
-    }
-    if (next === "ai") {
-      setShowFuelAi(true);
-      setShowStations(false);
-    }
-    if (next === "account") {
-      setShowAccount(true);
-      setShowStations(false);
-    }
     if (next === "report") {
       if (!auth.isAuthed) {
         handleRequireSignIn();
@@ -241,18 +307,14 @@ export default function FinderPage() {
       if (!selectedStation) {
         // Nothing to report against yet — open the stations screen so the
         // user can pick one, instead of an empty form they cannot submit.
-        setTab("stations");
-        setShowStations(true);
-        setSnap("peek");
-        setShowFuelAi(false);
-        setShowAccount(false);
+        navigateToTab("stations");
         return;
       }
-      setShowStations(false);
-      setShowFuelAi(false);
-      setShowAccount(false);
+      navigateToTab("report");
       setShowReportForm(true);
+      return;
     }
+    navigateToTab(next);
   }
 
   const recentChips = useMemo(
@@ -305,10 +367,8 @@ export default function FinderPage() {
   };
 
   const openStationsScreen = useCallback(() => {
-    setTab("stations");
-    setShowStations(true);
-    setSnap("peek");
-  }, []);
+    navigateToTab("stations");
+  }, [navigateToTab]);
 
   const mapSurface = (
     <StationMap
@@ -347,7 +407,7 @@ export default function FinderPage() {
           setShowSignIn(true);
         }}
         onSignOut={() => auth.signOut()}
-        onOpenAccount={() => setShowAccount(true)}
+        onOpenAccount={() => navigateToTab("account")}
       />
 
       <main className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -400,7 +460,7 @@ export default function FinderPage() {
             {!(showFuelAi && isDesktop) && (
               <button
                 type="button"
-                onClick={() => setShowFuelAi(true)}
+                onClick={() => navigateToTab("ai")}
                 className="flex w-full items-center gap-2.5 rounded-lg border border-brand-200 bg-brand-50/60 px-3.5 py-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-action text-action-fg">
@@ -534,7 +594,6 @@ export default function FinderPage() {
         active={tab}
         onChange={handleTabChange}
         stationCount={items.length}
-        className="lg:hidden"
       />
 
       {/* --------------------------------------------------- overlays ------ */}
@@ -544,7 +603,7 @@ export default function FinderPage() {
         open={showStations && !isDesktop}
         onClose={() => {
           setShowStations(false);
-          if (tab === "stations") setTab("map");
+          if (tab === "stations") returnToMap();
         }}
         labelledBy="stations-screen-title"
       >
@@ -567,7 +626,7 @@ export default function FinderPage() {
           }}
           onSelect={(id) => {
             setShowStations(false);
-            setTab("map");
+            returnToMap();
             handleSelect(id);
           }}
           onRetry={() => void refetch()}
@@ -578,7 +637,7 @@ export default function FinderPage() {
           onUseLocation={() => void requestLocation()}
           onClose={() => {
             setShowStations(false);
-            if (tab === "stations") setTab("map");
+            if (tab === "stations") returnToMap();
           }}
         />
       </FullPage>
@@ -588,7 +647,7 @@ export default function FinderPage() {
         open={showFuelAi && !isDesktop}
         onClose={() => {
           setShowFuelAi(false);
-          if (tab === "ai") setTab("map");
+          if (tab === "ai") returnToMap();
         }}
         labelledBy="ai-sheet-title"
       >
@@ -599,12 +658,12 @@ export default function FinderPage() {
           fullScreen
           onViewStation={(id) => {
             setShowFuelAi(false);
-            if (tab === "ai") setTab("map");
+            if (tab === "ai") returnToMap();
             handleSelect(id);
           }}
           onClose={() => {
             setShowFuelAi(false);
-            if (tab === "ai") setTab("map");
+            if (tab === "ai") returnToMap();
           }}
           initialQuery={aiQuery}
           querySignal={aiSignal}
@@ -721,7 +780,7 @@ export default function FinderPage() {
               onSignOut={() => {
                 void auth.signOut();
                 setShowAccount(false);
-                if (tab === "account") setTab("map");
+                if (tab === "account") returnToMap();
               }}
               onOpenMyReports={() => {
                 setShowAccount(false);
@@ -730,20 +789,19 @@ export default function FinderPage() {
               onOpenSavedStations={() => {
                 setShowAccount(false);
                 setFavoritesOnly(true);
-                setShowStations(true);
                 setSnap("peek");
-                setTab("stations");
+                navigateToTab("stations");
               }}
               onClose={() => {
                 setShowAccount(false);
-                if (tab === "account") setTab("map");
+                if (tab === "account") returnToMap();
               }}
             />
           </>
         );
         const closeAccount = () => {
           setShowAccount(false);
-          if (tab === "account") setTab("map");
+          if (tab === "account") returnToMap();
         };
         return isDesktop ? (
           <SidePanel open={showAccount} onClose={closeAccount} labelledBy="account-panel-title">
@@ -761,7 +819,7 @@ export default function FinderPage() {
         open={showReports}
         onClose={() => {
           setShowReports(false);
-          if (tab !== "map") setTab("map");
+          if (tab !== "map") returnToMap();
         }}
         labelledBy="reports-panel-title"
       >
@@ -771,7 +829,7 @@ export default function FinderPage() {
           subtitle="Live prices and queues from other drivers"
           onClose={() => {
             setShowReports(false);
-            if (tab !== "map") setTab("map");
+            if (tab !== "map") returnToMap();
           }}
         />
         <div className="min-h-0 flex-1 bg-surface">
