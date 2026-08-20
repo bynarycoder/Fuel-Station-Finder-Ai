@@ -11,6 +11,7 @@
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -137,14 +138,20 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = "Something went wrong",
-  description = "Please check your connection and try again.",
+  title,
+  description,
   onRetry,
-  retryLabel = "Try again",
+  retryLabel,
   secondaryAction,
   className,
   dense = false,
 }: ErrorStateProps) {
+  const { t } = useTranslation();
+  // Preserves the previous default-prop semantics exactly: an omitted
+  // description falls back to the standard sentence, while an explicitly
+  // empty/nullish one renders nothing.
+  const resolvedDescription =
+    description === undefined ? t("errors.checkConnection") : description;
   return (
     <div
       role="alert"
@@ -157,15 +164,19 @@ export function ErrorState({
       <span className="flex h-11 w-11 items-center justify-center rounded-pill bg-white text-danger-strong">
         <AlertTriangle className="h-5 w-5" aria-hidden="true" />
       </span>
-      <p className="text-h3 text-ink-900">{title}</p>
-      {description && (
-        <p className="max-w-xs text-body-sm text-ink-600">{description}</p>
+      <p className="text-h3 text-ink-900">
+        {title ?? t("errors.somethingWentWrong")}
+      </p>
+      {resolvedDescription && (
+        <p className="max-w-xs text-body-sm text-ink-600">
+          {resolvedDescription}
+        </p>
       )}
       <div className="mt-1 flex flex-wrap justify-center gap-2">
         {onRetry && (
           <Button variant="secondary" size="sm" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {retryLabel}
+            {retryLabel ?? t("errors.tryAgain")}
           </Button>
         )}
         {secondaryAction}

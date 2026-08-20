@@ -10,8 +10,10 @@
 
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function OfflineBanner() {
+  const { t } = useTranslation();
   // Deterministic initial state for SSR – server and client first render both false.
   const [offline, setOffline] = useState(false);
 
@@ -37,10 +39,7 @@ export function OfflineBanner() {
       className="z-header flex shrink-0 items-center justify-center gap-2 border-b border-warning-border bg-warning-soft px-4 py-2 text-caption font-semibold text-warning-strong"
     >
       <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>
-        Offline mode — showing cached stations. Live prices and reports may be
-        out of date until you reconnect.
-      </span>
+      <span>{t("offline.cached")}</span>
     </div>
   );
 }

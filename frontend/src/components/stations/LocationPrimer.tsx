@@ -23,6 +23,7 @@
  */
 
 import { MapPinned, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,8 @@ export function LocationPrimer({
   compact?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
+
   if (compact) {
     return (
       <div
@@ -57,14 +60,14 @@ export function LocationPrimer({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-body-sm font-semibold text-ink-900">
-            Find stations around you
+            {t("location.primerTitle")}
           </p>
           <button
             type="button"
             onClick={onSearchManually}
             className="truncate text-caption text-ink-500 underline-offset-2 hover:text-brand-700 hover:underline"
           >
-            Allow location access — or pick a city instead
+            {t("location.primerCompactCta")}
           </button>
         </div>
         <Button
@@ -74,7 +77,7 @@ export function LocationPrimer({
           disabled={loading}
           className="shrink-0"
         >
-          {loading ? "Locating…" : "Allow"}
+          {loading ? t("location.locating") : t("location.allow")}
         </Button>
       </div>
     );
@@ -92,19 +95,18 @@ export function LocationPrimer({
           <MapPinned className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-h3 text-ink-900">Find stations around you</h2>
+          <h2 className="text-h3 text-ink-900">{t("location.primerTitle")}</h2>
           <p className="mt-1 text-body-sm text-ink-600">
-            Allow location access to see nearby fuel stations, real distances
-            and directions from where you actually are.
+            {t("location.primerBody")}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="accent" onClick={onUseLocation} disabled={loading}>
               <MapPinned className="h-4 w-4" aria-hidden="true" />
-              {loading ? "Locating…" : "Use my location"}
+              {loading ? t("location.locating") : t("location.useMyLocation")}
             </Button>
             <Button variant="secondary" onClick={onSearchManually}>
-              Search manually
+              {t("location.searchManually")}
             </Button>
           </div>
         </div>
@@ -112,8 +114,7 @@ export function LocationPrimer({
 
       <p className="flex items-center gap-1.5 border-t border-hairline bg-ink-50 px-4 py-2.5 text-caption text-ink-500">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden="true" />
-        Your position is used only to search for stations. It is never stored on
-        our servers.
+        {t("location.privacyNote")}
       </p>
     </div>
   );

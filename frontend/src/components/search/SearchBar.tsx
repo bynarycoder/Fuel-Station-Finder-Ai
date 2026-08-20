@@ -18,6 +18,7 @@
 
 import { ArrowRight, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ interface SearchBarProps {
   onSearch: (term: string) => void;
   /** Hand a natural-language question to Fuel Intelligence. */
   onAsk: (question: string) => void;
+  /** Defaults to the localised "Search stations, areas or fuel..." copy. */
   placeholder?: string;
   className?: string;
   /** Recent searches, rendered as one-tap chips beneath the field. */
@@ -73,13 +75,14 @@ export function SearchBar({
   value,
   onSearch,
   onAsk,
-  placeholder = "Search stations, areas or fuel...",
+  placeholder,
   className,
   recent,
   onClearRecent,
   autoFocus = false,
   compact = false,
 }: SearchBarProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState(value);
   const [focused, setFocused] = useState(false);
   const committed = useRef(value);
@@ -145,8 +148,8 @@ export function SearchBar({
               submit();
             }
           }}
-          placeholder={placeholder}
-          aria-label="Search stations or ask Fuel Intelligence"
+          placeholder={placeholder ?? t("search.placeholder")}
+          aria-label={t("search.inputLabel")}
           aria-describedby="search-mode-hint"
           className={cn(
             "min-w-0 flex-1 bg-transparent text-[16px] text-ink-900 placeholder:text-ink-500 focus:outline-none [&::-webkit-search-cancel-button]:hidden",
@@ -162,7 +165,7 @@ export function SearchBar({
               committed.current = "";
               onSearch("");
             }}
-            aria-label="Clear search"
+            aria-label={t("search.clear")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700 pointer-coarse:min-h-touch pointer-coarse:min-w-touch"
           >
             <X className="h-4 w-4" aria-hidden="true" />
@@ -173,7 +176,7 @@ export function SearchBar({
           type="button"
           onClick={submit}
           disabled={!text.trim()}
-          aria-label={isQuestion ? "Ask Fuel Intelligence" : "Search stations"}
+          aria-label={isQuestion ? t("search.askLabel") : t("search.searchLabel")}
           className={cn(
             compact
               ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
@@ -188,7 +191,7 @@ export function SearchBar({
           {isQuestion ? (
             <>
               <Sparkles className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Ask</span>
+              <span className="hidden sm:inline">{t("search.ask")}</span>
             </>
           ) : (
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -197,21 +200,19 @@ export function SearchBar({
       </div>
 
       <p id="search-mode-hint" className="sr-only" aria-live="polite">
-        {isQuestion
-          ? "Press enter to ask Fuel Intelligence this question."
-          : "Press enter to search station names, brands and cities."}
+        {isQuestion ? t("search.hintAsk") : t("search.hintSearch")}
       </p>
 
       {!compact && focused && isQuestion && (
         <p className="mt-1.5 flex items-center gap-1.5 px-1 text-caption text-brand-700">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          Looks like a question — this will go to Fuel Intelligence.
+          {t("search.questionNotice")}
         </p>
       )}
 
       {recent && recent.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-label uppercase text-ink-500">Recent</span>
+          <span className="text-label uppercase text-ink-500">{t("search.recent")}</span>
           {recent.slice(0, 4).map((item) => (
             <button
               key={item.id}
@@ -228,7 +229,7 @@ export function SearchBar({
               onClick={onClearRecent}
               className="ml-auto rounded-md px-2 py-1 text-caption text-ink-500 transition-colors hover:text-danger-strong"
             >
-              Clear
+              {t("search.clearRecent")}
             </button>
           )}
         </div>

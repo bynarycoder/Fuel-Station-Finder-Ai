@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { LocationStatusBanner } from "@/components/stations/LocationStatusBanner";
 import { Badge } from "@/components/ui/Badge";
@@ -52,13 +53,16 @@ import { FUEL_TYPE_CODES, FUEL_TYPE_LABELS } from "@/types/station";
 /** Debounce for the text inputs (avoid an API call per keystroke). */
 const SEARCH_DEBOUNCE_MS = 400;
 
-/** Short chip labels — the full names live in the filter sheet. */
+/**
+ * Short chip labels — the full names live in the filter sheet. Values are
+ * translation KEYS; the fuel codes themselves are never localised.
+ */
 const FUEL_SHORT: Record<string, string> = {
-  PMS: "Petrol",
-  AGO: "Diesel",
-  DPK: "Kerosene",
-  LPG: "Gas",
-  CNG: "CNG",
+  PMS: "fuel.petrol",
+  AGO: "fuel.diesel",
+  DPK: "fuel.kerosene",
+  LPG: "fuel.gas",
+  CNG: "fuel.cng",
 };
 
 interface StationFiltersProps {
@@ -120,6 +124,7 @@ export function StationFilters({
     stopLocationWatch,
   } = useMapStore();
   const auth = useAuth();
+  const { t } = useTranslation();
 
   const isNearby = mode === "nearby";
   const hasPosition = userLocation !== null;
@@ -213,21 +218,23 @@ export function StationFilters({
   }
 
   const nearMeLabel = loading
-    ? "Locating…"
+    ? t("filters.locating")
     : isNearby && isWatching
-      ? "Tracking you"
+      ? t("filters.trackingYou")
       : isNearby && isManual
-        ? "Use my current location"
+        ? t("filters.useCurrentLocation")
         : isNearby && hasPosition
-          ? "Start tracking"
-          : "Near me";
+          ? t("filters.startTracking")
+          : t("filters.nearMe");
 
   // ---- Active filter chips -------------------------------------------------
   const activeChips: Array<{ key: string; label: string; onRemove: () => void }> = [];
   if (filters.fuelType) {
     activeChips.push({
       key: "fuel",
-      label: FUEL_SHORT[filters.fuelType] ?? filters.fuelType,
+      label: FUEL_SHORT[filters.fuelType]
+        ? t(FUEL_SHORT[filters.fuelType])
+        : filters.fuelType,
       onRemove: () => setFilters({ fuelType: "" }),
     });
   }
@@ -248,14 +255,17 @@ export function StationFilters({
   if (isNearby && radiusMeters !== DEFAULT_RADIUS_METERS) {
     activeChips.push({
       key: "radius",
-      label: `Within ${radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`}`,
+      label: t("filters.within", {
+        value:
+          radiusMeters >= 1000 ? `${radiusMeters / 1000} km` : `${radiusMeters} m`,
+      }),
       onRemove: () => setRadiusMeters(DEFAULT_RADIUS_METERS),
     });
   }
   if (favoritesOnly) {
     activeChips.push({
       key: "favorites",
-      label: "My favourites",
+      label: t("filters.myFavourites"),
       onRemove: () => setFavoritesOnly(false),
     });
   }
@@ -273,7 +283,7 @@ export function StationFilters({
         floating && "shadow-e2",
         isNearby && "ring-2 ring-accent-500/40 ring-offset-1 ring-offset-canvas",
       )}
-      title={isWatching ? "Live location tracking is active" : undefined}
+      title={isWatching ? t("filters.trackingActive") : undefined}
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -292,7 +302,7 @@ export function StationFilters({
       className={cn("shrink-0", floating && "shadow-e2")}
     >
       <MapIcon className="h-4 w-4" aria-hidden="true" />
-      Browse all
+      {t("filters.browseAll")}
     </Button>
   );
 
@@ -309,7 +319,7 @@ export function StationFilters({
               <button
                 type="button"
                 onClick={chip.onRemove}
-                aria-label={`Remove filter ${chip.label}`}
+                aria-label={t("filters.removeFilter", { label: chip.label })}
                 className="flex h-6 w-6 items-center justify-center rounded-pill transition-colors hover:bg-brand-100"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -325,7 +335,7 @@ export function StationFilters({
             }}
             className="rounded-md px-2 py-1 text-caption font-medium text-ink-500 transition-colors hover:text-danger-strong"
           >
-            Clear all
+            {t("filters.clearAll")}
           </button>
         </div>
       )}
@@ -352,17 +362,18 @@ export function StationFilters({
         >
           <Heart className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="text-body-sm font-semibold">Sign in to use favourites</p>
+            <p className="text-body-sm font-semibold">
+              {t("filters.favouritesPromptTitle")}
+            </p>
             <p className="mt-0.5 opacity-90">
-              Favourites are saved to your account. Sign in from the top-right,
-              then tap the heart on any station.
+              {t("filters.favouritesPromptBody")}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowFavoritesPrompt(false)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-info transition-colors hover:bg-white/60"
-            aria-label="Dismiss"
+            aria-label={t("filters.dismiss")}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -393,7 +404,7 @@ export function StationFilters({
           aria-haspopup="dialog"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-          Filters
+          {t("filters.filters")}
           {filterCount > 0 && (
             <Badge tone="solid" className="ml-0.5 px-1.5">
               {filterCount}
@@ -428,8 +439,8 @@ export function StationFilters({
                 size="icon-sm"
                 onClick={onChooseLocation}
                 className="shadow-e2"
-                aria-label="Choose location"
-                title="Search a city or pick a point on the map"
+                aria-label={t("filters.chooseLocation")}
+                title={t("filters.chooseLocationTitle")}
               >
                 <MapPin className="h-4 w-4" aria-hidden="true" />
               </Button>
@@ -443,7 +454,7 @@ export function StationFilters({
               }}
               className="relative shadow-e2"
               aria-haspopup="dialog"
-              aria-label="Filters"
+              aria-label={t("filters.filters")}
             >
               <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
               {filterCount > 0 && (
@@ -465,10 +476,12 @@ export function StationFilters({
               size={compact ? "icon-sm" : "md"}
               onClick={onChooseLocation}
               className="shrink-0"
-              title="Search a city or pick a point on the map"
+              title={t("filters.chooseLocationTitle")}
             >
               <MapPin className="h-4 w-4" aria-hidden="true" />
-              <span className={compact ? "sr-only" : undefined}>Choose location</span>
+              <span className={compact ? "sr-only" : undefined}>
+                {t("filters.chooseLocation")}
+              </span>
             </Button>
           )}
 
@@ -478,10 +491,12 @@ export function StationFilters({
               size={compact ? "icon-sm" : "md"}
               onClick={() => recenterLocation()}
               className="shrink-0"
-              title="Center the map on your current location"
+              title={t("filters.recenterTitle")}
             >
               <Navigation className="h-4 w-4" aria-hidden="true" />
-              <span className={compact ? "sr-only" : undefined}>Recenter on Me</span>
+              <span className={compact ? "sr-only" : undefined}>
+                {t("filters.recenter")}
+              </span>
             </Button>
           )}
 
@@ -495,15 +510,19 @@ export function StationFilters({
               // in an sr-only <span> — an absolutely-positioned sr-only box
               // inside a horizontal scroll rail is measured against the page and
               // silently widened the document to 342 px at a 320 px viewport.
-              aria-label={favoritesOnly ? "Showing favourites only" : "Show favourites only"}
+              aria-label={
+                favoritesOnly
+                  ? t("filters.showingFavouritesOnly")
+                  : t("filters.showFavouritesOnly")
+              }
               className={cn(
                 "shrink-0",
                 favoritesOnly && "border-accent-300 bg-accent-50 text-accent-700",
               )}
               title={
                 auth.isAuthed
-                  ? "Show only your favorite stations"
-                  : "Sign in to use favorites"
+                  ? t("filters.favouritesTitleAuthed")
+                  : t("filters.favouritesTitleGuest")
               }
             >
               <Heart
@@ -527,7 +546,7 @@ export function StationFilters({
             aria-haspopup="dialog"
           >
             <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Filters
+            {t("filters.filters")}
             {filterCount > 0 && (
               <Badge tone="solid" className="ml-0.5 px-1.5">
                 {filterCount}
@@ -555,8 +574,8 @@ export function StationFilters({
             aria-pressed={favoritesOnly}
             title={
               auth.isAuthed
-                ? "Show only your favorite stations"
-                : "Sign in to use favorites"
+                ? t("filters.favouritesTitleAuthed")
+                : t("filters.favouritesTitleGuest")
             }
             className={cn(
               "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-semibold transition-colors duration-fast pointer-coarse:min-h-touch",
@@ -569,7 +588,7 @@ export function StationFilters({
               className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
               aria-hidden="true"
             />
-            {favoritesOnly ? "My favorites" : "Favorites"}
+            {favoritesOnly ? t("filters.myFavorites") : t("filters.favorites")}
           </button>
         </div>
       )}
@@ -583,17 +602,17 @@ export function StationFilters({
         labelledBy="filters-title"
       >
         <DialogHeader
-          title="Filters"
+          title={t("filters.filters")}
           titleId="filters-title"
-          subtitle="Narrow the stations shown on the map and list"
+          subtitle={t("filters.sheetSubtitle")}
           onClose={() => setSheetOpen(false)}
         />
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
-          <Fieldset legend="Fuel">
+          <Fieldset legend={t("filters.legendFuel")}>
             <div className="flex flex-wrap gap-1.5">
               <FuelChip
-                label="Any fuel"
+                label={t("fuel.any")}
                 active={filters.fuelType === ""}
                 onClick={() => setFilters({ fuelType: "" })}
               />
@@ -609,7 +628,7 @@ export function StationFilters({
           </Fieldset>
 
           {isNearby && (
-            <Fieldset legend="Distance">
+            <Fieldset legend={t("filters.legendDistance")}>
               <div className="flex flex-wrap gap-1.5">
                 {RADIUS_OPTIONS.map((value) => (
                   <FuelChip
@@ -621,23 +640,23 @@ export function StationFilters({
                 ))}
               </div>
               <p className="mt-2 text-caption text-ink-500">
-                Stations are searched within this distance of your position.
+                {t("filters.distanceHint")}
               </p>
             </Fieldset>
           )}
 
-          <Fieldset legend="Brand">
+          <Fieldset legend={t("filters.legendBrand")}>
             <input
               type="text"
               value={draft.brand}
               onChange={(e) => setDraft((d) => ({ ...d, brand: e.target.value }))}
-              placeholder="e.g. NNPC, Mobil, A.A. Rano"
-              aria-label="Filter by brand"
+              placeholder={t("filters.brandPlaceholder")}
+              aria-label={t("filters.brandLabel")}
               className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
           </Fieldset>
 
-          <Fieldset legend="City">
+          <Fieldset legend={t("filters.legendCity")}>
             <input
               ref={(node) => {
                 if (node && focusCity) {
@@ -650,16 +669,16 @@ export function StationFilters({
               type="text"
               value={draft.city}
               onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))}
-              placeholder="e.g. Lagos, Abuja, Kano"
-              aria-label="Filter by city"
+              placeholder={t("filters.cityPlaceholder")}
+              aria-label={t("filters.cityLabel")}
               className="h-11 w-full rounded-lg border border-hairline bg-surface px-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
             />
             <p className="mt-2 text-caption text-ink-500">
-              Searching by city works without sharing your location.
+              {t("filters.cityHint")}
             </p>
           </Fieldset>
 
-          <Fieldset legend="Saved">
+          <Fieldset legend={t("filters.legendSaved")}>
             <button
               type="button"
               onClick={handleFavoritesToggle}
@@ -675,7 +694,7 @@ export function StationFilters({
                 className={cn("h-4 w-4", favoritesOnly && "fill-accent-400 text-accent-500")}
                 aria-hidden="true"
               />
-              Only my favourite stations
+              {t("filters.onlyFavouriteStations")}
             </button>
           </Fieldset>
         </div>
@@ -689,10 +708,10 @@ export function StationFilters({
               setFavoritesOnly(false);
             }}
           >
-            Reset
+            {t("filters.reset")}
           </Button>
           <Button block className="flex-1" onClick={() => setSheetOpen(false)}>
-            Show results
+            {t("filters.showResults")}
           </Button>
         </div>
       </Modal>

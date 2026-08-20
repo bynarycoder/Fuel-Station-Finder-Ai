@@ -12,11 +12,16 @@
  * - every link and contact row is a ≥44 px touch target on coarse pointers;
  * - contact details are real, actionable links (mailto/tel), not plain text.
  *
- * It is a server component: no state, no effects, nothing to hydrate.
+ * It is a presentational client component (no state, no effects) — it opts
+ * into the client only so its copy can be localised via `useTranslation()`.
+ * Station/brand names, contact details and the technology list stay verbatim.
  */
+
+"use client";
 
 import Link from "next/link";
 import { Mail, Phone, Linkedin, Sparkles, ArrowUpRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { BrandGlyph } from "@/components/shell/BrandGlyph";
 import {
@@ -28,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function AppFooter({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
 
   return (
@@ -62,15 +68,12 @@ export function AppFooter({ className }: { className?: string }) {
             </div>
 
             <p className="mt-4 max-w-sm text-body-sm leading-relaxed text-slab-muted/90">
-              Finding fuel in Nigeria should not cost you a tank of it. We bring
-              station locations, community-reported prices and honest
-              availability into one map — so you drive to the right station the
-              first time.
+              {t("footer.mission")}
             </p>
 
             <p className="mt-4 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1.5 text-caption font-semibold text-accent-200 ring-1 ring-inset ring-white/15">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              Fuel Intelligence — reasoning, never guesswork
+              {t("footer.tagline")}
             </p>
           </div>
 
@@ -102,7 +105,7 @@ export function AppFooter({ className }: { className?: string }) {
           {/* ------------------------------------------------ creator */}
           <div className="lg:col-span-4">
             <h2 className="text-label uppercase tracking-wide text-slab-muted">
-              Built by
+              {t("footer.builtBy")}
             </h2>
             <p className="mt-3 text-h3 text-white">{CREATOR.name}</p>
             <p className="mt-0.5 text-caption text-slab-muted">{CREATOR.role}</p>
@@ -134,9 +137,9 @@ export function AppFooter({ className }: { className?: string }) {
                   className="-mx-2 flex min-h-touch items-center gap-2.5 rounded-md px-2 text-body-sm text-slab-muted transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slab"
                 >
                   <Linkedin className="h-4 w-4 shrink-0 text-accent-300" aria-hidden="true" />
-                  <span className="truncate">LinkedIn profile</span>
+                  <span className="truncate">{t("footer.linkedin")}</span>
                   <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
-                  <span className="sr-only">(opens in a new tab)</span>
+                  <span className="sr-only">{t("footer.opensInNewTab")}</span>
                 </a>
               </li>
             </ul>
@@ -146,7 +149,7 @@ export function AppFooter({ className }: { className?: string }) {
         {/* ------------------------------------------------ tech stack */}
         <div className="mt-10 border-t border-white/10 pt-6">
           <h2 className="text-label uppercase tracking-wide text-slab-muted">
-            Technology
+            {t("footer.technology")}
           </h2>
           <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2">
             {TECH_STACK.flatMap((group) => group.items).map((item) => (
@@ -164,11 +167,10 @@ export function AppFooter({ className }: { className?: string }) {
         {/* --------------------------------------------------- legal */}
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-caption text-slab-muted">
-            © {year} FuelFinder AI. Built for Nigerian drivers.
+            {t("footer.copyright", { year })}
           </p>
           <p className="max-w-md text-caption text-slab-muted sm:text-right">
-            Prices are community-reported and may change without notice — always
-            confirm at the pump.
+            {t("footer.disclaimer")}
           </p>
         </div>
       </div>

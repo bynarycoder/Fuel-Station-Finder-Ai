@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -40,6 +41,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function AdminPage() {
+  const { t } = useTranslation();
   const [token, setToken] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(true);
 
@@ -110,13 +112,15 @@ export default function AdminPage() {
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-6 w-6 text-accent-300" aria-hidden="true" />
           <div>
-            <h1 className="text-h2 text-white">Admin dashboard</h1>
-            <p className="text-caption text-slab-muted">Signed in as {me.data.email}</p>
+            <h1 className="text-h2 text-white">{t("admin.dashboard")}</h1>
+            <p className="text-caption text-slab-muted">
+              {t("admin.signedInAs", { email: me.data.email })}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/" className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-semibold text-slab-muted transition-colors hover:bg-surface/10 hover:text-white">
-            <ArrowLeft className="h-3.5 w-3.5" /> Map
+            <ArrowLeft className="h-3.5 w-3.5" /> {t("admin.map")}
           </Link>
           <button
             onClick={async () => {
@@ -125,7 +129,7 @@ export default function AdminPage() {
             }}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-white/15 bg-surface/10 px-3 text-body-sm font-semibold text-white transition-colors hover:bg-surface/20"
           >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
+            <LogOut className="h-3.5 w-3.5" /> {t("admin.signOut")}
           </button>
         </div>
       </header>

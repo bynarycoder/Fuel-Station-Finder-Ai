@@ -15,6 +15,7 @@
  */
 
 import { MapPinOff, SearchX, Fuel } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { StationCard } from "@/components/stations/StationCard";
 import { Button } from "@/components/ui/button";
@@ -63,18 +64,19 @@ export function StationList({
   hideCount = false,
   sortBy = "auto",
 }: StationListProps) {
+  const { t } = useTranslation();
   const activeFuelType = useMapStore((s) => s.filters.fuelType);
   const prices = useStationPrices();
 
   if (isLoading) {
-    return <LoadingSkeleton count={4} label="Finding stations" />;
+    return <LoadingSkeleton count={4} label={t("list.loading")} />;
   }
 
   if (isError) {
     return (
       <ErrorState
-        title="We couldn't load nearby stations"
-        description="Your connection may have dropped, or the service is starting up. Give it another try."
+        title={t("list.errorTitle")}
+        description={t("list.errorBody")}
         onRetry={onRetry}
       />
     );
@@ -85,22 +87,22 @@ export function StationList({
       return (
         <EmptyState
           icon={MapPinOff}
-          title="No stations found nearby"
+          title={t("list.emptyNearbyTitle")}
           description={
             activeFuelType
-              ? `No ${activeFuelType} stations within your current search radius.`
-              : "Nothing within your current search radius."
+              ? t("list.emptyNearbyFuel", { fuel: activeFuelType })
+              : t("list.emptyNearbyAny")
           }
           action={
             <>
               {onExpandRadius && (
                 <Button size="sm" onClick={onExpandRadius}>
-                  Expand radius
+                  {t("list.expandRadius")}
                 </Button>
               )}
               {activeFuelType && onClearFilters && (
                 <Button variant="secondary" size="sm" onClick={onClearFilters}>
-                  Clear filters
+                  {t("list.clearFilters")}
                 </Button>
               )}
             </>
@@ -111,12 +113,12 @@ export function StationList({
     return (
       <EmptyState
         icon={SearchX}
-        title="No stations match your search"
-        description="Try a different name, brand or city — or clear the filters to see everything."
+        title={t("list.emptySearchTitle")}
+        description={t("list.emptySearchBody")}
         action={
           onClearFilters && (
             <Button size="sm" onClick={onClearFilters}>
-              Clear filters
+              {t("list.clearFilters")}
             </Button>
           )
         }
@@ -144,8 +146,12 @@ export function StationList({
         >
           <Fuel className="h-3.5 w-3.5 text-ink-400" aria-hidden="true" />
           <span className="font-semibold text-ink-700">{sorted.length}</span>
-          station{sorted.length === 1 ? "" : "s"}
-          {isNearby ? " near you · sorted by distance" : ""}
+          {/* No separating space: the pre-i18n JSX had none (the newline
+              between the <span> and the text was stripped by JSX), and the
+              English output must stay byte-identical. */}
+          {isNearby
+            ? t("list.countNearby", { count: sorted.length })
+            : t("list.count", { count: sorted.length })}
         </p>
       )}
 

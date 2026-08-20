@@ -47,6 +47,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { StationProvenanceBadge } from "@/components/stations/StationProvenanceBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -110,6 +111,7 @@ export function FuelIntelligence({
   onChooseLocation,
   fullScreen = false,
 }: FuelIntelligenceProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery ?? "");
   const [phase, setPhase] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<AIRecommendResponse | null>(null);
@@ -186,7 +188,7 @@ export function FuelIntelligence({
       setError(
         err instanceof Error && err.message
           ? err.message
-          : "The Fuel AI is unavailable right now. The regular station finder still works.",
+          : t("ai.unavailable"),
       );
       setPhase("error");
     }
@@ -217,7 +219,7 @@ export function FuelIntelligence({
     const loc = await requestLocation();
     if (!loc) {
       setLocationError(
-        useMapStore.getState().locationMessage ?? "Could not get your location.",
+        useMapStore.getState().locationMessage ?? t("ai.couldNotGetLocation"),
       );
       return;
     }
@@ -240,7 +242,7 @@ export function FuelIntelligence({
           ? "h-full min-h-0 flex-1 rounded-none border-0 shadow-none"
           : "rounded-2xl border border-hairline shadow-e2",
       )}
-      aria-label="Fuel Intelligence assistant"
+      aria-label={t("ai.sectionLabel")}
       data-testid="fuel-intelligence"
     >
       {/* Branded header — makes it unmistakable that this is the AI surface. */}
@@ -250,9 +252,9 @@ export function FuelIntelligence({
             <Sparkles className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="truncate text-h3 text-slab-fg">Fuel AI Assistant</h2>
+            <h2 className="truncate text-h3 text-slab-fg">{t("ai.title")}</h2>
             <p className="truncate text-caption text-white/85">
-              Ask me anything about fuel stations
+              {t("ai.subtitle")}
             </p>
           </div>
         </div>
@@ -261,7 +263,7 @@ export function FuelIntelligence({
             type="button"
             onClick={onClose}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
-            aria-label="Close Fuel Intelligence"
+            aria-label={t("ai.close")}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -276,10 +278,7 @@ export function FuelIntelligence({
             leaving a blank panel. */}
         {phase === "idle" && !asked && !needsLocation && (
           <AssistantBubble>
-            <p className="text-body-sm text-ink-800">
-              Hi! I can find fuel stations near you, compare reported prices and
-              answer general fuel questions. What do you need?
-            </p>
+            <p className="text-body-sm text-ink-800">{t("ai.intro")}</p>
           </AssistantBubble>
         )}
 
@@ -304,12 +303,9 @@ export function FuelIntelligence({
             <LocateFixed className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <p className="text-body-sm font-semibold">
-                I need your location to find stations near you.
+                {t("ai.needLocationTitle")}
               </p>
-              <p className="mt-0.5 opacity-90">
-                Share your exact GPS position (city-level guesses are not accepted) or
-                choose a city, and I&apos;ll search the real station database.
-              </p>
+              <p className="mt-0.5 opacity-90">{t("ai.needLocationBody")}</p>
               {locationError && (
                 <p className="mt-1 font-semibold text-danger-strong">{locationError}</p>
               )}
@@ -325,12 +321,12 @@ export function FuelIntelligence({
                   ) : (
                     <LocateFixed className="h-4 w-4" aria-hidden="true" />
                   )}
-                  Share my location
+                  {t("ai.shareLocation")}
                 </Button>
                 {onChooseLocation && (
                   <Button variant="secondary" size="sm" onClick={onChooseLocation}>
                     <MapPin className="h-4 w-4" aria-hidden="true" />
-                    Choose a location
+                    {t("ai.chooseLocation")}
                   </Button>
                 )}
               </div>
@@ -343,14 +339,14 @@ export function FuelIntelligence({
         {userLocation && locationSource === "manual" && manualLocationLabel && (
           <p className="flex items-center gap-1.5 text-caption text-brand-700">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Using selected location — {manualLocationLabel}
+            {t("ai.usingSelected", { label: manualLocationLabel })}
             {onChooseLocation && (
               <button
                 type="button"
                 onClick={onChooseLocation}
                 className="inline-flex items-center px-1 font-semibold text-brand-800 underline-offset-2 hover:underline pointer-coarse:min-h-touch"
               >
-                Change
+                {t("ai.change")}
               </button>
             )}
           </p>
@@ -362,7 +358,7 @@ export function FuelIntelligence({
           <AssistantBubble role="status">
             <span className="flex items-center gap-2.5 text-body-sm font-medium text-brand-800">
               <ThinkingDots className="text-brand-600" />
-              Reading nearby stations and recent reports…
+              {t("ai.thinking")}
             </span>
             <span className="mt-2.5 block space-y-2">
               <span className="skeleton block h-3 w-3/5 rounded-md" />
@@ -379,12 +375,9 @@ export function FuelIntelligence({
           >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold">The Fuel AI hit a snag</p>
+              <p className="text-body-sm font-semibold">{t("ai.errorTitle")}</p>
               <p className="mt-0.5 opacity-90">{error}</p>
-              <p className="mt-1 opacity-80">
-                The regular station finder is unaffected — use the filters above or
-                try again.
-              </p>
+              <p className="mt-1 opacity-80">{t("ai.errorBody")}</p>
             </div>
           </div>
         )}
@@ -485,7 +478,7 @@ export function FuelIntelligence({
         {phase !== "loading" && (
           <div className="mt-1">
             <p className="text-caption text-ink-500">
-              {asked ? "You can also try:" : "Try asking:"}
+              {asked ? t("ai.alsoTry") : t("ai.tryAsking")}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {EXAMPLE_QUERIES.map((example) => (
@@ -525,11 +518,11 @@ export function FuelIntelligence({
                 void ask();
               }
             }}
-            placeholder="Ask anything..."
+            placeholder={t("ai.composerPlaceholder")}
             maxLength={300}
             enterKeyHint="send"
             className="h-12 min-w-0 flex-1 rounded-pill border border-hairline bg-canvas px-4 text-[16px] text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-            aria-label="Ask Fuel AI"
+            aria-label={t("ai.composerLabel")}
           />
           <button
             type="button"
@@ -537,7 +530,7 @@ export function FuelIntelligence({
             disabled={phase === "loading" || !query.trim()}
             /* Distinct from the input's own "Ask Fuel AI" label so the two
                controls stay individually addressable by assistive tech. */
-            aria-label="Ask Fuel AI — send message"
+            aria-label={t("ai.sendLabel")}
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-pill bg-action text-action-fg shadow-e1 transition-all duration-fast hover:bg-action-hover active:scale-95 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             {phase === "loading" ? (

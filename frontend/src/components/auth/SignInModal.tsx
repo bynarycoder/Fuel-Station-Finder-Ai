@@ -15,6 +15,8 @@
 
 import { useState } from "react";
 import { Loader2, MailCheck, ShieldAlert } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { DialogHeader } from "@/components/ui/Sheet";
@@ -42,6 +44,7 @@ interface SignInModalProps {
 const MIN_PASSWORD_LENGTH = 6;
 
 export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignInModalProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>(initialMode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,16 +60,16 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
   }
 
   function validate(): string | null {
-    if (!email.trim()) return "Enter your email address.";
+    if (!email.trim()) return t("auth.emailRequired");
     // A simple, friendly email shape check; Supabase performs the real one.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return "Enter a valid email address.";
+      return t("auth.emailInvalid");
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
-      return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+      return t("auth.passwordTooShort", { count: MIN_PASSWORD_LENGTH });
     }
     if (mode === "signup" && password !== confirmPassword) {
-      return "Passwords do not match.";
+      return t("auth.passwordMismatch");
     }
     return null;
   }
@@ -90,9 +93,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
       } else {
         const result = await onSignUp(email.trim(), password);
         if (result.requiresEmailConfirmation) {
-          setNotice(
-            "Account created. Check your email to confirm your address, then sign in.",
-          );
+          setNotice(t("auth.accountCreated"));
           setPassword("");
           setConfirmPassword("");
         }
@@ -100,7 +101,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
         // and refreshes the user as part of onSignUp's resolution.
       }
     } catch (err) {
-      setError(humanizeAuthError(err));
+      setError(humanizeAuthError(err, t));
     } finally {
       setBusy(false);
     }
@@ -109,12 +110,12 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
   return (
     <div className="flex h-full flex-col">
       <DialogHeader
-        title={mode === "signin" ? "Sign in" : "Create account"}
+        title={mode === "signin" ? t("auth.signIn") : t("auth.createAccount")}
         titleId="auth-modal-title"
         subtitle={
           mode === "signin"
-            ? "Report prices and save favourite stations"
-            : "Join other drivers keeping fuel data current"
+            ? t("auth.signInSubtitle")
+            : t("auth.signUpSubtitle")
         }
         onClose={onClose}
       />
@@ -124,8 +125,8 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <ShieldAlert className="h-8 w-8 text-warning" aria-hidden="true" />
             <p className="max-w-xs text-body-sm text-ink-600">
-              Supabase isn&apos;t configured on this environment, so sign-in is
-              unavailable. Set <code>NEXT_PUBLIC_SUPABASE_*</code> to enable it.
+              {t("auth.unavailableBefore")}{" "}
+              <code>NEXT_PUBLIC_SUPABASE_*</code> {t("auth.unavailableAfter")}
             </p>
           </div>
         ) : (
@@ -142,7 +143,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                     : "text-ink-500 hover:text-ink-700"
                 }`}
               >
-                Sign in
+                {t("auth.signIn")}
               </button>
               <button
                 type="button"
@@ -155,7 +156,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                     : "text-ink-500 hover:text-ink-700"
                 }`}
               >
-                Sign up
+                {t("auth.signUp")}
               </button>
             </div>
 
@@ -169,19 +170,19 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                   className="mt-2"
                   onClick={() => switchMode("signin")}
                 >
-                  Back to sign in
+                  {t("auth.backToSignIn")}
                 </Button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <p className="text-caption text-ink-500">
                   {mode === "signin"
-                    ? "Sign in to report fuel prices and help other drivers."
-                    : "Create a driver account to report fuel prices and help other drivers."}
+                    ? t("auth.signInIntro")
+                    : t("auth.signUpIntro")}
                 </p>
                 <label className="block">
                   <span className="mb-1.5 block text-body-sm font-semibold text-ink-800">
-                    Email
+                    {t("auth.email")}
                   </span>
                   <input
                     type="email"
@@ -194,7 +195,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-body-sm font-semibold text-ink-800">
-                    Password
+                    {t("auth.password")}
                   </span>
                   <input
                     type="password"
@@ -210,7 +211,7 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                 {mode === "signup" && (
                   <label className="block">
                     <span className="mb-1.5 block text-body-sm font-semibold text-ink-800">
-                      Confirm password
+                      {t("auth.confirmPassword")}
                     </span>
                     <input
                       type="password"
@@ -231,12 +232,14 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
                   {busy ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      {mode === "signin" ? "Signing in…" : "Creating account…"}
+                      {mode === "signin"
+                        ? t("auth.signingIn")
+                        : t("auth.creatingAccount")}
                     </>
                   ) : mode === "signin" ? (
-                    "Sign in"
+                    t("auth.signIn")
                   ) : (
-                    "Create account"
+                    t("auth.createAccount")
                   )}
                 </Button>
               </form>
@@ -253,27 +256,24 @@ export function SignInModal({ onSignIn, onSignUp, onClose, initialMode }: SignIn
  * preserve the server message for known cases and fall back to a generic
  * message so unexpected errors don't dump raw internals into the UI.
  */
-function humanizeAuthError(err: unknown): string {
+function humanizeAuthError(err: unknown, t: TFunction): string {
   const message = err instanceof Error ? err.message : "";
   const lower = message.toLowerCase();
 
   if (lower.includes("invalid login credentials")) {
-    return "Incorrect email or password.";
+    return t("auth.errorInvalidCredentials");
   }
   if (lower.includes("email not confirmed")) {
-    return "Please confirm your email address before signing in.";
+    return t("auth.errorEmailNotConfirmed");
   }
   if (lower.includes("user already registered") || lower.includes("already been registered")) {
-    return "An account with this email already exists. Try signing in.";
+    return t("auth.errorAlreadyRegistered");
   }
   if (lower.includes("password")) {
-    return message || "Password does not meet the requirements.";
+    return message || t("auth.errorPassword");
   }
   if (lower.includes("email")) {
-    return message || "Please enter a valid email address.";
+    return message || t("auth.errorEmail");
   }
-  return (
-    message ||
-    "Authentication failed. Check your details and try again."
-  );
+  return message || t("auth.errorGeneric");
 }

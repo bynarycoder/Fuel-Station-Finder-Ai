@@ -33,6 +33,7 @@
  */
 
 import { AlertCircle, Loader2, MapPin, MapPinned, Navigation } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import type { GeoFailure, LocationSource, LocationStatus } from "@/lib/geo";
@@ -75,6 +76,7 @@ export function LocationStatusBanner({
   onUseDeviceLocation,
   className,
 }: LocationStatusBannerProps) {
+  const { t } = useTranslation();
   const hasPosition = userLocation !== null;
   const isManual = locationSource === "manual";
 
@@ -90,19 +92,19 @@ export function LocationStatusBanner({
       >
         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-700" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="text-body-sm font-semibold">Using selected location</p>
+          <p className="text-body-sm font-semibold">{t("location.usingSelected")}</p>
           {manualLocationLabel && (
             <p className="mt-0.5 text-ink-800">{manualLocationLabel}</p>
           )}
           {message && <p className="mt-1 opacity-85">{message}</p>}
           <div className="mt-2.5 flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={onChooseLocation}>
-              Change location
+              {t("location.changeLocation")}
             </Button>
             {onUseDeviceLocation && (
               <Button variant="ghost" size="sm" onClick={onUseDeviceLocation}>
                 <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
-                Use my current location
+                {t("location.useDeviceLocation")}
               </Button>
             )}
           </div>
@@ -137,20 +139,16 @@ export function LocationStatusBanner({
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-body-sm font-semibold">
-              We couldn&apos;t get an accurate location
+              {t("location.coarseTitle")}
             </p>
-            <p className="mt-0.5 opacity-90">
-              Your device only provided an approximate location, so we didn&apos;t
-              use it. Choose your city or search for a location to find nearby
-              fuel stations.
-            </p>
+            <p className="mt-0.5 opacity-90">{t("location.coarseBody")}</p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={onChooseLocation}>
                 <MapPinned className="h-3.5 w-3.5" aria-hidden="true" />
-                Choose a location
+                {t("location.chooseALocation")}
               </Button>
               <Button variant="ghost" size="sm" onClick={onRetry}>
-                Try again
+                {t("location.tryAgain")}
               </Button>
             </div>
           </div>
@@ -173,28 +171,29 @@ export function LocationStatusBanner({
         <div className="min-w-0 flex-1">
           <p className="text-body-sm font-semibold">
             {status === "permission_denied"
-              ? "Location access denied"
+              ? t("location.denied")
               : status === "unsupported"
-                ? "Location not supported"
-                : "Could not get your location"}
+                ? t("location.unsupported")
+                : t("location.couldNotGet")}
           </p>
           <p className="mt-0.5 opacity-90">{message}</p>
           {status === "permission_denied" && (
             <p className="mt-1.5 opacity-80">
-              Tip: in your browser address bar, tap the lock or location icon →
-              allow location, then tap <strong>Near me</strong> again.
+              {t("location.deniedTipBefore")}{" "}
+              <strong>{t("filters.nearMe")}</strong>{" "}
+              {t("location.deniedTipAfter")}
             </p>
           )}
           <div className="mt-2.5 flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={onRetry}>
-              Try again
+              {t("location.tryAgain")}
             </Button>
             <Button variant="ghost" size="sm" onClick={onChooseLocation}>
               <MapPinned className="h-3.5 w-3.5" aria-hidden="true" />
-              Choose a location
+              {t("location.chooseALocation")}
             </Button>
             <Button variant="ghost" size="sm" onClick={onSearchByCity}>
-              Search by city
+              {t("location.searchByCity")}
             </Button>
           </div>
         </div>
@@ -222,23 +221,22 @@ export function LocationStatusBanner({
         <div className="min-w-0 flex-1">
           <p className="text-body-sm font-semibold">
             {status === "permission_denied"
-              ? "Live tracking paused"
+              ? t("location.trackingPaused")
               : status === "updating"
-                ? "Updating location"
-                : "Using your last known location"}
+                ? t("location.updating")
+                : t("location.lastKnown")}
           </p>
           <p className="mt-0.5 opacity-90">
             {status === "permission_denied"
-              ? "Location access is blocked. Showing results from your last known location — allow location access in your browser settings to resume live tracking."
+              ? t("location.trackingPausedBody")
               : status === "updating"
-                ? "Updating your position…"
-                : (message ??
-                  "Using your last known location. Trying to update...")}
+                ? t("location.updatingBody")
+                : (message ?? t("location.lastKnownBody"))}
           </p>
           {status === "temporarily_unavailable" && onRetry && (
             <div className="mt-2">
               <Button variant="secondary" size="sm" onClick={onRetry}>
-                Update location
+                {t("location.updateLocation")}
               </Button>
             </div>
           )}
@@ -258,9 +256,9 @@ export function LocationStatusBanner({
         role="status"
       >
         <MapPinned className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>Using your current location</span>
+        <span>{t("location.usingCurrent")}</span>
         {isWatching && (
-          <span className="text-ink-500">· live tracking on</span>
+          <span className="text-ink-500">{t("location.liveTrackingOn")}</span>
         )}
       </p>
     );

@@ -148,7 +148,6 @@ export function StationsScreen({
           value={searchValue}
           onSearch={onSearch}
           onAsk={onAsk}
-          placeholder="Search stations, areas or fuel..."
         />
         <FuelFilterChips compact />
         <div className="flex items-center gap-2">

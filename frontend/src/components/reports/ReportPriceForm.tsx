@@ -38,6 +38,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   ArrowLeft,
@@ -74,7 +75,20 @@ interface ReportPriceFormProps {
   fullScreen?: boolean;
 }
 
-const STEPS = ["Fuel & price", "Conditions", "Evidence"] as const;
+/** Translation keys for the three wizard steps (order is load-bearing). */
+const STEP_KEYS = [
+  "report.stepFuelPrice",
+  "report.stepConditions",
+  "report.stepEvidence",
+] as const;
+
+/** Queue-length option labels, keyed by the API's queue codes. */
+const QUEUE_LABEL_KEYS: Record<QueueLength, string> = {
+  none: "report.queueNone",
+  short: "report.queueShort",
+  medium: "report.queueMedium",
+  long: "report.queueLong",
+};
 
 export function ReportPriceForm({
   station,
@@ -83,6 +97,8 @@ export function ReportPriceForm({
   fullScreen = false,
 }: ReportPriceFormProps) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const steps = STEP_KEYS.map((key) => t(key));
 
   // Smart default: the first fuel this station actually lists.
   const stationFuels = station.fuel_types
@@ -149,7 +165,7 @@ export function ReportPriceForm({
       }
       setFieldError(null);
     }
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+    setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1));
   }
 
   /**
@@ -235,13 +251,13 @@ export function ReportPriceForm({
       <div className={shellClass}>
         {fullScreen ? (
           <PageHeader
-            title="Report submitted"
+            title={t("report.submittedTitle")}
             titleId="report-form-title"
             onClose={onSuccess}
           />
         ) : (
           <DialogHeader
-            title="Report submitted"
+            title={t("report.submittedTitle")}
             titleId="report-form-title"
             onClose={onSuccess}
           />
@@ -250,12 +266,12 @@ export function ReportPriceForm({
           <span className="flex h-14 w-14 items-center justify-center rounded-pill bg-success-soft text-success-strong">
             <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
           </span>
-          <p className="text-h2 text-ink-900">Thank you for helping other drivers</p>
+          <p className="text-h2 text-ink-900">{t("report.thankYou")}</p>
           <p className="max-w-xs text-body-sm text-ink-600">
-            Your report is being reviewed and already appears on this station.
+            {t("report.underReview")}
           </p>
           <Button className="mt-2" onClick={onSuccess}>
-            Done
+            {t("report.done")}
           </Button>
         </div>
       </div>
@@ -270,23 +286,23 @@ export function ReportPriceForm({
     <div className={shellClass}>
       {fullScreen ? (
         <PageHeader
-          title="Report Fuel Price"
-          subtitle="Help keep fuel prices updated"
+          title={t("report.title")}
+          subtitle={t("report.subtitle")}
           titleId="report-form-title"
           onClose={onClose}
         />
       ) : (
         <DialogHeader
-          title="Report Fuel Price"
+          title={t("report.title")}
           titleId="report-form-title"
-          subtitle="Help keep fuel prices updated"
+          subtitle={t("report.subtitle")}
           onClose={onClose}
         />
       )}
 
       {/* Progress */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-hairline bg-surface px-4 py-3">
-        {STEPS.map((name, i) => (
+        {steps.map((name, i) => (
           <div key={name} className="flex flex-1 flex-col gap-1.5">
             <span
               className={cn(
@@ -316,7 +332,11 @@ export function ReportPriceForm({
       <form onSubmit={handleFormSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <p className="sr-only" aria-live="polite">
-            Step {step + 1} of {STEPS.length}: {STEPS[step]}
+            {t("report.stepProgress", {
+              current: step + 1,
+              total: steps.length,
+              name: steps[step],
+            })}
           </p>
 
           {/* Which station this report is about — visible on every step, so
@@ -343,7 +363,7 @@ export function ReportPriceForm({
           {/* ------------------------------------------ step 1: fuel+price */}
           {step === 0 && (
             <div className="space-y-5 animate-fade-in">
-              <Field label="Which fuel did you buy?" required>
+              <Field label={t("report.whichFuel")} required>
                 <div className="grid grid-cols-2 gap-2">
                   {fuelOptions.map((code) => (
                     <button
@@ -364,7 +384,11 @@ export function ReportPriceForm({
                 </div>
               </Field>
 
-              <Field label="Price per litre" required hint="What you actually paid today.">
+              <Field
+                label={t("report.pricePerLitre")}
+                required
+                hint={t("report.priceHint")}
+              >
                 <div className="relative">
                   <span
                     className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-h2 text-ink-500"
@@ -387,7 +411,7 @@ export function ReportPriceForm({
                       }
                     }}
                     placeholder="850"
-                    aria-label="Price in naira per litre"
+                    aria-label={t("report.priceLabel")}
                     aria-invalid={fieldError ? true : undefined}
                     aria-describedby={fieldError ? "report-field-error" : undefined}
                     className="h-14 w-full rounded-lg border border-hairline bg-surface pl-9 pr-3 text-h1 tabular-nums text-ink-900 placeholder:font-normal placeholder:text-ink-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
@@ -400,7 +424,7 @@ export function ReportPriceForm({
           {/* ------------------------------------------- step 2: conditions */}
           {step === 1 && (
             <div className="space-y-5 animate-fade-in">
-              <Field label="How long was the queue?" hint="Optional — skip if unsure.">
+              <Field label={t("report.queueLabel")} hint={t("report.queueHint")}>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(QUEUE_LENGTH_LABELS) as QueueLength[]).map((q) => (
                     <button
@@ -415,19 +439,19 @@ export function ReportPriceForm({
                           : "border-hairline bg-surface text-ink-700 hover:border-brand-300",
                       )}
                     >
-                      {QUEUE_LENGTH_LABELS[q]}
+                      {t(QUEUE_LABEL_KEYS[q])}
                     </button>
                   ))}
                 </div>
               </Field>
 
-              <Field label="Anything else drivers should know?" hint="Optional.">
+              <Field label={t("report.notesLabel")} hint={t("report.notesHint")}>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   maxLength={1000}
                   rows={3}
-                  placeholder="e.g. PMS available, card payment working"
+                  placeholder={t("report.notesPlaceholder")}
                   className="w-full rounded-lg border border-hairline bg-surface p-3 text-body-sm text-ink-900 placeholder:text-ink-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 pointer-coarse:text-[16px]"
                 />
               </Field>
@@ -438,8 +462,8 @@ export function ReportPriceForm({
           {step === 2 && (
             <div className="space-y-5 animate-fade-in">
               <Field
-                label="Photo (Optional)"
-                hint="Add a clear photo of the price board — photos get verified faster."
+                label={t("report.photoLabel")}
+                hint={t("report.photoHint")}
               >
                 {/* Reference layout: staged preview on the LEFT, the dashed
                     browse target on the RIGHT. With no photo yet the target
@@ -455,14 +479,14 @@ export function ReportPriceForm({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={photoPreviewUrl}
-                          alt={`Selected photo: ${photo.name}`}
+                          alt={t("report.selectedPhotoAlt", { name: photo.name })}
                           className="h-full w-full object-cover"
                         />
                       )}
                       <button
                         type="button"
                         onClick={removePhoto}
-                        aria-label={`Remove photo ${photo.name}`}
+                        aria-label={t("report.removePhoto", { name: photo.name })}
                         className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-pill bg-ink-900/70 text-white transition-colors hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
@@ -495,10 +519,12 @@ export function ReportPriceForm({
                         a <span> — a nested <button> would swallow the click and
                         never open the file picker. */}
                     <span className="inline-flex min-h-touch items-center rounded-lg border border-brand-300 bg-surface px-4 text-body-sm font-semibold text-brand-800 shadow-e1">
-                      {photo ? "Choose a different photo" : "Browse photos"}
+                      {photo
+                        ? t("report.chooseDifferentPhoto")
+                        : t("report.browsePhotos")}
                     </span>
                     <span className="text-caption text-ink-500">
-                      JPEG, PNG or WebP · up to 5 MB
+                      {t("report.photoConstraints")}
                     </span>
                     {/* Selecting a file ONLY stages it. The upload happens with
                         the report when the user taps Submit. */}
@@ -507,7 +533,7 @@ export function ReportPriceForm({
                       type="file"
                       accept={ACCEPT_ATTRIBUTE}
                       className="sr-only"
-                      aria-label="Take or choose a photo"
+                      aria-label={t("report.photoInputLabel")}
                       aria-invalid={photoError ? true : undefined}
                       aria-describedby={photoError ? "report-photo-error" : undefined}
                       data-testid="report-photo-input"
@@ -522,18 +548,20 @@ export function ReportPriceForm({
                     data-testid="photo-pending"
                   >
                     <p className="min-w-0 text-caption text-ink-600">
-                      <span className="font-semibold text-ink-800">Selected:</span>{" "}
-                      <span className="break-all">{photo.name}</span> — uploads when
-                      you submit this report.
+                      <span className="font-semibold text-ink-800">
+                        {t("report.selectedPrefix")}
+                      </span>{" "}
+                      <span className="break-all">{photo.name}</span>{" "}
+                      {t("report.uploadsOnSubmit")}
                     </p>
                     <button
                       type="button"
                       onClick={() => photoInputRef.current?.click()}
-                      aria-label={`Replace photo ${photo.name}`}
+                      aria-label={t("report.replacePhoto", { name: photo.name })}
                       className="flex min-h-touch shrink-0 items-center gap-1 rounded-md px-2 text-caption font-semibold text-ink-600 hover:bg-ink-100 hover:text-ink-900"
                     >
                       <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                      Replace
+                      {t("report.replace")}
                     </button>
                   </div>
                 )}
@@ -553,7 +581,9 @@ export function ReportPriceForm({
 
               {/* Review summary */}
               <div className="rounded-lg border border-hairline bg-ink-50 p-3.5">
-                <p className="text-label uppercase text-ink-500">You&apos;re reporting</p>
+                <p className="text-label uppercase text-ink-500">
+                  {t("report.reviewHeading")}
+                </p>
                 <p className="mt-1.5 text-h2 text-ink-900">
                   ₦{price || "—"}
                   <span className="ml-1 text-body-sm font-semibold text-ink-500">
@@ -562,7 +592,7 @@ export function ReportPriceForm({
                 </p>
                 <p className="mt-1 text-caption text-ink-600">
                   {stationLabel(station.brand, station.name)}
-                  {queue ? ` · ${QUEUE_LENGTH_LABELS[queue]}` : ""}
+                  {queue ? ` · ${t(QUEUE_LABEL_KEYS[queue])}` : ""}
                 </p>
               </div>
             </div>
@@ -583,16 +613,13 @@ export function ReportPriceForm({
               role="alert"
               className="rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-body-sm font-medium text-danger-strong"
             >
-              {isNetworkError
-                ? "We couldn't reach the server. Check your connection and try again."
-                : apiError}
+              {isNetworkError ? t("report.networkError") : apiError}
             </p>
           )}
 
           <p className="flex items-start gap-1.5 text-caption text-ink-500">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-600" aria-hidden="true" />
-            Your report helps other drivers find fuel faster. Reports are reviewed
-            before they are marked verified.
+            {t("report.trustNote")}
           </p>
         </div>
 
@@ -601,17 +628,17 @@ export function ReportPriceForm({
           {step > 0 ? (
             <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Back
+              {t("report.back")}
             </Button>
           ) : (
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t("report.cancel")}
             </Button>
           )}
 
-          {step < STEPS.length - 1 ? (
+          {step < steps.length - 1 ? (
             <Button className="flex-1" onClick={goNext} disabled={step === 0 && !price.trim()}>
-              Continue
+              {t("report.continue")}
             </Button>
           ) : (
             <Button
@@ -623,10 +650,10 @@ export function ReportPriceForm({
               {mutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Submitting…
+                  {t("report.submitting")}
                 </>
               ) : (
-                "Submit Report"
+                t("report.submit")
               )}
             </Button>
           )}
@@ -648,6 +675,7 @@ function PageHeader({
   titleId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 bg-brand-sheen px-4 py-3">
       <div className="flex min-w-0 items-center gap-2.5">
@@ -667,7 +695,7 @@ function PageHeader({
         type="button"
         onClick={onClose}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white"
-        aria-label="Close"
+        aria-label={t("report.close")}
       >
         <X className="h-5 w-5" aria-hidden="true" />
       </button>

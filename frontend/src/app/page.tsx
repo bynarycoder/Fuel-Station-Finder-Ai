@@ -491,7 +491,6 @@ export default function FinderPage() {
               value={filters.q}
               onSearch={handleSearch}
               onAsk={handleAsk}
-              placeholder="Search stations, areas or fuel..."
             />
             <FuelFilterChips compact />
           </div>

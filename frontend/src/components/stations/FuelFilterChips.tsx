@@ -15,17 +15,24 @@
  * but scrolling intact.
  */
 
+import { useTranslation } from "react-i18next";
+
 import { FUEL_TYPE_LABELS } from "@/types/station";
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/store/useMapStore";
 
-/** Short chip labels; the full product names live in the filter sheet. */
-const CHIPS: Array<{ value: string; label: string }> = [
-  { value: "", label: "All" },
-  { value: "PMS", label: "Petrol" },
-  { value: "AGO", label: "Diesel" },
-  { value: "LPG", label: "LPG" },
-  { value: "CNG", label: "CNG" },
+/**
+ * Short chip labels; the full product names live in the filter sheet.
+ *
+ * `labelKey` is translated at render time — the fuel CODE (`PMS`, `AGO`, …)
+ * that is written to the store is never localised.
+ */
+const CHIPS: Array<{ value: string; labelKey: string }> = [
+  { value: "", labelKey: "fuel.all" },
+  { value: "PMS", labelKey: "fuel.petrol" },
+  { value: "AGO", labelKey: "fuel.diesel" },
+  { value: "LPG", labelKey: "fuel.lpg" },
+  { value: "CNG", labelKey: "fuel.cng" },
 ];
 
 export function FuelFilterChips({
@@ -36,31 +43,33 @@ export function FuelFilterChips({
   /** Shorter pills for the map-first mobile overlay. */
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const fuelType = useMapStore((s) => s.filters.fuelType);
   const setFilters = useMapStore((s) => s.setFilters);
 
   return (
     <div
       role="group"
-      aria-label="Filter by fuel type"
+      aria-label={t("fuel.groupLabel")}
       className={cn(
         "no-scrollbar -mx-1 flex max-h-[60px] flex-nowrap items-center overflow-x-auto overflow-y-hidden px-1",
         compact ? "h-10 gap-1.5 py-0" : "gap-2 py-0.5",
         className,
       )}
     >
-      {CHIPS.map(({ value, label }) => {
+      {CHIPS.map(({ value, labelKey }) => {
         const isActive = fuelType === value;
+        const label = t(labelKey);
         const fullName =
           value === ""
-            ? "all fuel types"
+            ? t("fuel.allTypes")
             : (FUEL_TYPE_LABELS[value as keyof typeof FUEL_TYPE_LABELS] ?? value);
         return (
           <button
             key={value || "all"}
             type="button"
             aria-pressed={isActive}
-            aria-label={`Show ${fullName}`}
+            aria-label={t("fuel.show", { name: fullName })}
             onClick={() => setFilters({ fuelType: value })}
             className={cn(
               "flex shrink-0 items-center justify-center whitespace-nowrap rounded-pill border font-semibold leading-none",
