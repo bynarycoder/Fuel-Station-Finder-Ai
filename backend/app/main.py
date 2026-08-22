@@ -1,0 +1,57 @@
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.api.v1 import api_router
+from app.core.config import settings
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description="Fuel Station Finder AI - 3MTT Capstone Project Backend API",
+    version="1.0.0",
+    openapi_url="/api/v1/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+# Mount all API v1 routes under /api/v1
+app.include_router(api_router, prefix="/api/v1")
+
+# Serve uploaded report photos from local storage (directory created on demand).
+Path(settings.MEDIA_DIR).mkdir(parents=True, exist_ok=True)
+app.mount(settings.MEDIA_URL, StaticFiles(directory=settings.MEDIA_DIR), name="media")
+
+# Configure CORS Middleware to allow requests from the frontend
+if settings.cors_origins_list:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+@app.get("/", tags=["General"])
+async def root():
+    """
+    Root API endpoint returning basic project status and info.
+    """
+    return {
+        "message": f"Welcome to the {settings.PROJECT_NAME} API",
+        "status": "healthy",
+        "environment": settings.ENVIRONMENT,
+        "api_version": "v1.0.0"
+    }
+
+@app.get("/health", tags=["General"])
+async def health_check():
+    """
+    Simple health check endpoint for monitoring uptime and availability.
+    """
+    return {
+        "status": "ok",
+        "project": settings.PROJECT_NAME,
+        "environment": settings.ENVIRONMENT
+    }

@@ -1,0 +1,79 @@
+# Render Blueprint for the Fuel Station Finder AI backend.
+#
+# Apply with: `render blueprint launch` (or via the Render dashboard "Deploy
+# from Blueprint" flow). Secret values marked `sync: false` are prompted at
+# launch time and stored securely in Render — never commit real credentials.
+#
+# Prerequisites: a Supabase project (PostgreSQL + PostGIS) providing the
+# DATABASE_URL / Supabase keys. See DEPLOYMENT.md.
+
+services:
+  - type: web
+    name: fuel-station-finder-api
+    runtime: docker
+    plan: free
+    # The Dockerfile lives in backend/ (relative to the repo root).
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    # The Docker image entrypoint (backend/start.sh) runs
+    # `alembic upgrade head` before uvicorn so schema and code cannot drift.
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # Render injects PORT automatically; the Dockerfile honours it.
+      # --- Database (Supabase) ---
+      - key: DATABASE_URL
+        sync: false
+      - key: ASYNC_DATABASE_URL
+        sync: false
+      # --- Supabase Auth ---
+      - key: SUPABASE_URL
+        value: https://atkikyfishwziuvyyeob.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      # Supabase's current project signing configuration is asymmetric ES256.
+      # The issuer and JWKS URL are public endpoints, not secrets.
+      - key: SUPABASE_JWT_ALGORITHM
+        value: ES256
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
+      - key: SUPABASE_JWT_ISSUER
+        value: https://atkikyfishwziuvyyeob.supabase.co/auth/v1
+      - key: SUPABASE_JWKS_URL
+        value: https://atkikyfishwziuvyyeob.supabase.co/auth/v1/.well-known/jwks.json
+      - key: SUPABASE_JWKS_CACHE_TTL_SECONDS
+        value: "300"
+      # --- Report-photo object storage (Supabase Storage) ---
+      # NEW report photos are uploaded to this public bucket (auto-created on
+      # first upload) instead of the ephemeral local /media disk, so they
+      # survive restarts/redeploys. The service_role key is SERVER-ONLY and
+      # must never appear in a NEXT_PUBLIC_* var. Safe rollout: deploy the code
+      # with the key empty (local storage, unchanged), then add the secret.
+      - key: SUPABASE_STORAGE_BUCKET
+        value: report-photos
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_TIMEOUT_SECONDS
+        value: "30"
+      # --- AI keys (optional; enable Gemini verification & Groq features) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # --- Groq model: conversation, search intent, factual explanation ---
+      # The LLM performs intent extraction, conversational answers and optional
+      # factual explanation only; final station selection remains deterministic
+      # and database-driven.
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      # --- Gemini model: report photo verification (multimodal) ---
+      # MUST be a currently supported model. gemini-1.5-flash was shut down on
+      # 29 Sep 2025 and returns 404, which silently disabled verification.
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      # --- CORS: comma-separated list of allowed frontend origins ---
+      - key: CORS_ORIGINS
+        sync: false

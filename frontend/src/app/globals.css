@@ -1,0 +1,552 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ======================================================================= */
+/* Design tokens (CSS custom properties mirror tailwind.config.ts)         */
+/* ======================================================================= */
+:root {
+  /**
+   * Native system stack — see app/layout.tsx for the rationale. Numerals are
+   * kept tabular at call sites (prices, distances) via `tabular-nums`.
+   */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+
+  /* ---------------------------------------------------------------------- */
+  /* LIGHT THEME (default)                                                   */
+  /*                                                                         */
+  /* Values are SPACE-SEPARATED RGB CHANNELS so Tailwind can apply opacity   */
+  /* modifiers (`bg-ink-900/45`). See tailwind.config.ts.                    */
+  /* ---------------------------------------------------------------------- */
+
+  /* ------------------------------------------------------------------ */
+  /* Primary green ramp — anchored on the spec primary #16A765 (500) and  */
+  /* the spec dark green #075E3D (900). Tints/shades are generated around */
+  /* those two so tinted surfaces, borders and icons stay in-family.      */
+  /* ------------------------------------------------------------------ */
+  --brand-50: 232 248 240;  /* #E8F8F0 */
+  --brand-100: 205 239 224; /* #CDEFE0 */
+  --brand-200: 163 227 198; /* #A3E3C6 */
+  --brand-300: 111 211 166; /* #6FD3A6 */
+  --brand-400: 56 190 133;  /* #38BE85 */
+  --brand-500: 22 167 101;  /* #16A765 — SPEC primary green */
+  --brand-600: 18 148 89;   /* #129459 */
+  --brand-700: 13 124 74;   /* #0D7C4A */
+  --brand-800: 10 106 63;   /* #0A6A3F */
+  --brand-900: 7 94 61;     /* #075E3D — SPEC dark green */
+  --brand-950: 4 58 38;     /* #043A26 */
+
+  /* Action orange — #F7931E is the spec value and lives at 400, the step
+     the solid `accent` button fill uses. */
+  --accent-50: 255 246 233;  /* #FFF6E9 */
+  --accent-100: 253 233 203; /* #FDE9CB */
+  --accent-200: 251 215 156; /* #FBD79C */
+  --accent-300: 249 188 99;  /* #F9BC63 */
+  --accent-400: 247 147 30;  /* #F7931E — SPEC action orange */
+  --accent-500: 224 127 15;  /* #E07F0F */
+  --accent-600: 192 105 11;  /* #C0690B */
+  --accent-700: 154 83 9;    /* #9A5309 */
+  --accent-800: 122 66 8;    /* #7A4208 */
+  --accent-900: 94 51 6;     /* #5E3306 */
+
+  /* Neutral ramp: 50 = lightest fill … 900 = highest-contrast text. */
+  --ink-50: 242 245 246;   /* #F2F5F6 */
+  --ink-100: 237 241 243;  /* #EDF1F3 */
+  --ink-200: 220 228 232;  /* #DCE4E8 — SPEC border */
+  --ink-300: 195 206 213;  /* #C3CED5 */
+  --ink-400: 141 155 164;  /* #8D9BA4 */
+  /* #626F79 — the spec's #687680 muted grey, darkened by one notch. At
+     #687680 muted captions measure 4.35:1 on the canvas and 4.27:1 on the
+     `ink-50` fills they most often sit on, i.e. below AA for body text; this
+     value clears 4.5:1 everywhere it is used and is visually the same grey. */
+  --ink-500: 98 111 121;
+  --ink-600: 78 92 102;    /* #4E5C66 */
+  --ink-700: 58 71 82;     /* #3A4752 */
+  --ink-800: 38 51 61;     /* #26333D */
+  --ink-900: 21 33 43;     /* #15212B — SPEC primary text */
+
+  --success-soft: 232 248 240;
+  --success-border: 163 227 198;
+  --success: 22 167 101;   /* #16A765 — SPEC success */
+  --success-strong: 13 124 74;
+  --warning-soft: 255 246 233;
+  --warning-border: 251 215 156;
+  --warning: 224 127 15;
+  --warning-strong: 154 83 9;
+  --danger-soft: 253 236 236;
+  --danger-border: 250 197 196;
+  --danger: 229 57 53;     /* #E53935 — SPEC error */
+  --danger-strong: 193 40 37;
+  --info-soft: 239 248 255;
+  --info-border: 178 221 255;
+  --info: 23 92 211;
+  --info-strong: 24 73 169;
+
+  /* Solid brand action + its foreground.
+     #16A765 remains THE brand green (chips' borders, icons, map pins, focus
+     rings, the ramp's 500 step), but a filled control that carries WHITE
+     text cannot use it: white on #16A765 is 3.11:1, below AA for the 14–16 px
+     labels on our buttons and selected filter chips. The fill therefore steps
+     down the same ramp to brand-700, which is 5.25:1 with white and still
+     unmistakably the same green. */
+  --action: 13 124 74;       /* #0D7C4A — brand-700 */
+  --action-hover: 10 106 63; /* #0A6A3F — brand-800 */
+  --action-fg: 255 255 255;
+
+  /* Always-dark brand slab (account header, AI header, secondary actions)
+     + fixed foregrounds: the spec's #075E3D with white text. */
+  --slab: 7 94 61;      /* #075E3D */
+  --slab-fg: 255 255 255;
+  --slab-muted: 163 227 198;
+
+  --canvas: 245 247 248;  /* #F5F7F8 — SPEC light background */
+  --surface: 255 255 255; /* #FFFFFF — SPEC white surface */
+  --elevated: 255 255 255;
+  --hairline: 220 228 232; /* #DCE4E8 — SPEC border */
+
+  /* Leaflet tile surface, themed so the map never flashes the wrong shell. */
+  --map-shell: 223 230 234;
+  /* How much to desaturate/darken the OSM raster tiles in dark mode. */
+  --map-tile-filter: none;
+
+  /* Radius scale — 8 / 12 / 16 / 20 / 24 px (see tailwind.config.ts). */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Height of the mobile bottom nav, consumed by map/sheet layout.
+     Compact by design (spec §16) — icon + label, safe-area added on top. */
+  --bottom-nav-h: 4rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+
+/* ======================================================================= */
+/* DARK THEME                                                              */
+/*                                                                         */
+/* An intentionally designed palette, not an inversion filter:             */
+/*  - deep navy surfaces (#081522 → #132331), never pure black (pure black */
+/*    + OLED smearing makes a scrolling map feel cheap and kills the sense */
+/*    of elevation the card/sheet stack depends on);                       */
+/*  - THE INK RAMP IS INVERTED — `ink-900` stays "highest contrast text",  */
+/*    so every existing `text-ink-900` / `text-ink-500` / `bg-ink-100`     */
+/*    usage in the product keeps its MEANING and themes automatically;     */
+/*  - the brand ramp keeps #16A765 at 500 (the spec's dark-mode primary)   */
+/*    but INVERTS around it, so `text-brand-700` resolves to a light mint  */
+/*    on a dark surface while `bg-brand-100` stays a deep tint;            */
+/*  - status "soft" fills become deep tints of their hue instead of        */
+/*    near-white pastels, which would glare.                               */
+/* ======================================================================= */
+.dark {
+  /* Brand: 500 is the spec green; the ramp inverts around it. */
+  --brand-50: 6 40 27;
+  --brand-100: 7 55 36;
+  --brand-200: 8 74 48;
+  --brand-300: 11 100 63;
+  --brand-400: 16 133 82;
+  --brand-500: 22 167 101; /* #16A765 — SPEC primary green (dark mode too) */
+  --brand-600: 38 190 121;
+  --brand-700: 74 212 148;
+  --brand-800: 134 230 183;
+  --brand-900: 190 243 214;
+  --brand-950: 232 250 240;
+
+  /* Orange keeps the spec #F7931E at 400; the ramp inverts around it. */
+  --accent-50: 58 34 6;
+  --accent-100: 82 48 10;
+  --accent-200: 116 68 14;
+  --accent-300: 166 97 17;
+  --accent-400: 247 147 30; /* #F7931E — SPEC action orange */
+  --accent-500: 249 167 66;
+  --accent-600: 251 189 115;
+  --accent-700: 252 211 162;
+  --accent-800: 253 230 201;
+  --accent-900: 254 244 230;
+
+  /* Inverted neutral ramp: 50 = darkest fill … 900 = brightest text. */
+  --ink-50: 14 27 39;    /* #0E1B27 */
+  --ink-100: 20 34 48;   /* #142230 */
+  --ink-200: 37 56 71;   /* #253847 — SPEC dark border */
+  --ink-300: 53 73 90;   /* #35495A */
+  --ink-400: 124 139 150; /* #7C8B96 */
+  --ink-500: 169 181 189; /* #A9B5BD — SPEC dark muted text */
+  --ink-600: 194 204 210;
+  --ink-700: 214 222 227;
+  --ink-800: 231 237 241;
+  --ink-900: 244 248 250; /* #F4F8FA — SPEC dark primary text */
+
+  --success-soft: 7 46 31;
+  --success-border: 11 84 54;
+  --success: 45 190 121;
+  --success-strong: 111 219 168;
+  --warning-soft: 58 34 6;
+  --warning-border: 116 68 14;
+  --warning: 247 147 30;
+  --warning-strong: 251 189 115;
+  --danger-soft: 63 24 23;
+  --danger-border: 108 38 36;
+  --danger: 239 83 80;   /* #EF5350 — the spec error, lifted for dark */
+  --danger-strong: 249 154 152;
+  --info-soft: 12 34 63;
+  --info-border: 25 60 106;
+  --info: 96 165 250;
+  --info-strong: 147 197 253;
+
+  /* Dark mode keeps the spec's #16A765 as the literal fill — on a navy
+     surface it reads as the same brand green and clears 5.5:1 against the
+     background — and swaps the LABEL to a near-black green (5.5:1 on the
+     fill) instead of white (3.1:1). This is the standard primary/on-primary
+     swap; the button is the same colour in both themes, its label is not. */
+  --action: 22 167 101;      /* #16A765 */
+  --action-hover: 38 190 121;/* #26BE79 */
+  --action-fg: 5 32 20;      /* #052014 */
+
+  /* The slab stays the spec dark green in BOTH themes, so its foregrounds
+     are fixed and never invert out from under it. */
+  --slab: 7 94 61; /* #075E3D */
+  --slab-fg: 255 255 255;
+  --slab-muted: 163 227 198;
+
+  --canvas: 8 21 34;    /* #081522 — SPEC dark background */
+  --surface: 15 29 40;  /* #0F1D28 — SPEC dark surface */
+  --elevated: 19 35 49; /* #132331 — SPEC secondary dark surface */
+  --hairline: 37 56 71; /* #253847 — SPEC dark border */
+
+  --map-shell: 10 24 38;
+  /* Raster OSM tiles have no dark variant; a measured invert+hue-rotate is
+     the standard technique and keeps roads/labels legible without turning
+     the map into a negative of itself. */
+  --map-tile-filter: invert(0.92) hue-rotate(180deg) brightness(0.95)
+    contrast(0.9) saturate(0.6);
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* MANDATORY (spec §25): the page itself never scrolls sideways at any
+       supported width. Chip rails opt back in locally with `overflow-x-auto`
+       on their own container. */
+    overflow-x: hidden;
+  }
+
+  body {
+    color: rgb(var(--ink-900));
+    background: rgb(var(--canvas));
+    overflow-x: hidden;
+    /* Prevent iOS rubber-banding from fighting the map/bottom sheet. */
+    overscroll-behavior-y: none;
+  }
+
+  /* One consistent, visible focus treatment across the whole product. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--brand-600));
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+  }
+
+  /* Never rely on the UA default; keep headings on the token scale. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: rgb(var(--brand-200));
+    color: rgb(var(--brand-950));
+  }
+}
+
+@layer components {
+  /* Skip link — visible only when focused. */
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus {
+    @apply not-sr-only fixed left-4 top-4 z-modal rounded-md bg-brand-800 px-4 py-2 text-body-sm font-semibold text-white shadow-e3;
+  }
+
+  /* Shared skeleton shimmer used by LoadingSkeleton. */
+  .skeleton {
+    @apply relative overflow-hidden bg-ink-100;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--surface) / 0) 0,
+      rgb(var(--surface) / 0.65) 60%,
+      rgb(var(--surface) / 0)
+    );
+  }
+
+  /* Hide scrollbars on horizontal chip rails without losing scrollability. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .pb-safe {
+    padding-bottom: calc(0.5rem + var(--safe-bottom));
+  }
+  .h-nav {
+    height: calc(var(--bottom-nav-h) + var(--safe-bottom));
+  }
+
+  /**
+   * Overlay heights on the DYNAMIC viewport.
+   *
+   * `vh` on mobile Safari/Chrome resolves against the LARGEST viewport (browser
+   * chrome retracted), so a `92vh` sheet is taller than what the user can
+   * actually see while the toolbars are visible — its bottom row (the report
+   * form's "Submit", the AI composer) ends up underneath the browser chrome.
+   * `dvh` tracks the *current* viewport. The `vh` line stays first as the
+   * fallback for browsers without `dvh`.
+   */
+  .max-h-sheet {
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+  .h-sheet-tall {
+    height: 92vh;
+    height: 92dvh;
+  }
+
+  /**
+   * Full-page mobile surfaces (AI, Report, Account). `vh` first as a fallback
+   * for browsers without `dvh`; `dvh` then tracks the *current* viewport so
+   * the composer / submit row is never hidden under mobile browser chrome.
+   */
+  .h-page {
+    height: 100vh;
+    height: 100dvh;
+  }
+}
+
+/* ======================================================================= */
+/* Accessibility: honour reduced-motion everywhere, globally.              */
+/* ======================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ======================================================================= */
+/* Leaflet map surface + custom markers/clusters                           */
+/* ======================================================================= */
+.leaflet-container {
+  font: inherit;
+  background: rgb(var(--map-shell));
+}
+
+/* Raster OSM tiles are light-only; dark mode filters them (see --map-tile-filter). */
+.leaflet-tile-pane {
+  filter: var(--map-tile-filter);
+}
+
+/* Leaflet's own chrome, restyled to the design system. */
+.leaflet-control-attribution {
+  background: rgb(var(--surface) / 0.85) !important;
+  border-radius: 0.375rem 0 0 0;
+  color: rgb(var(--ink-500)) !important;
+  font-size: 10px !important;
+  padding: 2px 6px !important;
+}
+.leaflet-control-attribution a {
+  color: rgb(var(--ink-600)) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.875rem !important;
+  box-shadow:
+    0 8px 24px -6px rgb(20 27 33 / 0.18),
+    0 18px 48px -12px rgb(20 27 33 / 0.2) !important;
+  padding: 0 !important;
+  border: 1px solid rgb(var(--hairline));
+}
+.leaflet-popup-content-wrapper {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--ink-900)) !important;
+}
+.leaflet-popup-tip {
+  background: rgb(var(--surface)) !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+  min-width: 220px;
+}
+.leaflet-popup-tip {
+  box-shadow: none !important;
+}
+.leaflet-popup-close-button {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 6px 0 0 0 !important;
+  color: rgb(var(--ink-500)) !important;
+}
+
+/* ---- Station pins (divIcon-based, no default marker image paths) ------- */
+.fuel-station-marker {
+  background: transparent;
+  border: none;
+}
+.fuel-pin {
+  filter: drop-shadow(0 3px 4px rgba(20, 27, 33, 0.28));
+  transition:
+    transform var(--duration-base) var(--ease-entrance),
+    filter var(--duration-base) var(--ease-entrance);
+  transform-origin: 50% 100%;
+}
+.fuel-station-marker:hover .fuel-pin,
+.fuel-station-marker:focus-visible .fuel-pin {
+  transform: translateY(-2px) scale(1.08);
+}
+
+/* Selected station lifts above everything and gets a halo. */
+.fuel-station-marker--selected {
+  z-index: 1000 !important;
+}
+.fuel-station-marker--selected .fuel-pin {
+  filter: drop-shadow(0 6px 10px rgba(4, 121, 90, 0.45));
+  animation: marker-pop var(--duration-slow) var(--ease-entrance) both;
+}
+@keyframes marker-pop {
+  0% {
+    transform: translateY(2px) scale(0.86);
+  }
+  60% {
+    transform: translateY(-3px) scale(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---- User location: accuracy halo + solid dot -------------------------- */
+.user-location-marker {
+  background: transparent;
+  border: none;
+}
+.user-location-marker__wrap {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+.user-location-marker__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgb(var(--info) / 0.35);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70%,
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.user-location-marker__dot {
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  background: rgb(var(--info));
+  border: 3px solid rgb(var(--surface));
+  box-shadow: 0 1px 4px rgba(20, 27, 33, 0.35);
+}
+
+/* ---- Clusters ---------------------------------------------------------- */
+.fuel-cluster {
+  background: transparent;
+  border: none;
+}
+.fuel-cluster__inner {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    140deg,
+    rgb(var(--brand-600)) 0%,
+    rgb(var(--brand-800)) 100%
+  );
+  color: rgb(var(--surface));
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  border: 3px solid rgb(var(--surface));
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.28);
+  transition: transform var(--duration-base) var(--ease-entrance);
+}
+.fuel-cluster__label {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-top: 1px;
+}
+.fuel-cluster:hover .fuel-cluster__inner {
+  transform: scale(1.06);
+}
+.fuel-cluster--lg .fuel-cluster__inner {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+}
+
+/* Intentional dark-mode refinements for third-party map chrome and overlays. */
+/* ---- Dark-mode Leaflet overrides ---------------------------------------
+   NOTE: the base .leaflet-* rules above are already token-driven (they use
+   rgb(var(--surface)) etc.), so dark mode needs NO per-property overrides
+   for the popup, attribution or skeleton — those re-theme automatically.
+
+   PR #38's versions of these rules were removed here because they wrote
+   `color: var(--ink-900)` / `background: var(--surface)` directly. Those
+   variables now hold SPACE-SEPARATED RGB CHANNELS, so the bare form resolves
+   to the invalid `color: 244 247 245` and the declaration is dropped. The
+   only genuinely dark-specific bit is the zoom control, which Leaflet paints
+   white via its own stylesheet. */
+.dark .leaflet-control-zoom a {
+  background: rgb(var(--surface)) !important;
+  color: rgb(var(--ink-700)) !important;
+  border-color: rgb(var(--hairline)) !important;
+}
+.dark .leaflet-control-zoom a:hover {
+  background: rgb(var(--ink-100)) !important;
+}
